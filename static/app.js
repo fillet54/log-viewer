@@ -2,6 +2,8 @@ const STORAGE_KEYS = {
   root: "loglayout.split.root",
   top: "loglayout.split.top",
   bottomCollapsed: "loglayout.split.bottom.collapsed",
+  search: "loglayout.split.search",
+  rootExpanded: "loglayout.split.root.expanded",
 };
 
 const loadSizes = (key, fallback) => {
@@ -26,17 +28,23 @@ let rootSplit = null;
 const setBottomCollapsed = (collapsed) => {
   const root = document.getElementById("split-root");
   const button = document.getElementById("toggle-bottom");
+  const headerText = document.getElementById("search-header-text");
   if (!root || !button || !rootSplit) return;
 
   if (collapsed) {
     root.classList.add("bottom-collapsed");
-    rootSplit.setSizes([100, 0]);
-    button.textContent = "Expand Timeline";
+    rootSplit.setSizes([96, 4]);
+    button.setAttribute("aria-label", "Expand search pane");
+    button.classList.add("is-collapsed");
+    if (headerText) headerText.textContent = "Search";
   } else {
     root.classList.remove("bottom-collapsed");
-    const saved = loadSizes(STORAGE_KEYS.root, [70, 30]);
-    rootSplit.setSizes(saved);
-    button.textContent = "Collapse Timeline";
+    const savedExpanded = loadSizes(STORAGE_KEYS.rootExpanded, [70, 30]);
+    const safeSizes = savedExpanded[1] > 0 ? savedExpanded : [70, 30];
+    rootSplit.setSizes(safeSizes);
+    button.setAttribute("aria-label", "Collapse search pane");
+    button.classList.remove("is-collapsed");
+    if (headerText) headerText.textContent = "Search History";
   }
 };
 
@@ -49,10 +57,13 @@ const initSplits = () => {
     sizes: isCollapsed ? [100, 0] : rootSizes,
     direction: "vertical",
     gutterSize: 10,
-    minSize: [240, 52],
+    minSize: [240, 0],
     onDragEnd: (sizes) => {
       saveSizes(STORAGE_KEYS.root, sizes);
-      if (sizes[1] === 0) {
+      if (sizes[1] > 6) {
+        saveSizes(STORAGE_KEYS.rootExpanded, sizes);
+      }
+      if (sizes[1] <= 6) {
         localStorage.setItem(STORAGE_KEYS.bottomCollapsed, "true");
       } else {
         localStorage.setItem(STORAGE_KEYS.bottomCollapsed, "false");
@@ -78,6 +89,19 @@ const initSplits = () => {
   }
 
   setBottomCollapsed(isCollapsed);
+
+  const searchSizes = loadSizes(STORAGE_KEYS.search, [28, 72]);
+  const searchHistory = document.getElementById("search-history-pane");
+  const searchResults = document.getElementById("search-results-pane");
+  if (searchHistory && searchResults) {
+    Split(["#search-history-pane", "#search-results-pane"], {
+      sizes: searchSizes,
+      direction: "horizontal",
+      gutterSize: 8,
+      minSize: [160, 320],
+      onDragEnd: (sizes) => saveSizes(STORAGE_KEYS.search, sizes),
+    });
+  }
 };
 
 const loadLogData = () => {
@@ -129,6 +153,7 @@ const initLogList = (logData) => {
   const state = {
     events,
     filtered: events,
+    filterQuery: "",
     rowStride,
     overscan: 8,
     lastRange: [0, 0],
@@ -168,6 +193,7 @@ const initLogList = (logData) => {
 
   const applyFilter = (query) => {
     const term = query.trim().toLowerCase();
+    state.filterQuery = term;
     if (!term) {
       state.filtered = state.events;
     } else {
@@ -231,6 +257,14 @@ const initLogList = (logData) => {
     return scrollToIndex(index);
   };
 
+  const ensureRowVisible = (rowId) => {
+    if (!state.indexByRowId.has(String(rowId))) {
+      applyFilter("");
+      if (searchInput) searchInput.value = "";
+    }
+    return scrollToRowId(rowId);
+  };
+
   logBody.addEventListener("scroll", () => {
     requestAnimationFrame(updateVirtual);
   });
@@ -251,51 +285,92 @@ const initLogList = (logData) => {
   return {
     scrollToSeconds,
     scrollToRowId,
+    ensureRowVisible,
     getFilteredEvents: () => state.filtered,
   };
 };
 
+const initSearchPane = (logData, logController) => {
+  const historyList = document.getElementById("search-history");
+  const resultsList = document.getElementById("search-results");
+  const queryInput = document.getElementById("search-query");
+  const runButton = document.getElementById("run-search");
+
+  if (!historyList || !resultsList || !queryInput || !runButton || !logData) return;
+  const events = Array.isArray(logData.events) ? logData.events : [];
+
+  const renderHistory = (items) => {
+    historyList.innerHTML = "";
+    const fragment = document.createDocumentFragment();
+    items.forEach((item) => {
+      const row = document.createElement("div");
+      row.className = "search-item";
+      row.innerHTML = `
+        <span class="search-level">${item.level}</span>
+        <span>${item.label}</span>
+        <span class="search-time">${item.count}</span>
+      `;
+      row.addEventListener("click", () => {
+        queryInput.value = item.query;
+        runSearch();
+      });
+      fragment.appendChild(row);
+    });
+    historyList.appendChild(fragment);
+  };
+
+  const history = [];
+  const addHistory = (query, count, level) => {
+    history.unshift({
+      query,
+      count,
+      level: level || "search",
+      label: query || "(all events)",
+    });
+    renderHistory(history.slice(0, 12));
+  };
+
+  const renderResults = (items) => {
+    resultsList.innerHTML = "";
+    const fragment = document.createDocumentFragment();
+    items.forEach((event) => {
+      const row = document.createElement("div");
+      row.className = "search-item";
+      row.innerHTML = `
+        <span class="search-level">${event.level}</span>
+        <span>${event.name} — ${event.description}</span>
+        <span class="search-time">${event.utc.slice(11, 19)}</span>
+      `;
+      row.addEventListener("click", () => {
+        if (logController) logController.ensureRowVisible(event.row_id);
+      });
+      fragment.appendChild(row);
+    });
+    resultsList.appendChild(fragment);
+  };
+
+  const runSearch = () => {
+    const query = queryInput.value.trim().toLowerCase();
+    const filtered = events.filter((event) => {
+      if (!query) return true;
+      const haystack = `${event.level} ${event.action} ${event.name} ${event.description} ${event.system} ${event.subsystem} ${event.unit} ${event.code}`;
+      return haystack.toLowerCase().includes(query);
+    });
+    renderResults(filtered);
+    addHistory(query, filtered.length, filtered[0]?.level);
+  };
+
+  runButton.addEventListener("click", runSearch);
+  queryInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") runSearch();
+  });
+
+  renderHistory([]);
+  renderResults(events.slice(0, 40));
+};
+
 const initChart = (logData, logController) => {
   if (!logData) return;
-
-  const timelineCanvas = document.getElementById("chart");
-  if (timelineCanvas) {
-    const context = timelineCanvas.getContext("2d");
-    new Chart(context, {
-      type: "line",
-      data: {
-        labels: ["12:00", "12:05", "12:10", "12:15", "12:20", "12:25", "12:30"],
-        datasets: [
-          {
-            label: "Errors",
-            data: [2, 3, 1, 4, 2, 5, 3],
-            borderColor: "#ef4444",
-            backgroundColor: "rgba(239, 68, 68, 0.15)",
-            tension: 0.35,
-            fill: true,
-          },
-          {
-            label: "Warnings",
-            data: [4, 2, 3, 2, 4, 3, 2],
-            borderColor: "#f59e0b",
-            backgroundColor: "rgba(245, 158, 11, 0.15)",
-            tension: 0.35,
-            fill: true,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: "bottom" },
-        },
-        scales: {
-          y: { beginAtZero: true },
-        },
-      },
-    });
-  }
 
   const stackedCanvas = document.getElementById("stacked-chart");
   if (!stackedCanvas) return;
@@ -480,6 +555,7 @@ window.addEventListener("DOMContentLoaded", () => {
   initSplits();
   const logData = loadLogData();
   const logController = initLogList(logData);
+  initSearchPane(logData, logController);
   initChart(logData, logController);
 });
 

@@ -100,19 +100,27 @@
         </section>
 
         <section id="pane-bottom" class="pane">
-          <div class="pane-header justify-between">
-            <div class="flex items-center gap-2">
-              <span class="icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h10" />
-                </svg>
-              </span>
-              Timeline
-            </div>
-            <button id="toggle-bottom" class="btn btn-ghost btn-sm">Collapse Timeline</button>
+          <div class="pane-header compact-header justify-between">
+            <span id="search-header-text" class="text-xs uppercase tracking-wide text-base-content/60">Search</span>
+            <button id="toggle-bottom" class="btn btn-ghost btn-xs" title="Toggle search pane">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tool-icon">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 10l6 6 6-6" />
+              </svg>
+            </button>
           </div>
-          <div class="pane-body">
-            <canvas id="chart" height="120"></canvas>
+          <div class="pane-body search-pane">
+            <div id="search-split" class="search-split">
+              <aside id="search-history-pane" class="search-history">
+                <div id="search-history" class="search-list"></div>
+              </aside>
+              <section id="search-results-pane" class="search-results">
+                <div class="search-controls">
+                  <input id="search-query" class="input input-bordered input-sm w-full" placeholder="Search logs, faults, codes..." />
+                  <button id="run-search" class="btn btn-primary btn-sm">Search</button>
+                </div>
+                <div id="search-results" class="search-list"></div>
+              </section>
+            </div>
           </div>
         </section>
       </div>
