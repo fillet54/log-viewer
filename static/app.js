@@ -260,15 +260,30 @@ const initChart = () => {
         if (!logLines.length) return;
 
         let target = logLines[0];
+        let bestDistance = Number.POSITIVE_INFINITY;
         for (const line of logLines) {
           const seconds = Number(line.dataset.seconds);
           if (Number.isNaN(seconds)) continue;
-          if (seconds >= targetSeconds) {
+          const distance = Math.abs(seconds - targetSeconds);
+          if (distance < bestDistance) {
+            bestDistance = distance;
             target = line;
-            break;
           }
         }
-        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        const logBody = document.getElementById("log-body");
+        if (logBody) {
+          const bodyRect = logBody.getBoundingClientRect();
+          const targetRect = target.getBoundingClientRect();
+          const offset =
+            logBody.scrollTop + (targetRect.top - bodyRect.top) - bodyRect.height / 2 + targetRect.height / 2;
+          smoothScrollTo(logBody, Math.max(0, offset), 180);
+        } else {
+          target.scrollIntoView({ behavior: "auto", block: "center" });
+        }
+        target.classList.remove("log-highlight");
+        // Restart animation for repeated clicks.
+        void target.offsetWidth;
+        target.classList.add("log-highlight");
       },
     },
     plugins: [hoverLinePlugin],
@@ -318,3 +333,23 @@ window.addEventListener("DOMContentLoaded", () => {
   initSplits();
   initChart();
 });
+
+const smoothScrollTo = (container, targetTop, durationMs = 200) => {
+  const startTop = container.scrollTop;
+  const delta = targetTop - startTop;
+  if (Math.abs(delta) < 2) {
+    container.scrollTop = targetTop;
+    return;
+  }
+  const startTime = performance.now();
+  const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+  const step = (now) => {
+    const elapsed = now - startTime;
+    const progress = Math.min(1, elapsed / durationMs);
+    container.scrollTop = startTop + delta * easeOut(progress);
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    }
+  };
+  requestAnimationFrame(step);
+};

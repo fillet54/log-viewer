@@ -105,6 +105,23 @@
   border-left: 4px solid rgba(127, 29, 29, 0.95);
 }
 
+.log-highlight {
+  animation: pulse-highlight 1.2s ease-out;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.45);
+}
+
+@keyframes pulse-highlight {
+  0% {
+    background: rgba(56, 189, 248, 0.15);
+  }
+  70% {
+    background: rgba(56, 189, 248, 0.08);
+  }
+  100% {
+    background: rgba(255, 255, 255, 0.7);
+  }
+}
+
 .log-time,
 .log-offset,
 .log-code {
