@@ -57,12 +57,12 @@
                   {% for event in log_data.events %}
                   <div class="log-line log-{{ event.level | replace(' ', '-') }}">
                     <span class="badge badge-sm level-tag">{{ event.level }}</span>
-                    <span class="text-base-content/60">{{ event.utc }}</span>
-                    <span class="font-semibold">{{ event.action }}</span>
-                    <span>{{ event.name }}</span>
-                    <span class="text-base-content/60">({{ event.seconds_from_start }}s)</span>
-                    <span class="text-base-content/70">— {{ event.description }}</span>
-                    <span class="text-base-content/50">[{{ event.system }}/{{ event.subsystem }}/{{ event.unit }}/{{ event.code }}]</span>
+                    <span class="log-time text-base-content/60">{{ event.utc }}</span>
+                    <span class="log-action font-semibold">{{ event.action }}</span>
+                    <span class="log-name">{{ event.name }}</span>
+                    <span class="log-offset text-base-content/60">{{ event.seconds_from_start }}s</span>
+                    <span class="log-desc text-base-content/70">{{ event.description }}</span>
+                    <span class="log-code text-base-content/50">{{ event.system }}/{{ event.subsystem }}/{{ event.unit }}/{{ event.code }}</span>
                   </div>
                   {% endfor %}
                 </div>

@@ -62,9 +62,11 @@
   border-radius: 0.5rem;
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid rgba(148, 163, 184, 0.15);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  display: grid;
+  grid-template-columns: 84px 180px 64px 180px 80px minmax(240px, 1fr) 240px;
+  align-items: center;
+  column-gap: 0.6rem;
+  row-gap: 0.2rem;
 }
 
 .level-tag {
@@ -85,6 +87,35 @@
 
 .log-dark-red {
   border-left: 4px solid rgba(127, 29, 29, 0.95);
+}
+
+.log-time,
+.log-offset,
+.log-code {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.log-desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log-code {
+  text-align: right;
+}
+
+@media (max-width: 1200px) {
+  .log-line {
+    grid-template-columns: 72px 160px 60px 1fr 72px;
+  }
+
+  .log-desc,
+  .log-code {
+    grid-column: 1 / -1;
+    white-space: normal;
+  }
 }
 
 .icon {
