@@ -70,6 +70,29 @@
   height: 1rem;
 }
 
+.chart-toggle {
+  border-color: rgba(148, 163, 184, 0.6);
+  background: rgba(248, 250, 252, 0.9);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  color: rgba(71, 85, 105, 0.9);
+}
+
+.chart-toggle:hover {
+  border-color: rgba(56, 189, 248, 0.85);
+  background: rgba(224, 242, 254, 0.9);
+}
+
+.chart-toggle.is-enabled {
+  border-color: rgba(2, 132, 199, 0.9);
+  background: rgba(14, 116, 144, 0.95);
+  color: #e0f2fe;
+}
+
+.chart-toggle.is-enabled:hover {
+  background: rgba(2, 132, 199, 0.95);
+  color: #f0f9ff;
+}
+
 .tooltip-disabled {
   opacity: 0.5;
 }

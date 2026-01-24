@@ -51,10 +51,17 @@
             <section id="pane-center" class="pane">
               <div class="chart-band">
                 <div class="chart-tools">
-                  <button id="toggle-tooltips" class="btn btn-ghost btn-xs" aria-pressed="true" title="Toggle chart tooltips">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="tool-icon">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4m0 10v4m9-9h-4M7 12H3m13.95-6.95-2.83 2.83M9.88 14.12l-2.83 2.83m0-9.9 2.83 2.83m7.07 7.07 2.83 2.83" />
+                  <button
+                    id="toggle-tooltips"
+                    class="btn btn-outline btn-xs chart-toggle"
+                    aria-pressed="true"
+                    title="Toggle value popup on hover"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="tool-icon">
+                      <circle cx="12" cy="12" r="9" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8.25h.01M11.25 11.25h1.5v5.5" />
                     </svg>
+                    <span class="sr-only">Toggle value popup</span>
                   </button>
                 </div>
                 <canvas id="stacked-chart" height="120"></canvas>

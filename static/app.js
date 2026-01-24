@@ -461,11 +461,16 @@ const initChart = (logData, logController) => {
 
   const toggleTooltips = document.getElementById("toggle-tooltips");
   if (toggleTooltips) {
+    const setToggleState = (enabled) => {
+      toggleTooltips.setAttribute("aria-pressed", String(enabled));
+      toggleTooltips.classList.toggle("tooltip-disabled", !enabled);
+      toggleTooltips.classList.toggle("is-enabled", enabled);
+    };
+    setToggleState(true);
     toggleTooltips.addEventListener("click", () => {
       const current = stackedChart.options.plugins.tooltip.enabled !== false;
       stackedChart.options.plugins.tooltip.enabled = !current;
-      toggleTooltips.setAttribute("aria-pressed", String(!current));
-      toggleTooltips.classList.toggle("tooltip-disabled", current);
+      setToggleState(!current);
       stackedChart.update();
     });
   }
