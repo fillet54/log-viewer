@@ -168,7 +168,24 @@ const initChart = () => {
   });
 
   const stackedContext = stackedCanvas.getContext("2d");
-  new Chart(stackedContext, {
+  const hoverLinePlugin = {
+    id: "hoverLine",
+    afterDatasetsDraw(chart) {
+      const { ctx, tooltip, chartArea } = chart;
+      if (!tooltip || !tooltip.getActiveElements().length) return;
+      const x = tooltip.getActiveElements()[0].element.x;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(x, chartArea.top);
+      ctx.lineTo(x, chartArea.bottom);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(100, 116, 139, 0.6)";
+      ctx.stroke();
+      ctx.restore();
+    },
+  };
+
+  const stackedChart = new Chart(stackedContext, {
     type: "bar",
     data: {
       labels,
@@ -208,14 +225,50 @@ const initChart = () => {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: { mode: "index", intersect: false },
+        tooltip: { mode: "index", intersect: false, enabled: true },
       },
       scales: {
         x: { stacked: true },
         y: { stacked: true, beginAtZero: true },
       },
+      onClick: (event) => {
+        const elements = stackedChart.getElementsAtEventForMode(
+          event,
+          "index",
+          { intersect: false },
+          true
+        );
+        if (!elements.length) return;
+        const index = elements[0].index;
+        const targetSeconds = Math.floor(index * bucketSize / 1000);
+        const logLines = document.querySelectorAll("#log-list .log-line");
+        if (!logLines.length) return;
+
+        let target = logLines[0];
+        for (const line of logLines) {
+          const seconds = Number(line.dataset.seconds);
+          if (Number.isNaN(seconds)) continue;
+          if (seconds >= targetSeconds) {
+            target = line;
+            break;
+          }
+        }
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+      },
     },
+    plugins: [hoverLinePlugin],
   });
+
+  const toggleTooltips = document.getElementById("toggle-tooltips");
+  if (toggleTooltips) {
+    toggleTooltips.addEventListener("click", () => {
+      const current = stackedChart.options.plugins.tooltip.enabled !== false;
+      stackedChart.options.plugins.tooltip.enabled = !current;
+      toggleTooltips.setAttribute("aria-pressed", String(!current));
+      toggleTooltips.classList.toggle("tooltip-disabled", current);
+      stackedChart.update();
+    });
+  }
 };
 
 window.addEventListener("DOMContentLoaded", () => {
