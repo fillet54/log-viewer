@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HTML Log Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script src="https://cdn.jsdelivr.net/npm/split.js@1.6.5/dist/split.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body class="min-h-screen bg-base-200 text-base-content">
+    <main class="h-screen w-screen p-3">
+      <div id="split-root" class="h-full w-full rounded-2xl bg-base-100 shadow-xl">
+        <section id="pane-top" class="flex h-full">
+          <div id="split-top" class="flex h-full w-full">
+            <aside id="pane-left" class="pane">
+              <div class="pane-header">
+                <span class="icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5h18M3 12h18m-18 4.5h18" />
+                  </svg>
+                </span>
+                Filters
+              </div>
+              <div class="pane-body">
+                <div class="space-y-4">
+                  <div>
+                    <label class="text-xs uppercase tracking-wide text-base-content/60">Search</label>
+                    <input class="input input-bordered w-full" placeholder="error, warn, trace" />
+                  </div>
+                  <div class="space-y-2">
+                    <label class="text-xs uppercase tracking-wide text-base-content/60">Levels</label>
+                    <div class="flex flex-wrap gap-2">
+                      <span class="badge badge-info">INFO</span>
+                      <span class="badge badge-warning">WARN</span>
+                      <span class="badge badge-error">ERROR</span>
+                      <span class="badge badge-ghost">DEBUG</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </aside>
+
+            <section id="pane-center" class="pane">
+              <div class="pane-header justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 4.5h15v15h-15z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 7.5h9v9h-9z" />
+                    </svg>
+                  </span>
+                  Main Log View
+                </div>
+                <button class="btn btn-sm">Export</button>
+              </div>
+              <div class="pane-body log-body">
+                <div class="space-y-2 font-mono text-sm">
+                  <div class="log-line"><span class="text-info">INFO</span> 12:00:01 app.start Listening on 0.0.0.0:5000</div>
+                  <div class="log-line"><span class="text-warning">WARN</span> 12:00:05 api.retry Retrying request to /metrics</div>
+                  <div class="log-line"><span class="text-error">ERROR</span> 12:00:08 db.timeout Query exceeded 2000ms</div>
+                  <div class="log-line"><span class="text-info">INFO</span> 12:00:12 ingest.queue Enqueued 1,245 events</div>
+                  <div class="log-line"><span class="text-info">INFO</span> 12:00:15 worker.3 Processing batch 28/42</div>
+                  <div class="log-line"><span class="text-warning">WARN</span> 12:00:19 cache.miss Cache miss for user: 9d3a</div>
+                  <div class="log-line"><span class="text-info">INFO</span> 12:00:23 http.200 GET /logs?tail=100 41ms</div>
+                  <div class="log-line"><span class="text-error">ERROR</span> 12:00:28 parser.fail Unexpected token near line 220</div>
+                  <div class="log-line"><span class="text-info">INFO</span> 12:00:33 audit.write Wrote 18 records to archive</div>
+                  <div class="log-line"><span class="text-info">INFO</span> 12:00:36 scheduler.tick Next poll in 60s</div>
+                </div>
+              </div>
+            </section>
+
+            <aside id="pane-right" class="pane">
+              <div class="pane-header">
+                <span class="icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 12h6l3-3 6 6" />
+                  </svg>
+                </span>
+                Insights
+              </div>
+              <div class="pane-body">
+                <div class="space-y-4">
+                  <div class="stat bg-base-200/60 rounded-xl">
+                    <div class="stat-title">Errors</div>
+                    <div class="stat-value text-error">12</div>
+                    <div class="stat-desc">Last 15 min</div>
+                  </div>
+                  <div class="stat bg-base-200/60 rounded-xl">
+                    <div class="stat-title">Requests</div>
+                    <div class="stat-value">5.1k</div>
+                    <div class="stat-desc">Last hour</div>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="pane-bottom" class="pane">
+          <div class="pane-header">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h10" />
+              </svg>
+            </span>
+            Timeline
+          </div>
+          <div class="pane-body">
+            <canvas id="chart" height="120"></canvas>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>
