@@ -49,17 +49,8 @@
             </aside>
 
             <section id="pane-center" class="pane">
-              <div class="pane-header justify-between">
-                <div class="flex items-center gap-2">
-                  <span class="icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 4.5h15v15h-15z" />
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 7.5h9v9h-9z" />
-                    </svg>
-                  </span>
-                  Main Log View
-                </div>
-                <button class="btn btn-sm">Export</button>
+              <div class="chart-band">
+                <canvas id="stacked-chart" height="120"></canvas>
               </div>
               <div class="pane-body log-body">
                 <div class="space-y-2 font-mono text-sm">

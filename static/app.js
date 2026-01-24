@@ -81,30 +81,81 @@ const initSplits = () => {
 };
 
 const initChart = () => {
-  const canvas = document.getElementById("chart");
-  if (!canvas) return;
+  const timelineCanvas = document.getElementById("chart");
+  if (timelineCanvas) {
+    const context = timelineCanvas.getContext("2d");
+    new Chart(context, {
+      type: "line",
+      data: {
+        labels: ["12:00", "12:05", "12:10", "12:15", "12:20", "12:25", "12:30"],
+        datasets: [
+          {
+            label: "Errors",
+            data: [2, 3, 1, 4, 2, 5, 3],
+            borderColor: "#ef4444",
+            backgroundColor: "rgba(239, 68, 68, 0.15)",
+            tension: 0.35,
+            fill: true,
+          },
+          {
+            label: "Warnings",
+            data: [4, 2, 3, 2, 4, 3, 2],
+            borderColor: "#f59e0b",
+            backgroundColor: "rgba(245, 158, 11, 0.15)",
+            tension: 0.35,
+            fill: true,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom" },
+        },
+        scales: {
+          y: { beginAtZero: true },
+        },
+      },
+    });
+  }
 
-  const context = canvas.getContext("2d");
-  new Chart(context, {
-    type: "line",
+  const stackedCanvas = document.getElementById("stacked-chart");
+  if (!stackedCanvas) return;
+
+  const stackedContext = stackedCanvas.getContext("2d");
+  new Chart(stackedContext, {
+    type: "bar",
     data: {
       labels: ["12:00", "12:05", "12:10", "12:15", "12:20", "12:25", "12:30"],
       datasets: [
         {
-          label: "Errors",
-          data: [2, 3, 1, 4, 2, 5, 3],
-          borderColor: "#ef4444",
-          backgroundColor: "rgba(239, 68, 68, 0.15)",
-          tension: 0.35,
-          fill: true,
+          label: "Green",
+          data: [24, 18, 30, 26, 22, 28, 25],
+          backgroundColor: "rgba(34, 197, 94, 0.75)",
+          borderColor: "rgba(22, 163, 74, 1)",
+          borderWidth: 1,
         },
         {
-          label: "Warnings",
-          data: [4, 2, 3, 2, 4, 3, 2],
-          borderColor: "#f59e0b",
-          backgroundColor: "rgba(245, 158, 11, 0.15)",
-          tension: 0.35,
-          fill: true,
+          label: "Yellow",
+          data: [8, 12, 6, 9, 11, 7, 10],
+          backgroundColor: "rgba(250, 204, 21, 0.8)",
+          borderColor: "rgba(234, 179, 8, 1)",
+          borderWidth: 1,
+        },
+        {
+          label: "Red",
+          data: [3, 4, 2, 5, 3, 4, 2],
+          backgroundColor: "rgba(239, 68, 68, 0.8)",
+          borderColor: "rgba(220, 38, 38, 1)",
+          borderWidth: 1,
+        },
+        {
+          label: "Dark Red",
+          data: [1, 2, 1, 1, 2, 1, 1],
+          backgroundColor: "rgba(127, 29, 29, 0.85)",
+          borderColor: "rgba(88, 28, 28, 1)",
+          borderWidth: 1,
         },
       ],
     },
@@ -112,10 +163,12 @@ const initChart = () => {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: "bottom" },
+        legend: { display: false },
+        tooltip: { mode: "index", intersect: false },
       },
       scales: {
-        y: { beginAtZero: true },
+        x: { stacked: true },
+        y: { stacked: true, beginAtZero: true },
       },
     },
   });
