@@ -171,9 +171,9 @@ const initChart = () => {
   const hoverLinePlugin = {
     id: "hoverLine",
     afterDatasetsDraw(chart) {
-      const { ctx, tooltip, chartArea } = chart;
-      if (!tooltip || !tooltip.getActiveElements().length) return;
-      const x = tooltip.getActiveElements()[0].element.x;
+      const { ctx, chartArea } = chart;
+      const x = chart.$hoverX;
+      if (typeof x !== "number") return;
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(x, chartArea.top);
@@ -181,6 +181,25 @@ const initChart = () => {
       ctx.lineWidth = 1;
       ctx.strokeStyle = "rgba(100, 116, 139, 0.6)";
       ctx.stroke();
+      const tooltipEnabled = chart.options.plugins?.tooltip?.enabled !== false;
+      if (!tooltipEnabled && chart.$hoverTime) {
+        const label = chart.$hoverTime.toISOString().slice(11, 19);
+        const padding = 4;
+        ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+        const textWidth = ctx.measureText(label).width;
+        const boxWidth = textWidth + padding * 2;
+        const boxHeight = 18;
+        const boxX = Math.min(
+          chartArea.right - boxWidth,
+          Math.max(chartArea.left, x - boxWidth / 2)
+        );
+        const boxY = chartArea.top + 6;
+        ctx.fillStyle = "rgba(15, 23, 42, 0.75)";
+        ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+        ctx.fillStyle = "#f8fafc";
+        ctx.textBaseline = "middle";
+        ctx.fillText(label, boxX + padding, boxY + boxHeight / 2);
+      }
       ctx.restore();
     },
   };
@@ -232,15 +251,11 @@ const initChart = () => {
         y: { stacked: true, beginAtZero: true },
       },
       onClick: (event) => {
-        const elements = stackedChart.getElementsAtEventForMode(
-          event,
-          "index",
-          { intersect: false },
-          true
-        );
-        if (!elements.length) return;
-        const index = elements[0].index;
-        const targetSeconds = Math.floor(index * bucketSize / 1000);
+        const pos = Chart.helpers.getRelativePosition(event, stackedChart);
+        const { chartArea } = stackedChart;
+        if (pos.x < chartArea.left || pos.x > chartArea.right) return;
+        const ratio = (pos.x - chartArea.left) / chartArea.width;
+        const targetSeconds = Math.floor((ratio * spanMs) / 1000);
         const logLines = document.querySelectorAll("#log-list .log-line");
         if (!logLines.length) return;
 
@@ -257,6 +272,34 @@ const initChart = () => {
       },
     },
     plugins: [hoverLinePlugin],
+  });
+
+  const updateHover = (event) => {
+    const pos = Chart.helpers.getRelativePosition(event, stackedChart);
+    const { chartArea } = stackedChart;
+    if (
+      pos.x < chartArea.left ||
+      pos.x > chartArea.right ||
+      pos.y < chartArea.top ||
+      pos.y > chartArea.bottom
+    ) {
+      stackedChart.$hoverX = null;
+      stackedChart.$hoverTime = null;
+      stackedChart.draw();
+      return;
+    }
+    const ratio = (pos.x - chartArea.left) / chartArea.width;
+    const hoverMs = startTime.getTime() + ratio * spanMs;
+    stackedChart.$hoverX = pos.x;
+    stackedChart.$hoverTime = new Date(hoverMs);
+    stackedChart.draw();
+  };
+
+  stackedCanvas.addEventListener("mousemove", updateHover);
+  stackedCanvas.addEventListener("mouseleave", () => {
+    stackedChart.$hoverX = null;
+    stackedChart.$hoverTime = null;
+    stackedChart.draw();
   });
 
   const toggleTooltips = document.getElementById("toggle-tooltips");
