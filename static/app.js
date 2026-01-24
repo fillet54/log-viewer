@@ -4,6 +4,8 @@ const STORAGE_KEYS = {
   bottomCollapsed: "loglayout.split.bottom.collapsed",
   search: "loglayout.split.search",
   rootExpanded: "loglayout.split.root.expanded",
+  searchHistory: "loglayout.search.history",
+  searchPinned: "loglayout.search.pinned",
 };
 
 const loadSizes = (key, fallback) => {
@@ -291,43 +293,111 @@ const initLogList = (logData) => {
 };
 
 const initSearchPane = (logData, logController) => {
+  const pinnedList = document.getElementById("search-pinned");
   const historyList = document.getElementById("search-history");
   const resultsList = document.getElementById("search-results");
   const queryInput = document.getElementById("search-query");
   const runButton = document.getElementById("run-search");
 
-  if (!historyList || !resultsList || !queryInput || !runButton || !logData) return;
+  if (!pinnedList || !historyList || !resultsList || !queryInput || !runButton || !logData) return;
   const events = Array.isArray(logData.events) ? logData.events : [];
 
-  const renderHistory = (items) => {
-    historyList.innerHTML = "";
+  const pinIcon = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6l-1 6 3 3-1.5 1.5L12 10l-3.5 3.5L7 12l3-3-1-6Z" />
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v9" />
+    </svg>
+  `;
+
+  const renderList = (items, container, isPinned) => {
+    container.innerHTML = "";
     const fragment = document.createDocumentFragment();
     items.forEach((item) => {
       const row = document.createElement("div");
-      row.className = "search-item";
+      row.className = "search-item search-history-item";
       row.innerHTML = `
         <span class="search-level">${item.level}</span>
         <span>${item.label}</span>
         <span class="search-time">${item.count}</span>
+        <button class="pin-button ${isPinned ? "is-pinned" : ""}" title="${isPinned ? "Unpin" : "Pin"}">
+          ${pinIcon}
+        </button>
       `;
+      row.querySelector(".pin-button").addEventListener("click", (event) => {
+        event.stopPropagation();
+        togglePin(item.query);
+      });
       row.addEventListener("click", () => {
         queryInput.value = item.query;
         runSearch();
       });
       fragment.appendChild(row);
     });
-    historyList.appendChild(fragment);
+    container.appendChild(fragment);
   };
 
-  const history = [];
+  const loadStored = (key, fallback) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return fallback;
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : fallback;
+    } catch (err) {
+      return fallback;
+    }
+  };
+
+  const history = loadStored(STORAGE_KEYS.searchHistory, []);
+  const pinned = loadStored(STORAGE_KEYS.searchPinned, []);
+
+  const persist = () => {
+    localStorage.setItem(STORAGE_KEYS.searchHistory, JSON.stringify(history));
+    localStorage.setItem(STORAGE_KEYS.searchPinned, JSON.stringify(pinned));
+  };
+
+  const isPinned = (query) => pinned.some((item) => item.query === query);
+
+  const togglePin = (query) => {
+    const index = pinned.findIndex((item) => item.query === query);
+    if (index >= 0) {
+      pinned.splice(index, 1);
+    } else {
+      const item = history.find((entry) => entry.query === query) || {
+        query,
+        count: 0,
+        level: "search",
+        label: query || "(all events)",
+      };
+      pinned.unshift(item);
+    }
+    persist();
+    renderPinned();
+  };
+
+  const renderPinned = () => {
+    renderList(pinned.slice(0, 24), pinnedList, true);
+  };
+
+  const renderHistory = () => {
+    renderList(history.slice(0, 50), historyList, false);
+  };
+
   const addHistory = (query, count, level) => {
-    history.unshift({
+    if (query === "" && !count) return;
+    const existingIndex = history.findIndex((item) => item.query === query);
+    const item = {
       query,
       count,
       level: level || "search",
       label: query || "(all events)",
-    });
-    renderHistory(history.slice(0, 12));
+    };
+    if (existingIndex >= 0) {
+      history.splice(existingIndex, 1);
+    }
+    history.unshift(item);
+    history.splice(50);
+    persist();
+    renderHistory();
   };
 
   const renderResults = (items) => {
@@ -335,7 +405,7 @@ const initSearchPane = (logData, logController) => {
     const fragment = document.createDocumentFragment();
     items.forEach((event) => {
       const row = document.createElement("div");
-      row.className = "search-item";
+      row.className = "search-item search-result";
       row.innerHTML = `
         <span class="search-level">${event.level}</span>
         <span>${event.name} — ${event.description}</span>
@@ -365,7 +435,8 @@ const initSearchPane = (logData, logController) => {
     if (event.key === "Enter") runSearch();
   });
 
-  renderHistory([]);
+  renderPinned();
+  renderHistory();
   renderResults(events.slice(0, 40));
 };
 
