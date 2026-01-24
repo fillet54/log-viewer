@@ -54,16 +54,17 @@
               </div>
               <div class="pane-body log-body">
                 <div class="space-y-2 font-mono text-sm">
-                  <div class="log-line"><span class="text-info">INFO</span> 12:00:01 app.start Listening on 0.0.0.0:5000</div>
-                  <div class="log-line"><span class="text-warning">WARN</span> 12:00:05 api.retry Retrying request to /metrics</div>
-                  <div class="log-line"><span class="text-error">ERROR</span> 12:00:08 db.timeout Query exceeded 2000ms</div>
-                  <div class="log-line"><span class="text-info">INFO</span> 12:00:12 ingest.queue Enqueued 1,245 events</div>
-                  <div class="log-line"><span class="text-info">INFO</span> 12:00:15 worker.3 Processing batch 28/42</div>
-                  <div class="log-line"><span class="text-warning">WARN</span> 12:00:19 cache.miss Cache miss for user: 9d3a</div>
-                  <div class="log-line"><span class="text-info">INFO</span> 12:00:23 http.200 GET /logs?tail=100 41ms</div>
-                  <div class="log-line"><span class="text-error">ERROR</span> 12:00:28 parser.fail Unexpected token near line 220</div>
-                  <div class="log-line"><span class="text-info">INFO</span> 12:00:33 audit.write Wrote 18 records to archive</div>
-                  <div class="log-line"><span class="text-info">INFO</span> 12:00:36 scheduler.tick Next poll in 60s</div>
+                  {% for event in log_data.events %}
+                  <div class="log-line log-{{ event.level | replace(' ', '-') }}">
+                    <span class="badge badge-sm level-tag">{{ event.level }}</span>
+                    <span class="text-base-content/60">{{ event.utc }}</span>
+                    <span class="font-semibold">{{ event.action }}</span>
+                    <span>{{ event.name }}</span>
+                    <span class="text-base-content/60">({{ event.seconds_from_start }}s)</span>
+                    <span class="text-base-content/70">— {{ event.description }}</span>
+                    <span class="text-base-content/50">[{{ event.system }}/{{ event.subsystem }}/{{ event.unit }}/{{ event.code }}]</span>
+                  </div>
+                  {% endfor %}
                 </div>
               </div>
             </section>
@@ -115,5 +116,6 @@
     </main>
 
     <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script id="log-data" type="application/json">{{ log_data | tojson }}</script>
   </body>
 </html>

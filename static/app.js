@@ -81,6 +81,16 @@ const initSplits = () => {
 };
 
 const initChart = () => {
+  const logPayload = document.getElementById("log-data");
+  let logData = null;
+  if (logPayload) {
+    try {
+      logData = JSON.parse(logPayload.textContent || "{}");
+    } catch (err) {
+      logData = null;
+    }
+  }
+
   const timelineCanvas = document.getElementById("chart");
   if (timelineCanvas) {
     const context = timelineCanvas.getContext("2d");
@@ -123,36 +133,70 @@ const initChart = () => {
   const stackedCanvas = document.getElementById("stacked-chart");
   if (!stackedCanvas) return;
 
+  const events = Array.isArray(logData?.events) ? logData.events : [];
+  if (!events.length) return;
+
+  const startTime = new Date(logData.start);
+  const endTime = new Date(logData.end);
+  const spanMs = Math.max(1, endTime - startTime);
+  const bucketMs = 5 * 60 * 1000;
+  const bucketCount = Math.max(1, Math.ceil(spanMs / bucketMs));
+  const bucketSize = bucketMs;
+
+  const labels = [];
+  const levelBuckets = {
+    green: new Array(bucketCount).fill(0),
+    yellow: new Array(bucketCount).fill(0),
+    red: new Array(bucketCount).fill(0),
+    "dark red": new Array(bucketCount).fill(0),
+  };
+
+  for (let i = 0; i < bucketCount; i += 1) {
+    const t = new Date(startTime.getTime() + i * bucketSize);
+    labels.push(t.toISOString().slice(11, 16));
+  }
+
+  events.forEach((event) => {
+    const timestamp = new Date(event.utc);
+    const index = Math.min(
+      bucketCount - 1,
+      Math.max(0, Math.floor((timestamp - startTime) / bucketSize))
+    );
+    if (levelBuckets[event.level]) {
+      levelBuckets[event.level][index] += 1;
+    }
+  });
+
   const stackedContext = stackedCanvas.getContext("2d");
   new Chart(stackedContext, {
     type: "bar",
     data: {
-      labels: ["12:00", "12:05", "12:10", "12:15", "12:20", "12:25", "12:30"],
+      labels,
       datasets: [
         {
           label: "Green",
-          data: [24, 18, 30, 26, 22, 28, 25],
+          data: levelBuckets.green,
           backgroundColor: "rgba(34, 197, 94, 0.75)",
           borderColor: "rgba(22, 163, 74, 1)",
           borderWidth: 1,
         },
         {
           label: "Yellow",
-          data: [8, 12, 6, 9, 11, 7, 10],
+          data: levelBuckets.yellow,
           backgroundColor: "rgba(250, 204, 21, 0.8)",
           borderColor: "rgba(234, 179, 8, 1)",
           borderWidth: 1,
         },
         {
           label: "Red",
-          data: [3, 4, 2, 5, 3, 4, 2],
+          data: levelBuckets.red,
           backgroundColor: "rgba(239, 68, 68, 0.8)",
           borderColor: "rgba(220, 38, 38, 1)",
           borderWidth: 1,
         },
         {
           label: "Dark Red",
-          data: [1, 2, 1, 1, 2, 1, 1],
+          data: levelBuckets["dark red"],
           backgroundColor: "rgba(127, 29, 29, 0.85)",
           borderColor: "rgba(88, 28, 28, 1)",
           borderWidth: 1,
