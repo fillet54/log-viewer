@@ -80,16 +80,183 @@ const initSplits = () => {
   setBottomCollapsed(isCollapsed);
 };
 
-const initChart = () => {
+const loadLogData = () => {
   const logPayload = document.getElementById("log-data");
-  let logData = null;
-  if (logPayload) {
-    try {
-      logData = JSON.parse(logPayload.textContent || "{}");
-    } catch (err) {
-      logData = null;
-    }
+  if (!logPayload) return null;
+  try {
+    return JSON.parse(logPayload.textContent || "{}");
+  } catch (err) {
+    return null;
   }
+};
+
+const buildLogRow = (event) => {
+  const row = document.createElement("div");
+  row.className = `log-line log-${event.level.replace(" ", "-")}`;
+  row.dataset.seconds = event.seconds_from_start;
+  row.dataset.rowId = event.row_id;
+  row.innerHTML = `
+    <span class="badge badge-sm level-tag">${event.level}</span>
+    <span class="log-time text-base-content/60">${event.utc}</span>
+    <span class="log-action font-semibold">${event.action}</span>
+    <span class="log-name">${event.name}</span>
+    <span class="log-offset text-base-content/60">${event.seconds_from_start}s</span>
+    <span class="log-desc text-base-content/70">${event.description}</span>
+    <span class="log-code text-base-content/50">${event.system}/${event.subsystem}/${event.unit}/${event.code}</span>
+  `;
+  return row;
+};
+
+const initLogList = (logData) => {
+  const logBody = document.getElementById("log-body");
+  const logList = document.getElementById("log-list");
+  const logSpacer = document.getElementById("log-spacer");
+  const searchInput = document.getElementById("log-search");
+
+  if (!logBody || !logList || !logSpacer || !logData) return null;
+  const events = Array.isArray(logData.events) ? logData.events : [];
+  if (!events.length) return null;
+
+  const sample = buildLogRow(events[0]);
+  sample.style.visibility = "hidden";
+  logList.appendChild(sample);
+  const rowHeight = sample.getBoundingClientRect().height || 38;
+  const listStyle = getComputedStyle(logList);
+  const gap = parseFloat(listStyle.rowGap || listStyle.gap || "0") || 0;
+  logList.removeChild(sample);
+  const rowStride = rowHeight + gap;
+
+  const state = {
+    events,
+    filtered: events,
+    rowStride,
+    overscan: 8,
+    lastRange: [0, 0],
+    indexByRowId: new Map(),
+  };
+
+  const rebuildIndex = () => {
+    state.indexByRowId.clear();
+    state.filtered.forEach((event, idx) => {
+      state.indexByRowId.set(String(event.row_id), idx);
+    });
+  };
+
+  const setSpacer = () => {
+    logSpacer.style.height = `${state.filtered.length * state.rowStride}px`;
+  };
+
+  const renderRange = (startIndex, endIndex) => {
+    logList.style.transform = `translateY(${startIndex * state.rowStride}px)`;
+    logList.innerHTML = "";
+    const fragment = document.createDocumentFragment();
+    for (let i = startIndex; i < endIndex; i += 1) {
+      fragment.appendChild(buildLogRow(state.filtered[i]));
+    }
+    logList.appendChild(fragment);
+  };
+
+  const updateVirtual = () => {
+    const scrollTop = logBody.scrollTop;
+    const startIndex = Math.max(0, Math.floor(scrollTop / state.rowStride) - state.overscan);
+    const visibleCount = Math.ceil(logBody.clientHeight / state.rowStride) + state.overscan * 2;
+    const endIndex = Math.min(state.filtered.length, startIndex + visibleCount);
+    if (state.lastRange[0] === startIndex && state.lastRange[1] === endIndex) return;
+    state.lastRange = [startIndex, endIndex];
+    renderRange(startIndex, endIndex);
+  };
+
+  const applyFilter = (query) => {
+    const term = query.trim().toLowerCase();
+    if (!term) {
+      state.filtered = state.events;
+    } else {
+      state.filtered = state.events.filter((event) => {
+        const haystack = `${event.level} ${event.action} ${event.name} ${event.description} ${event.system} ${event.subsystem} ${event.unit} ${event.code}`;
+        return haystack.toLowerCase().includes(term);
+      });
+    }
+    rebuildIndex();
+    setSpacer();
+    state.lastRange = [0, 0];
+    updateVirtual();
+  };
+
+  const findClosestIndexBySeconds = (targetSeconds) => {
+    const list = state.filtered;
+    if (!list.length) return null;
+    let lo = 0;
+    let hi = list.length - 1;
+    while (lo <= hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      const seconds = list[mid].seconds_from_start;
+      if (seconds === targetSeconds) return mid;
+      if (seconds < targetSeconds) {
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    if (lo >= list.length) return list.length - 1;
+    if (hi < 0) return 0;
+    const loDiff = Math.abs(list[lo].seconds_from_start - targetSeconds);
+    const hiDiff = Math.abs(list[hi].seconds_from_start - targetSeconds);
+    return loDiff < hiDiff ? lo : hi;
+  };
+
+  const scrollToIndex = (index, duration = 180) => {
+    if (index == null) return null;
+    const targetTop =
+      index * state.rowStride - logBody.clientHeight / 2 + state.rowStride / 2;
+    const clamped = Math.max(0, Math.min(targetTop, logBody.scrollHeight));
+    smoothScrollTo(logBody, clamped, duration, () => {
+      const event = state.filtered[index];
+      if (!event) return;
+      const row = logList.querySelector(`[data-row-id="${event.row_id}"]`);
+      if (!row) return;
+      row.classList.remove("log-highlight");
+      void row.offsetWidth;
+      row.classList.add("log-highlight");
+    });
+    return state.filtered[index];
+  };
+
+  const scrollToSeconds = (seconds) => {
+    const index = findClosestIndexBySeconds(seconds);
+    return scrollToIndex(index);
+  };
+
+  const scrollToRowId = (rowId) => {
+    const index = state.indexByRowId.get(String(rowId));
+    return scrollToIndex(index);
+  };
+
+  logBody.addEventListener("scroll", () => {
+    requestAnimationFrame(updateVirtual);
+  });
+
+  if (searchInput) {
+    let debounce = null;
+    searchInput.addEventListener("input", (event) => {
+      if (debounce) window.clearTimeout(debounce);
+      const value = event.target.value;
+      debounce = window.setTimeout(() => applyFilter(value), 150);
+    });
+  }
+
+  rebuildIndex();
+  setSpacer();
+  updateVirtual();
+
+  return {
+    scrollToSeconds,
+    scrollToRowId,
+    getFilteredEvents: () => state.filtered,
+  };
+};
+
+const initChart = (logData, logController) => {
+  if (!logData) return;
 
   const timelineCanvas = document.getElementById("chart");
   if (timelineCanvas) {
@@ -256,34 +423,9 @@ const initChart = () => {
         if (pos.x < chartArea.left || pos.x > chartArea.right) return;
         const ratio = (pos.x - chartArea.left) / chartArea.width;
         const targetSeconds = Math.floor((ratio * spanMs) / 1000);
-        const logLines = document.querySelectorAll("#log-list .log-line");
-        if (!logLines.length) return;
-
-        let target = logLines[0];
-        let bestDistance = Number.POSITIVE_INFINITY;
-        for (const line of logLines) {
-          const seconds = Number(line.dataset.seconds);
-          if (Number.isNaN(seconds)) continue;
-          const distance = Math.abs(seconds - targetSeconds);
-          if (distance < bestDistance) {
-            bestDistance = distance;
-            target = line;
-          }
+        if (logController) {
+          logController.scrollToSeconds(targetSeconds);
         }
-        const logBody = document.getElementById("log-body");
-        if (logBody) {
-          const bodyRect = logBody.getBoundingClientRect();
-          const targetRect = target.getBoundingClientRect();
-          const offset =
-            logBody.scrollTop + (targetRect.top - bodyRect.top) - bodyRect.height / 2 + targetRect.height / 2;
-          smoothScrollTo(logBody, Math.max(0, offset), 180);
-        } else {
-          target.scrollIntoView({ behavior: "auto", block: "center" });
-        }
-        target.classList.remove("log-highlight");
-        // Restart animation for repeated clicks.
-        void target.offsetWidth;
-        target.classList.add("log-highlight");
       },
     },
     plugins: [hoverLinePlugin],
@@ -331,14 +473,17 @@ const initChart = () => {
 
 window.addEventListener("DOMContentLoaded", () => {
   initSplits();
-  initChart();
+  const logData = loadLogData();
+  const logController = initLogList(logData);
+  initChart(logData, logController);
 });
 
-const smoothScrollTo = (container, targetTop, durationMs = 200) => {
+const smoothScrollTo = (container, targetTop, durationMs = 200, onComplete = null) => {
   const startTop = container.scrollTop;
   const delta = targetTop - startTop;
   if (Math.abs(delta) < 2) {
     container.scrollTop = targetTop;
+    if (onComplete) onComplete();
     return;
   }
   const startTime = performance.now();
@@ -349,6 +494,8 @@ const smoothScrollTo = (container, targetTop, durationMs = 200) => {
     container.scrollTop = startTop + delta * easeOut(progress);
     if (progress < 1) {
       requestAnimationFrame(step);
+    } else if (onComplete) {
+      onComplete();
     }
   };
   requestAnimationFrame(step);

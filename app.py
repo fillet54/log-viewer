@@ -152,7 +152,7 @@ def generate_logs(hours: float, seed_value: str | None):
     events = []
     time_offsets = sorted(rng.uniform(0, span_seconds) for _ in range(total_events))
 
-    for offset in time_offsets:
+    for idx, offset in enumerate(time_offsets):
         weight = cluster_weight(offset)
         weights = [_level_weight(item["level"], weight) for item in FAULT_CATALOG]
         choice = rng.choices(FAULT_CATALOG, weights=weights, k=1)[0]
@@ -163,6 +163,7 @@ def generate_logs(hours: float, seed_value: str | None):
         timestamp = start_time + timedelta(seconds=offset)
         events.append(
             {
+                "row_id": idx + 1,
                 "id": choice["id"],
                 "name": choice["name"],
                 "description": choice["description"],

@@ -44,6 +44,7 @@
 
 .log-body {
   background: linear-gradient(135deg, rgba(226, 232, 240, 0.4), rgba(148, 163, 184, 0.15));
+  position: relative;
 }
 
 .chart-band {
@@ -83,6 +84,8 @@
   align-items: center;
   column-gap: 0.6rem;
   row-gap: 0.2rem;
+  height: 38px;
+  overflow: hidden;
 }
 
 .level-tag {
@@ -139,16 +142,18 @@
   text-align: right;
 }
 
-@media (max-width: 1200px) {
-  .log-line {
-    grid-template-columns: 72px 160px 60px 1fr 72px;
-  }
+#log-spacer {
+  height: 0;
+}
 
-  .log-desc,
-  .log-code {
-    grid-column: 1 / -1;
-    white-space: normal;
-  }
+#log-list {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .icon {

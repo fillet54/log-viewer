@@ -33,7 +33,7 @@
                 <div class="space-y-4">
                   <div>
                     <label class="text-xs uppercase tracking-wide text-base-content/60">Search</label>
-                    <input class="input input-bordered w-full" placeholder="error, warn, trace" />
+                    <input id="log-search" class="input input-bordered w-full" placeholder="error, warn, trace" />
                   </div>
                   <div class="space-y-2">
                     <label class="text-xs uppercase tracking-wide text-base-content/60">Levels</label>
@@ -60,19 +60,8 @@
                 <canvas id="stacked-chart" height="120"></canvas>
               </div>
               <div class="pane-body log-body" id="log-body">
-                <div class="space-y-2 font-mono text-sm" id="log-list">
-                  {% for event in log_data.events %}
-                  <div class="log-line log-{{ event.level | replace(' ', '-') }}" data-seconds="{{ event.seconds_from_start }}">
-                    <span class="badge badge-sm level-tag">{{ event.level }}</span>
-                    <span class="log-time text-base-content/60">{{ event.utc }}</span>
-                    <span class="log-action font-semibold">{{ event.action }}</span>
-                    <span class="log-name">{{ event.name }}</span>
-                    <span class="log-offset text-base-content/60">{{ event.seconds_from_start }}s</span>
-                    <span class="log-desc text-base-content/70">{{ event.description }}</span>
-                    <span class="log-code text-base-content/50">{{ event.system }}/{{ event.subsystem }}/{{ event.unit }}/{{ event.code }}</span>
-                  </div>
-                  {% endfor %}
-                </div>
+                <div id="log-spacer"></div>
+                <div class="font-mono text-sm" id="log-list"></div>
               </div>
             </section>
 
