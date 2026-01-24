@@ -20,34 +20,6 @@
       <div id="split-root" class="h-full w-full rounded-2xl bg-base-100 shadow-xl">
         <section id="pane-top" class="flex h-full">
           <div id="split-top" class="flex h-full w-full">
-            <aside id="pane-left" class="pane">
-              <div class="pane-header">
-                <span class="icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5h18M3 12h18m-18 4.5h18" />
-                  </svg>
-                </span>
-                Filters
-              </div>
-              <div class="pane-body">
-                <div class="space-y-4">
-                  <div>
-                    <label class="text-xs uppercase tracking-wide text-base-content/60">Search</label>
-                    <input id="log-search" class="input input-bordered w-full" placeholder="error, warn, trace" />
-                  </div>
-                  <div class="space-y-2">
-                    <label class="text-xs uppercase tracking-wide text-base-content/60">Levels</label>
-                    <div class="flex flex-wrap gap-2">
-                      <span class="badge badge-info">INFO</span>
-                      <span class="badge badge-warning">WARN</span>
-                      <span class="badge badge-error">ERROR</span>
-                      <span class="badge badge-ghost">DEBUG</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </aside>
-
             <section id="pane-center" class="pane">
               <div class="chart-band">
                 <div class="chart-tools">
@@ -102,6 +74,10 @@
         <section id="pane-bottom" class="pane">
           <div class="pane-header compact-header justify-between">
             <span id="search-header-text" class="text-xs uppercase tracking-wide text-base-content/60">Search</span>
+            <div id="search-header-tabs" class="search-tabs hidden">
+              <button id="tab-history" class="btn btn-xs btn-ghost search-tab is-active">Search History</button>
+              <button id="tab-filters" class="btn btn-xs btn-ghost search-tab">Filters</button>
+            </div>
             <button id="toggle-bottom" class="btn btn-ghost btn-xs" title="Toggle search pane">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tool-icon">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 10l6 6 6-6" />
@@ -111,13 +87,21 @@
           <div class="pane-body search-pane">
             <div id="search-split" class="search-split">
               <aside id="search-history-pane" class="search-history">
-                <div class="search-section">
-                  <div class="search-section-title">Pinned</div>
-                  <div id="search-pinned" class="search-list search-list-compact"></div>
+                <div id="search-history-view" class="search-view">
+                  <div class="search-section">
+                    <div class="search-section-title">Pinned</div>
+                    <div id="search-pinned" class="search-list search-list-compact"></div>
+                  </div>
+                  <div class="search-section">
+                    <div class="search-section-title">History</div>
+                    <div id="search-history" class="search-list search-list-compact"></div>
+                  </div>
                 </div>
-                <div class="search-section">
-                  <div class="search-section-title">History</div>
-                  <div id="search-history" class="search-list search-list-compact"></div>
+                <div id="search-filter-view" class="search-view hidden">
+                  <div class="search-section">
+                    <div class="search-section-title">Filters</div>
+                    <div id="search-filters" class="search-list search-list-compact"></div>
+                  </div>
                 </div>
               </aside>
               <section id="search-results-pane" class="search-results">

@@ -31,6 +31,7 @@ const setBottomCollapsed = (collapsed) => {
   const root = document.getElementById("split-root");
   const button = document.getElementById("toggle-bottom");
   const headerText = document.getElementById("search-header-text");
+  const headerTabs = document.getElementById("search-header-tabs");
   if (!root || !button || !rootSplit) return;
 
   if (collapsed) {
@@ -38,7 +39,11 @@ const setBottomCollapsed = (collapsed) => {
     rootSplit.setSizes([96, 4]);
     button.setAttribute("aria-label", "Expand search pane");
     button.classList.add("is-collapsed");
-    if (headerText) headerText.textContent = "Search";
+    if (headerText) {
+      headerText.textContent = "Search";
+      headerText.classList.remove("hidden");
+    }
+    if (headerTabs) headerTabs.classList.add("hidden");
   } else {
     root.classList.remove("bottom-collapsed");
     const savedExpanded = loadSizes(STORAGE_KEYS.rootExpanded, [70, 30]);
@@ -46,13 +51,14 @@ const setBottomCollapsed = (collapsed) => {
     rootSplit.setSizes(safeSizes);
     button.setAttribute("aria-label", "Collapse search pane");
     button.classList.remove("is-collapsed");
-    if (headerText) headerText.textContent = "Search History";
+    if (headerText) headerText.classList.add("hidden");
+    if (headerTabs) headerTabs.classList.remove("hidden");
   }
 };
 
 const initSplits = () => {
   const rootSizes = loadSizes(STORAGE_KEYS.root, [70, 30]);
-  const topSizes = loadSizes(STORAGE_KEYS.top, [22, 56, 22]);
+  const topSizes = loadSizes(STORAGE_KEYS.top, [70, 30]);
   const isCollapsed = localStorage.getItem(STORAGE_KEYS.bottomCollapsed) === "true";
 
   rootSplit = Split(["#pane-top", "#pane-bottom"], {
@@ -73,11 +79,11 @@ const initSplits = () => {
     },
   });
 
-  Split(["#pane-left", "#pane-center", "#pane-right"], {
+  Split(["#pane-center", "#pane-right"], {
     sizes: topSizes,
     direction: "horizontal",
     gutterSize: 10,
-    minSize: [180, 320, 200],
+    minSize: [420, 240],
     onDragEnd: (sizes) => saveSizes(STORAGE_KEYS.top, sizes),
   });
 
@@ -193,16 +199,18 @@ const initLogList = (logData) => {
     renderRange(startIndex, endIndex);
   };
 
-  const applyFilter = (query) => {
-    const term = query.trim().toLowerCase();
-    state.filterQuery = term;
-    if (!term) {
+  const matchesQuery = (event, term) => {
+    const haystack = `${event.level} ${event.action} ${event.name} ${event.description} ${event.system} ${event.subsystem} ${event.unit} ${event.code}`;
+    return haystack.toLowerCase().includes(term);
+  };
+
+  const applyFilterQueries = (queries) => {
+    const terms = queries.map((q) => q.trim().toLowerCase()).filter(Boolean);
+    state.filterQuery = terms.join(" | ");
+    if (!terms.length) {
       state.filtered = state.events;
     } else {
-      state.filtered = state.events.filter((event) => {
-        const haystack = `${event.level} ${event.action} ${event.name} ${event.description} ${event.system} ${event.subsystem} ${event.unit} ${event.code}`;
-        return haystack.toLowerCase().includes(term);
-      });
+      state.filtered = state.events.filter((event) => terms.some((term) => matchesQuery(event, term)));
     }
     rebuildIndex();
     setSpacer();
@@ -276,7 +284,7 @@ const initLogList = (logData) => {
     searchInput.addEventListener("input", (event) => {
       if (debounce) window.clearTimeout(debounce);
       const value = event.target.value;
-      debounce = window.setTimeout(() => applyFilter(value), 150);
+      debounce = window.setTimeout(() => applyFilterQueries([value]), 150);
     });
   }
 
@@ -288,24 +296,55 @@ const initLogList = (logData) => {
     scrollToSeconds,
     scrollToRowId,
     ensureRowVisible,
+    applyFilters: applyFilterQueries,
     getFilteredEvents: () => state.filtered,
   };
 };
 
-const initSearchPane = (logData, logController) => {
+const initSearchPane = (logData, logController, chartController) => {
   const pinnedList = document.getElementById("search-pinned");
   const historyList = document.getElementById("search-history");
+  const filtersList = document.getElementById("search-filters");
   const resultsList = document.getElementById("search-results");
   const queryInput = document.getElementById("search-query");
   const runButton = document.getElementById("run-search");
+  const tabHistory = document.getElementById("tab-history");
+  const tabFilters = document.getElementById("tab-filters");
+  const historyView = document.getElementById("search-history-view");
+  const filterView = document.getElementById("search-filter-view");
 
-  if (!pinnedList || !historyList || !resultsList || !queryInput || !runButton || !logData) return;
+  if (
+    !pinnedList ||
+    !historyList ||
+    !filtersList ||
+    !resultsList ||
+    !queryInput ||
+    !runButton ||
+    !tabHistory ||
+    !tabFilters ||
+    !historyView ||
+    !filterView ||
+    !logData
+  )
+    return;
   const events = Array.isArray(logData.events) ? logData.events : [];
 
   const pinIcon = `
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
       <path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6l-1 6 3 3-1.5 1.5L12 10l-3.5 3.5L7 12l3-3-1-6Z" />
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v9" />
+    </svg>
+  `;
+
+  const filterIcon = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16l-6 7v6l-4 2v-8L4 5Z" />
+    </svg>
+  `;
+
+  const removeIcon = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6l-12 12" />
     </svg>
   `;
 
@@ -322,10 +361,17 @@ const initSearchPane = (logData, logController) => {
         <button class="pin-button ${isPinned ? "is-pinned" : ""}" title="${isPinned ? "Unpin" : "Pin"}">
           ${pinIcon}
         </button>
+        <button class="pin-button promote-button" title="Promote to filter">
+          ${filterIcon}
+        </button>
       `;
       row.querySelector(".pin-button").addEventListener("click", (event) => {
         event.stopPropagation();
         togglePin(item.query);
+      });
+      row.querySelector(".promote-button").addEventListener("click", (event) => {
+        event.stopPropagation();
+        promoteFilter(item.query);
       });
       row.addEventListener("click", () => {
         queryInput.value = item.query;
@@ -349,10 +395,12 @@ const initSearchPane = (logData, logController) => {
 
   const history = loadStored(STORAGE_KEYS.searchHistory, []);
   const pinned = loadStored(STORAGE_KEYS.searchPinned, []);
+  const filters = loadStored(STORAGE_KEYS.searchFilters, []);
 
   const persist = () => {
     localStorage.setItem(STORAGE_KEYS.searchHistory, JSON.stringify(history));
     localStorage.setItem(STORAGE_KEYS.searchPinned, JSON.stringify(pinned));
+    localStorage.setItem(STORAGE_KEYS.searchFilters, JSON.stringify(filters));
   };
 
   const isPinned = (query) => pinned.some((item) => item.query === query);
@@ -372,6 +420,19 @@ const initSearchPane = (logData, logController) => {
     }
     persist();
     renderPinned();
+  };
+
+  const promoteFilter = (query) => {
+    if (!query) return;
+    const existing = filters.find((item) => item.query === query);
+    if (existing) {
+      existing.enabled = true;
+    } else {
+      filters.unshift({ query, enabled: true });
+    }
+    persist();
+    renderFilters();
+    applyFilters();
   };
 
   const renderPinned = () => {
@@ -398,6 +459,48 @@ const initSearchPane = (logData, logController) => {
     history.splice(50);
     persist();
     renderHistory();
+  };
+
+  const renderFilters = () => {
+    filtersList.innerHTML = "";
+    const fragment = document.createDocumentFragment();
+    filters.forEach((filter) => {
+      const row = document.createElement("div");
+      row.className = "search-item search-filter-item";
+      row.innerHTML = `
+        <span>${filter.query}</span>
+        <button class="filter-toggle ${filter.enabled ? "is-on" : ""}" aria-pressed="${filter.enabled}">
+        </button>
+        <button class="pin-button" title="Remove filter">
+          ${removeIcon}
+        </button>
+      `;
+      row.querySelector(".filter-toggle").addEventListener("click", (event) => {
+        event.stopPropagation();
+        filter.enabled = !filter.enabled;
+        persist();
+        renderFilters();
+        applyFilters();
+      });
+      row.querySelector(".pin-button").addEventListener("click", (event) => {
+        event.stopPropagation();
+        const index = filters.indexOf(filter);
+        if (index >= 0) filters.splice(index, 1);
+        persist();
+        renderFilters();
+        applyFilters();
+      });
+      fragment.appendChild(row);
+    });
+    filtersList.appendChild(fragment);
+  };
+
+  const applyFilters = () => {
+    const active = filters.filter((item) => item.enabled).map((item) => item.query);
+    if (logController) logController.applyFilters(active);
+    if (chartController && logController) {
+      chartController.updateFilteredEvents(logController.getFilteredEvents());
+    }
   };
 
   const renderResults = (items) => {
@@ -435,9 +538,22 @@ const initSearchPane = (logData, logController) => {
     if (event.key === "Enter") runSearch();
   });
 
+  const setTab = (tab) => {
+    const isHistory = tab === "history";
+    tabHistory.classList.toggle("is-active", isHistory);
+    tabFilters.classList.toggle("is-active", !isHistory);
+    historyView.classList.toggle("hidden", !isHistory);
+    filterView.classList.toggle("hidden", isHistory);
+  };
+
+  tabHistory.addEventListener("click", () => setTab("history"));
+  tabFilters.addEventListener("click", () => setTab("filters"));
+
   renderPinned();
   renderHistory();
+  renderFilters();
   renderResults(events.slice(0, 40));
+  applyFilters();
 };
 
 const initChart = (logData, logController) => {
@@ -457,28 +573,33 @@ const initChart = (logData, logController) => {
   const bucketSize = bucketMs;
 
   const labels = [];
-  const levelBuckets = {
-    green: new Array(bucketCount).fill(0),
-    yellow: new Array(bucketCount).fill(0),
-    red: new Array(bucketCount).fill(0),
-    "dark red": new Array(bucketCount).fill(0),
-  };
-
   for (let i = 0; i < bucketCount; i += 1) {
     const t = new Date(startTime.getTime() + i * bucketSize);
     labels.push(t.toISOString().slice(11, 16));
   }
 
-  events.forEach((event) => {
-    const timestamp = new Date(event.utc);
-    const index = Math.min(
-      bucketCount - 1,
-      Math.max(0, Math.floor((timestamp - startTime) / bucketSize))
-    );
-    if (levelBuckets[event.level]) {
-      levelBuckets[event.level][index] += 1;
-    }
-  });
+  const buildBuckets = (sourceEvents) => {
+    const buckets = {
+      green: new Array(bucketCount).fill(0),
+      yellow: new Array(bucketCount).fill(0),
+      red: new Array(bucketCount).fill(0),
+      "dark red": new Array(bucketCount).fill(0),
+    };
+    sourceEvents.forEach((event) => {
+      const timestamp = new Date(event.utc);
+      const index = Math.min(
+        bucketCount - 1,
+        Math.max(0, Math.floor((timestamp - startTime) / bucketSize))
+      );
+      if (buckets[event.level]) {
+        buckets[event.level][index] += 1;
+      }
+    });
+    return buckets;
+  };
+
+  const initialEvents = logController ? logController.getFilteredEvents() : events;
+  const levelBuckets = buildBuckets(initialEvents);
 
   const stackedContext = stackedCanvas.getContext("2d");
   const hoverLinePlugin = {
@@ -620,14 +741,27 @@ const initChart = (logData, logController) => {
       stackedChart.update();
     });
   }
+
+  const updateFilteredEvents = (filteredEvents) => {
+    const buckets = buildBuckets(filteredEvents);
+    stackedChart.data.datasets[0].data = buckets.green;
+    stackedChart.data.datasets[1].data = buckets.yellow;
+    stackedChart.data.datasets[2].data = buckets.red;
+    stackedChart.data.datasets[3].data = buckets["dark red"];
+    stackedChart.update();
+  };
+
+  return {
+    updateFilteredEvents,
+  };
 };
 
 window.addEventListener("DOMContentLoaded", () => {
   initSplits();
   const logData = loadLogData();
   const logController = initLogList(logData);
-  initSearchPane(logData, logController);
-  initChart(logData, logController);
+  const chartController = initChart(logData, logController);
+  initSearchPane(logData, logController, chartController);
 });
 
 const smoothScrollTo = (container, targetTop, durationMs = 200, onComplete = null) => {
