@@ -82,3 +82,15 @@
 #pane-bottom {
   min-height: 160px;
 }
+
+#split-root.bottom-collapsed .gutter-vertical {
+  height: 0;
+}
+
+#split-root.bottom-collapsed #pane-bottom {
+  min-height: 52px;
+}
+
+#split-root.bottom-collapsed #pane-bottom .pane-body {
+  display: none;
+}
