@@ -11,15 +11,14 @@
       type="text/css"
     />
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <script src="https://cdn.jsdelivr.net/npm/split.js@1.6.5/dist/split.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
   </head>
   <body class="min-h-screen bg-base-200 text-base-content">
     <main class="h-screen w-screen p-3">
       <div id="split-root" class="h-full w-full rounded-2xl bg-base-100 shadow-xl">
-        <section id="pane-top" class="flex h-full">
-          <div id="split-top" class="flex h-full w-full">
+        <section id="pane-top" class="flex">
+          <div id="split-top" class="flex h-full w-full ghost-split">
             {% include 'components/log_view.html' %}
             {% include 'components/right_pane.html' %}
           </div>
