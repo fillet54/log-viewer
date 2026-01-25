@@ -284,6 +284,9 @@
   padding: 0.6rem;
   background: rgba(248, 250, 252, 0.8);
   border: 1px solid rgba(148, 163, 184, 0.2);
+  content-visibility: auto;
+  contain: layout paint;
+  contain-intrinsic-size: 240px 360px;
 }
 
 .search-list-compact {
@@ -300,11 +303,11 @@
   cursor: pointer;
   font-size: 0.72rem;
   line-height: 1.1;
+  background-color: transparent;
 }
 
-.search-item:hover {
-  background: rgba(226, 232, 240, 0.7);
-}
+
+
 
 .search-item .search-level {
   text-transform: uppercase;
@@ -316,6 +319,7 @@
   color: rgba(100, 116, 139, 0.8);
   font-size: 0.68rem;
 }
+
 
 .search-result {
   background: rgba(255, 255, 255, 0.7);
