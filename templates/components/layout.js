@@ -14,8 +14,10 @@ LogApp.initSplits = () => {
 
     if (collapsed) {
       root.classList.add("bottom-collapsed");
+      const header = bottomPane.querySelector(".pane-header");
+      const headerHeight = header ? header.offsetHeight : 24;
       topPane.style.flex = "1 1 auto";
-      bottomPane.style.flex = "0 0 6%";
+      bottomPane.style.flex = `0 0 ${headerHeight}px`;
       button.setAttribute("aria-label", "Expand search pane");
       button.classList.add("is-collapsed");
       if (headerText) {

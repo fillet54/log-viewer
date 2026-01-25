@@ -215,6 +215,7 @@
 
 .ghost-gutter {
   width: 8px;
+  flex: 0 0 8px;
   cursor: col-resize;
   background: rgba(226, 232, 240, 0.6);
 }
@@ -226,7 +227,16 @@
 .ghost-gutter-vertical {
   width: 100%;
   height: 10px;
+  flex: 0 0 10px;
   cursor: row-resize;
+  display: block;
+  background: rgba(226, 232, 240, 0.7);
+  border-top: 1px solid rgba(148, 163, 184, 0.6);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.6);
+}
+
+#split-root.bottom-collapsed .ghost-gutter-vertical {
+  display: none;
 }
 
 .ghost-line {
@@ -508,4 +518,9 @@
 
 #split-root.bottom-collapsed #pane-bottom {
   min-height: 26px;
+}
+
+#split-root.bottom-collapsed #pane-bottom {
+  background: rgba(226, 232, 240, 0.8);
+  border-top: 1px solid rgba(148, 163, 184, 0.6);
 }
