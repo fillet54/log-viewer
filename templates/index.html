@@ -20,104 +20,16 @@
       <div id="split-root" class="h-full w-full rounded-2xl bg-base-100 shadow-xl">
         <section id="pane-top" class="flex h-full">
           <div id="split-top" class="flex h-full w-full">
-            <section id="pane-center" class="pane">
-              <div class="chart-band">
-                <div class="chart-tools">
-                  <button
-                    id="toggle-tooltips"
-                    class="btn btn-outline btn-xs chart-toggle"
-                    aria-pressed="true"
-                    title="Toggle value popup on hover"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="tool-icon">
-                      <circle cx="12" cy="12" r="9" />
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8.25h.01M11.25 11.25h1.5v5.5" />
-                    </svg>
-                    <span class="sr-only">Toggle value popup</span>
-                  </button>
-                </div>
-                <canvas id="stacked-chart" height="120"></canvas>
-              </div>
-              <div class="pane-body log-body" id="log-body">
-                <div id="log-spacer"></div>
-                <div class="font-mono text-sm" id="log-list"></div>
-              </div>
-            </section>
-
-            <aside id="pane-right" class="pane">
-              <div class="pane-header">
-                <span class="icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 12h6l3-3 6 6" />
-                  </svg>
-                </span>
-                Insights
-              </div>
-              <div class="pane-body">
-                <div class="space-y-4">
-                  <div class="stat bg-base-200/60 rounded-xl">
-                    <div class="stat-title">Errors</div>
-                    <div class="stat-value text-error">12</div>
-                    <div class="stat-desc">Last 15 min</div>
-                  </div>
-                  <div class="stat bg-base-200/60 rounded-xl">
-                    <div class="stat-title">Requests</div>
-                    <div class="stat-value">5.1k</div>
-                    <div class="stat-desc">Last hour</div>
-                  </div>
-                </div>
-              </div>
-            </aside>
+            {% include 'components/log_view.html' %}
+            {% include 'components/right_pane.html' %}
           </div>
         </section>
 
-        <section id="pane-bottom" class="pane">
-          <div class="pane-header compact-header justify-between">
-            <span id="search-header-text" class="text-xs uppercase tracking-wide text-base-content/60">Search</span>
-            <div id="search-header-tabs" class="search-tabs hidden">
-              <button id="tab-history" class="btn btn-xs btn-ghost search-tab is-active">Search History</button>
-              <button id="tab-filters" class="btn btn-xs btn-ghost search-tab">Filters</button>
-            </div>
-            <button id="toggle-bottom" class="btn btn-ghost btn-xs" title="Toggle search pane">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tool-icon">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 10l6 6 6-6" />
-              </svg>
-            </button>
-          </div>
-          <div class="pane-body search-pane">
-            <div id="search-split" class="search-split">
-              <aside id="search-history-pane" class="search-history">
-                <div id="search-history-view" class="search-view">
-                  <div class="search-section">
-                    <div class="search-section-title">Pinned</div>
-                    <div id="search-pinned" class="search-list search-list-compact"></div>
-                  </div>
-                  <div class="search-section">
-                    <div class="search-section-title">History</div>
-                    <div id="search-history" class="search-list search-list-compact"></div>
-                  </div>
-                </div>
-                <div id="search-filter-view" class="search-view hidden">
-                  <div class="search-section">
-                    <div class="search-section-title">Filters</div>
-                    <div id="search-filters" class="search-list search-list-compact"></div>
-                  </div>
-                </div>
-              </aside>
-              <section id="search-results-pane" class="search-results">
-                <div class="search-controls">
-                  <input id="search-query" class="input input-bordered input-sm w-full" placeholder="Search logs, faults, codes..." />
-                  <button id="run-search" class="btn btn-primary btn-sm">Search</button>
-                </div>
-                <div id="search-results" class="search-list"></div>
-              </section>
-            </div>
-          </div>
-        </section>
+        {% include 'components/search_pane.html' %}
       </div>
     </main>
 
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script src="{{ url_for('app_js') }}"></script>
     <script id="log-data" type="application/json">{{ log_data | tojson }}</script>
   </body>
 </html>

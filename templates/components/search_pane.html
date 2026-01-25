@@ -1,0 +1,43 @@
+<section id="pane-bottom" class="pane">
+  <div class="pane-header compact-header justify-between">
+    <span id="search-header-text" class="text-xs uppercase tracking-wide text-base-content/60">Search</span>
+    <div id="search-header-tabs" class="search-tabs hidden">
+      <button id="tab-history" class="btn btn-xs btn-ghost search-tab is-active">Search History</button>
+      <button id="tab-filters" class="btn btn-xs btn-ghost search-tab">Filters</button>
+    </div>
+    <button id="toggle-bottom" class="btn btn-ghost btn-xs" title="Toggle search pane">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tool-icon">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 10l6 6 6-6" />
+      </svg>
+    </button>
+  </div>
+  <div class="pane-body search-pane">
+    <div id="search-split" class="search-split">
+      <aside id="search-history-pane" class="search-history">
+        <div id="search-history-view" class="search-view">
+          <div class="search-section">
+            <div class="search-section-title">Pinned</div>
+            <div id="search-pinned" class="search-list search-list-compact"></div>
+          </div>
+          <div class="search-section">
+            <div class="search-section-title">History</div>
+            <div id="search-history" class="search-list search-list-compact"></div>
+          </div>
+        </div>
+        <div id="search-filter-view" class="search-view hidden">
+          <div class="search-section">
+            <div class="search-section-title">Filters</div>
+            <div id="search-filters" class="search-list search-list-compact"></div>
+          </div>
+        </div>
+      </aside>
+      <section id="search-results-pane" class="search-results">
+        <div class="search-controls">
+          <input id="search-query" class="input input-bordered input-sm w-full" placeholder="Search logs, faults, codes..." />
+          <button id="run-search" class="btn btn-primary btn-sm">Search</button>
+        </div>
+        <div id="search-results" class="search-list"></div>
+      </section>
+    </div>
+  </div>
+</section>

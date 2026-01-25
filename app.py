@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 import random
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, Response
 
 app = Flask(__name__)
 
@@ -198,6 +198,11 @@ def index():
 
     log_data = generate_logs(hours_value, seed)
     return render_template("index.html", log_data=log_data)
+
+
+@app.route("/app.js")
+def app_js():
+    return Response(render_template("app.js"), mimetype="application/javascript")
 
 
 if __name__ == "__main__":

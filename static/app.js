@@ -6,6 +6,23 @@ const STORAGE_KEYS = {
   rootExpanded: "loglayout.split.root.expanded",
   searchHistory: "loglayout.search.history",
   searchPinned: "loglayout.search.pinned",
+  searchFilters: "loglayout.search.filters",
+};
+
+const createEventBus = () => {
+  const listeners = new Map();
+  return {
+    on(event, handler) {
+      if (!listeners.has(event)) listeners.set(event, new Set());
+      listeners.get(event).add(handler);
+      return () => listeners.get(event)?.delete(handler);
+    },
+    emit(event, payload) {
+      const handlers = listeners.get(event);
+      if (!handlers) return;
+      handlers.forEach((handler) => handler(payload));
+    },
+  };
 };
 
 const loadSizes = (key, fallback) => {
@@ -139,7 +156,7 @@ const buildLogRow = (event) => {
   return row;
 };
 
-const initLogList = (logData) => {
+const initLogList = (logData, bus) => {
   const logBody = document.getElementById("log-body");
   const logList = document.getElementById("log-list");
   const logSpacer = document.getElementById("log-spacer");
@@ -216,6 +233,7 @@ const initLogList = (logData) => {
     setSpacer();
     state.lastRange = [0, 0];
     updateVirtual();
+    if (bus) bus.emit("log:filtered", state.filtered);
   };
 
   const findClosestIndexBySeconds = (targetSeconds) => {
@@ -291,6 +309,16 @@ const initLogList = (logData) => {
   rebuildIndex();
   setSpacer();
   updateVirtual();
+  if (bus) bus.emit("log:filtered", state.filtered);
+
+  if (bus) {
+    bus.on("filters:apply", (queries) => applyFilterQueries(queries || []));
+    bus.on("log:jump", (payload) => {
+      if (!payload) return;
+      if (payload.rowId != null) ensureRowVisible(payload.rowId);
+      if (payload.seconds != null) scrollToSeconds(payload.seconds);
+    });
+  }
 
   return {
     scrollToSeconds,
@@ -301,7 +329,7 @@ const initLogList = (logData) => {
   };
 };
 
-const initSearchPane = (logData, logController, chartController) => {
+const initSearchPane = (logData, bus) => {
   const pinnedList = document.getElementById("search-pinned");
   const historyList = document.getElementById("search-history");
   const filtersList = document.getElementById("search-filters");
@@ -497,10 +525,7 @@ const initSearchPane = (logData, logController, chartController) => {
 
   const applyFilters = () => {
     const active = filters.filter((item) => item.enabled).map((item) => item.query);
-    if (logController) logController.applyFilters(active);
-    if (chartController && logController) {
-      chartController.updateFilteredEvents(logController.getFilteredEvents());
-    }
+    if (bus) bus.emit("filters:apply", active);
   };
 
   const renderResults = (items) => {
@@ -515,7 +540,7 @@ const initSearchPane = (logData, logController, chartController) => {
         <span class="search-time">${event.utc.slice(11, 19)}</span>
       `;
       row.addEventListener("click", () => {
-        if (logController) logController.ensureRowVisible(event.row_id);
+        if (bus) bus.emit("log:jump", { rowId: event.row_id });
       });
       fragment.appendChild(row);
     });
@@ -556,7 +581,7 @@ const initSearchPane = (logData, logController, chartController) => {
   applyFilters();
 };
 
-const initChart = (logData, logController) => {
+const initChart = (logData, bus) => {
   if (!logData) return;
 
   const stackedCanvas = document.getElementById("stacked-chart");
@@ -598,7 +623,7 @@ const initChart = (logData, logController) => {
     return buckets;
   };
 
-  const initialEvents = logController ? logController.getFilteredEvents() : events;
+  const initialEvents = events;
   const levelBuckets = buildBuckets(initialEvents);
 
   const stackedContext = stackedCanvas.getContext("2d");
@@ -690,9 +715,7 @@ const initChart = (logData, logController) => {
         if (pos.x < chartArea.left || pos.x > chartArea.right) return;
         const ratio = (pos.x - chartArea.left) / chartArea.width;
         const targetSeconds = Math.floor((ratio * spanMs) / 1000);
-        if (logController) {
-          logController.scrollToSeconds(targetSeconds);
-        }
+        if (bus) bus.emit("log:jump", { seconds: targetSeconds });
       },
     },
     plugins: [hoverLinePlugin],
@@ -751,6 +774,12 @@ const initChart = (logData, logController) => {
     stackedChart.update();
   };
 
+  if (bus) {
+    bus.on("log:filtered", (filtered) => {
+      updateFilteredEvents(filtered || []);
+    });
+  }
+
   return {
     updateFilteredEvents,
   };
@@ -758,10 +787,11 @@ const initChart = (logData, logController) => {
 
 window.addEventListener("DOMContentLoaded", () => {
   initSplits();
+  const bus = createEventBus();
   const logData = loadLogData();
-  const logController = initLogList(logData);
-  const chartController = initChart(logData, logController);
-  initSearchPane(logData, logController, chartController);
+  initLogList(logData, bus);
+  initChart(logData, bus);
+  initSearchPane(logData, bus);
 });
 
 const smoothScrollTo = (container, targetTop, durationMs = 200, onComplete = null) => {
