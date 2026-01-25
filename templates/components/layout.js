@@ -64,6 +64,19 @@ LogApp.initSplits = () => {
     onDragEnd: (sizes) => saveSizes(STORAGE_KEYS.top, sizes),
   });
 
+  const searchSizes = loadSizes(STORAGE_KEYS.search, [28, 72]);
+  const searchHistory = document.getElementById("search-history-pane");
+  const searchResults = document.getElementById("search-results-pane");
+  if (searchHistory && searchResults) {
+    Split(["#search-history-pane", "#search-results-pane"], {
+      sizes: searchSizes,
+      direction: "horizontal",
+      gutterSize: 8,
+      minSize: [160, 320],
+      onDragEnd: (sizes) => saveSizes(STORAGE_KEYS.search, sizes),
+    });
+  }
+
   const toggleButton = document.getElementById("toggle-bottom");
   if (toggleButton) {
     toggleButton.addEventListener("click", () => {
