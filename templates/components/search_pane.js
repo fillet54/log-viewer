@@ -258,11 +258,7 @@ LogApp.initSearchPane = (logData, bus) => {
   queryInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") runSearch(true);
   });
-  let inputDebounce = null;
-  queryInput.addEventListener("input", () => {
-    if (inputDebounce) window.clearTimeout(inputDebounce);
-    inputDebounce = window.setTimeout(() => runSearch(false), 250);
-  });
+  // Live search disabled; only Search button or Enter triggers.
 
   clearHistoryButton.addEventListener("click", clearHistory);
 

@@ -142,6 +142,17 @@ LogApp.tokenizeQuery = (input) => {
     while (i < input.length && !/\s|\(|\)/.test(input[i])) {
       value += input[i];
       i += 1;
+      if (value.includes(":") && input[i] === '"') {
+        i += 1;
+        let quoted = "";
+        while (i < input.length && input[i] !== '"') {
+          quoted += input[i];
+          i += 1;
+        }
+        value += `"${quoted}"`;
+        if (input[i] === '"') i += 1;
+        break;
+      }
     }
     if (value.toUpperCase() === "OR" || value === "|") {
       tokens.push({ type: "OR" });
@@ -217,10 +228,14 @@ LogApp.matchFieldTerm = (event, field, term) => {
   const value = LogApp.getFieldValue(event, field);
   if (value == null) return false;
   const text = LogApp.toComparable(value);
+  const cleaned = term.startsWith('"') && term.endsWith('"') ? term.slice(1, -1) : term;
   if (term.includes("*")) {
-    return LogApp.globToRegex(term).test(text);
+    return LogApp.globToRegex(cleaned).test(text);
   }
-  return text.toLowerCase() === term.toLowerCase();
+  if (field === "name") {
+    return LogApp.globToRegex(cleaned + "*").test(text);
+  }
+  return text.toLowerCase() === cleaned.toLowerCase();
 };
 
 LogApp.matchBareTerm = (event, term) => {
@@ -351,6 +366,17 @@ LogApp.createSearchWorker = (events = []) => {
         while (i < input.length && !/\s|\(|\)/.test(input[i])) {
           value += input[i];
           i += 1;
+          if (value.includes(":") && input[i] === '"') {
+            i += 1;
+            let quoted = "";
+            while (i < input.length && input[i] !== '"') {
+              quoted += input[i];
+              i += 1;
+            }
+            value += `\"${quoted}\"`;
+            if (input[i] === '"') i += 1;
+            break;
+          }
         }
         if (value.toUpperCase() === "OR" || value === "|") {
           tokens.push({ type: "OR" });
@@ -426,10 +452,14 @@ LogApp.createSearchWorker = (events = []) => {
       const value = getFieldValue(event, field);
       if (value == null) return false;
       const text = toComparable(value);
+      const cleaned = term.startsWith('"') && term.endsWith('"') ? term.slice(1, -1) : term;
       if (term.includes("*")) {
-        return globToRegex(term).test(text);
+        return globToRegex(cleaned).test(text);
       }
-      return text.toLowerCase() === term.toLowerCase();
+      if (field === "name") {
+        return globToRegex(cleaned + "*").test(text);
+      }
+      return text.toLowerCase() === cleaned.toLowerCase();
     };
 
     const matchBareTerm = (event, term) => {
