@@ -169,16 +169,20 @@ LogApp.initChart = (logData, bus) => {
 
   const toggleTooltips = document.getElementById("toggle-tooltips");
   if (toggleTooltips) {
+    const stored = localStorage.getItem(LogApp.STORAGE_KEYS.chartTooltips);
+    const initialEnabled = stored === null ? false : stored === "true";
+    stackedChart.options.plugins.tooltip.enabled = initialEnabled;
     const setToggleState = (enabled) => {
       toggleTooltips.setAttribute("aria-pressed", String(enabled));
       toggleTooltips.classList.toggle("tooltip-disabled", !enabled);
       toggleTooltips.classList.toggle("is-enabled", enabled);
     };
-    setToggleState(true);
+    setToggleState(initialEnabled);
     toggleTooltips.addEventListener("click", () => {
       const current = stackedChart.options.plugins.tooltip.enabled !== false;
       stackedChart.options.plugins.tooltip.enabled = !current;
       setToggleState(!current);
+      localStorage.setItem(LogApp.STORAGE_KEYS.chartTooltips, String(!current));
       stackedChart.update();
     });
   }
