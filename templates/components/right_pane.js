@@ -4,16 +4,18 @@ LogApp.initRightPane = (bus) => {
   const container = document.getElementById("event-detail");
   if (!container || !bus) return;
 
-  const renderValue = (value, indent = 0) => {
+  const renderRows = (value, prefix = []) => {
     if (value && typeof value === "object" && !Array.isArray(value)) {
-      return Object.entries(value)
-        .map(
-          ([key, val]) =>
-            `${" ".repeat(indent)}${key}: ${renderValue(val, indent + 2)}`
-        )
-        .join("\n");
+      return Object.entries(value).flatMap(([key, val]) =>
+        renderRows(val, [...prefix, key])
+      );
     }
-    return String(value);
+    return [
+      {
+        key: prefix.join("."),
+        value: String(value),
+      },
+    ];
   };
 
   const renderEvent = (event) => {
@@ -22,9 +24,21 @@ LogApp.initRightPane = (bus) => {
       return;
     }
 
-    const dataBlock = event.data
-      ? `<pre class="event-data">${renderValue(event.data)}</pre>`
-      : '<div class="text-xs text-base-content/50">No event data available.</div>';
+    let dataBlock = '<div class="text-xs text-base-content/50">No event data available.</div>';
+    if (event.data) {
+      const rows = renderRows(event.data);
+      const rendered = rows
+        .map(
+          (row) => `
+          <div class="data-row">
+            <div class="data-key">${row.key}</div>
+            <div class="data-value">${row.value}</div>
+          </div>
+        `
+        )
+        .join("");
+      dataBlock = `<div class="event-data">${rendered}</div>`;
+    }
 
     container.innerHTML = `
       <div class="space-y-3">

@@ -385,11 +385,38 @@
 .event-data {
   font-size: 0.7rem;
   line-height: 1.4;
-  white-space: pre-wrap;
   background: var(--color-bg-soft);
   border: 1px solid var(--color-border);
-  padding: 0.5rem;
+  padding: 0.35rem;
   border-radius: 0.5rem;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.data-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.6rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: 0.4rem;
+}
+
+.data-row:nth-child(odd) {
+  background: rgba(226, 232, 240, 0.5);
+}
+
+.data-row:hover {
+  background: rgba(191, 219, 254, 0.5);
+}
+
+.data-key {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.data-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .search-result {
