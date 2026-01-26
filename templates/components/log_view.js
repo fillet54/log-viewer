@@ -44,7 +44,8 @@ LogApp.initLogList = (logData, bus) => {
     filtered: events,
     filterQuery: "",
     rowStride,
-    overscan: 8,
+    overscan: 4,
+    maxVisible: 120,
     lastRange: [0, 0],
     indexByRowId: new Map(),
   };
@@ -73,7 +74,10 @@ LogApp.initLogList = (logData, bus) => {
   const updateVirtual = () => {
     const scrollTop = logBody.scrollTop;
     const startIndex = Math.max(0, Math.floor(scrollTop / state.rowStride) - state.overscan);
-    const visibleCount = Math.ceil(logBody.clientHeight / state.rowStride) + state.overscan * 2;
+    const visibleCount = Math.min(
+      state.maxVisible,
+      Math.ceil(logBody.clientHeight / state.rowStride) + state.overscan * 2
+    );
     const endIndex = Math.min(state.filtered.length, startIndex + visibleCount);
     if (state.lastRange[0] === startIndex && state.lastRange[1] === endIndex) return;
     state.lastRange = [startIndex, endIndex];

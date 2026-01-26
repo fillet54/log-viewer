@@ -5,6 +5,8 @@ LogApp.initSearchPane = (logData, bus) => {
   const historyList = document.getElementById("search-history");
   const filtersList = document.getElementById("search-filters");
   const resultsList = document.getElementById("search-results");
+  const resultsSpacer = document.getElementById("search-results-spacer");
+  const resultsItems = document.getElementById("search-results-list");
   const queryInput = document.getElementById("search-query");
   const runButton = document.getElementById("run-search");
   const clearHistoryButton = document.getElementById("clear-history");
@@ -18,6 +20,8 @@ LogApp.initSearchPane = (logData, bus) => {
     !historyList ||
     !filtersList ||
     !resultsList ||
+    !resultsSpacer ||
+    !resultsItems ||
     !queryInput ||
     !runButton ||
     !clearHistoryButton ||
@@ -210,25 +214,68 @@ LogApp.initSearchPane = (logData, bus) => {
     if (bus) bus.emit("filters:apply", active);
   };
 
-  const MAX_RESULTS = 200;
+  const renderResultRow = (event) => {
+    const row = document.createElement("div");
+    row.className = "search-item search-result";
+    row.innerHTML = `
+      <span class="search-level">${event.level}</span>
+      <span>${event.name} — ${event.description}</span>
+      <span class="search-time">${event.utc.slice(11, 19)}</span>
+    `;
+    row.addEventListener("click", () => {
+      if (bus) bus.emit("log:jump", { rowId: event.row_id });
+    });
+    return row;
+  };
+
+  const resultsState = {
+    items: [],
+    rowStride: 28,
+    overscan: 6,
+    lastRange: [0, 0],
+  };
+
+  const measureResultRow = () => {
+    const sample = renderResultRow(events[0]);
+    sample.style.visibility = "hidden";
+    resultsItems.appendChild(sample);
+    const rowHeight = sample.getBoundingClientRect().height || 28;
+    const listStyle = getComputedStyle(resultsItems);
+    const gap = parseFloat(listStyle.rowGap || listStyle.gap || "0") || 0;
+    resultsItems.removeChild(sample);
+    resultsState.rowStride = rowHeight + gap;
+  };
+
+  const setResultsSpacer = () => {
+    resultsSpacer.style.height = `${resultsState.items.length * resultsState.rowStride}px`;
+  };
+
+  const renderResultsRange = (startIndex, endIndex) => {
+    resultsItems.style.transform = `translateY(${startIndex * resultsState.rowStride}px)`;
+    resultsItems.innerHTML = "";
+    const fragment = document.createDocumentFragment();
+    for (let i = startIndex; i < endIndex; i += 1) {
+      fragment.appendChild(renderResultRow(resultsState.items[i]));
+    }
+    resultsItems.appendChild(fragment);
+  };
+
+  const updateResultsVirtual = () => {
+    const scrollTop = resultsList.scrollTop;
+    const startIndex = Math.max(0, Math.floor(scrollTop / resultsState.rowStride) - resultsState.overscan);
+    const visibleCount =
+      Math.ceil(resultsList.clientHeight / resultsState.rowStride) + resultsState.overscan * 2;
+    const endIndex = Math.min(resultsState.items.length, startIndex + visibleCount);
+    if (resultsState.lastRange[0] === startIndex && resultsState.lastRange[1] === endIndex) return;
+    resultsState.lastRange = [startIndex, endIndex];
+    renderResultsRange(startIndex, endIndex);
+  };
 
   const renderResults = (items) => {
-    resultsList.innerHTML = "";
-    const fragment = document.createDocumentFragment();
-    items.slice(0, MAX_RESULTS).forEach((event) => {
-      const row = document.createElement("div");
-      row.className = "search-item search-result";
-      row.innerHTML = `
-        <span class="search-level">${event.level}</span>
-        <span>${event.name} — ${event.description}</span>
-        <span class="search-time">${event.utc.slice(11, 19)}</span>
-      `;
-      row.addEventListener("click", () => {
-        if (bus) bus.emit("log:jump", { rowId: event.row_id });
-      });
-      fragment.appendChild(row);
-    });
-    resultsList.appendChild(fragment);
+    resultsState.items = items;
+    resultsState.lastRange = [0, 0];
+    setResultsSpacer();
+    updateResultsVirtual();
   };
 
   let pendingSearch = 0;
@@ -276,6 +323,13 @@ LogApp.initSearchPane = (logData, bus) => {
   renderPinned();
   renderHistory();
   renderFilters();
-  renderResults(events.slice(0, 40));
+  if (events.length) {
+    measureResultRow();
+  }
+  renderResults(events.slice(0, 200));
   applyFilters();
+
+  resultsList.addEventListener("scroll", () => {
+    requestAnimationFrame(updateResultsVirtual);
+  });
 };
