@@ -322,13 +322,6 @@
   color: rgba(100, 116, 139, 0.8);
 }
 
-.search-title {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.7rem;
-  color: rgba(100, 116, 139, 0.8);
-}
-
 .search-controls {
   display: flex;
   gap: 0.6rem;
@@ -363,9 +356,6 @@
   background-color: transparent;
 }
 
-
-
-
 .search-item .search-level {
   text-transform: uppercase;
   font-weight: 600;
@@ -376,7 +366,6 @@
   color: rgba(100, 116, 139, 0.8);
   font-size: 0.68rem;
 }
-
 
 .search-result {
   background: rgba(255, 255, 255, 0.7);
@@ -484,43 +473,12 @@
   height: 1.1rem;
 }
 
-.gutter {
-  background-color: var(--gutter);
-  background-repeat: no-repeat;
-  background-position: 50%;
-}
-
-.gutter:hover {
-  background-color: var(--gutter-hover);
-}
-
-.gutter.gutter-horizontal {
-  cursor: col-resize;
-  width: 10px;
-}
-
-.gutter.gutter-vertical {
-  cursor: row-resize;
-  height: 10px;
-}
-
-#pane-bottom {
-  min-height: 160px;
-}
-
-#split-root.bottom-collapsed .gutter-vertical {
-  height: 10px;
-}
-
 #split-root.bottom-collapsed #pane-bottom .pane-body {
   display: none;
 }
 
 #split-root.bottom-collapsed #pane-bottom {
   min-height: 26px;
-}
-
-#split-root.bottom-collapsed #pane-bottom {
   background: rgba(226, 232, 240, 0.8);
   border-top: 1px solid rgba(148, 163, 184, 0.6);
 }
