@@ -228,7 +228,11 @@ LogApp.initSearchPane = (logData, bus) => {
     const fragment = document.createDocumentFragment();
     getBookmarkEvents().forEach((event) => {
       const row = document.createElement("div");
-      row.className = `log-line log-${event.level.replace(" ", "-")} search-result-row is-bookmarked`;
+      const colorIndex = LogApp.bookmarks?.getColor(event.row_id) || 0;
+      row.className = `log-line log-${event.level.replace(" ", "-")} search-result-row${
+        colorIndex ? " is-bookmarked" : ""
+      }`;
+      row.dataset.bookmarkColor = String(colorIndex);
       row.innerHTML = `
         <span class="badge badge-sm level-tag">${event.level}</span>
         <span class="log-time text-base-content/60">${event.utc}</span>
@@ -245,9 +249,9 @@ LogApp.initSearchPane = (logData, bus) => {
       `;
       row.querySelector(".bookmark-toggle").addEventListener("click", (eventClick) => {
         eventClick.stopPropagation();
-        LogApp.bookmarks?.toggle(event.row_id);
+        LogApp.bookmarks?.cycle(event.row_id);
         renderBookmarks();
-        if (bus) bus.emit("bookmarks:changed", LogApp.bookmarks?.getAll() || []);
+        if (bus) bus.emit("bookmarks:changed", LogApp.bookmarks?.getAllWithColors() || {});
       });
       row.addEventListener("click", () => {
         if (bus) bus.emit("event:selected", event);
@@ -265,10 +269,11 @@ LogApp.initSearchPane = (logData, bus) => {
 
   const renderResultRow = (event) => {
     const row = document.createElement("div");
-    const bookmarked = LogApp.bookmarks?.isBookmarked(event.row_id);
+    const colorIndex = LogApp.bookmarks?.getColor(event.row_id) || 0;
     row.className = `log-line log-${event.level.replace(" ", "-")} search-result-row${
-      bookmarked ? " is-bookmarked" : ""
+      colorIndex ? " is-bookmarked" : ""
     }`;
+    row.dataset.bookmarkColor = String(colorIndex);
     row.innerHTML = `
       <span class="badge badge-sm level-tag">${event.level}</span>
       <span class="log-time text-base-content/60">${event.utc}</span>
@@ -285,10 +290,11 @@ LogApp.initSearchPane = (logData, bus) => {
     `;
     row.querySelector(".bookmark-toggle").addEventListener("click", (eventClick) => {
       eventClick.stopPropagation();
-      const next = LogApp.bookmarks?.toggle(event.row_id);
-      row.classList.toggle("is-bookmarked", next);
+      const next = LogApp.bookmarks?.cycle(event.row_id) || 0;
+      row.classList.toggle("is-bookmarked", next > 0);
+      row.dataset.bookmarkColor = String(next);
       renderBookmarks();
-      if (bus) bus.emit("bookmarks:changed", LogApp.bookmarks?.getAll() || []);
+      if (bus) bus.emit("bookmarks:changed", LogApp.bookmarks?.getAllWithColors() || {});
     });
     row.addEventListener("click", () => {
       if (bus) bus.emit("event:selected", event);
@@ -426,9 +432,22 @@ LogApp.initSearchPane = (logData, bus) => {
 
   if (bus) {
     bus.on("bookmarks:changed", renderBookmarks);
-    bus.on("bookmarks:changed", () => {
-      resultsState.lastRange = [0, 0];
-      runSearch(false);
+    bus.on("bookmarks:changed", (map) => {
+      if (currentTab === "bookmarks") {
+        resultsState.lastRange = [0, 0];
+        runSearch(false);
+        return;
+      }
+      const rows = resultsList.querySelectorAll(".log-line");
+      rows.forEach((row) => {
+        const rowId = row.dataset.rowId;
+        const colorIndex =
+          (map && rowId != null ? Number(map[String(rowId)]) : null) ??
+          LogApp.bookmarks?.getColor(rowId) ??
+          0;
+        row.classList.toggle("is-bookmarked", colorIndex > 0);
+        row.dataset.bookmarkColor = String(colorIndex || 0);
+      });
     });
   }
 

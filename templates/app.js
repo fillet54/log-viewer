@@ -96,33 +96,67 @@ LogApp.createBookmarkStore = (events = []) => {
   const load = () => {
     try {
       const raw = localStorage.getItem(LogApp.STORAGE_KEYS.bookmarks);
-      const parsed = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(parsed)) return new Set();
-      return new Set(parsed.filter((id) => validIds.has(String(id))));
+      const parsed = raw ? JSON.parse(raw) : {};
+      if (Array.isArray(parsed)) {
+        const legacy = {};
+        parsed.forEach((id) => {
+          const key = String(id);
+          if (validIds.has(key)) legacy[key] = 1;
+        });
+        return legacy;
+      }
+      if (parsed && typeof parsed === "object") {
+        const sanitized = {};
+        Object.entries(parsed).forEach(([key, value]) => {
+          const id = String(key);
+          if (!validIds.has(id)) return;
+          const index = Number(value) || 0;
+          sanitized[id] = Math.max(0, Math.min(5, index));
+        });
+        return sanitized;
+      }
+      return {};
     } catch (err) {
-      return new Set();
+      return {};
     }
   };
   let bookmarks = load();
   const save = () => {
     localStorage.setItem(
       LogApp.STORAGE_KEYS.bookmarks,
-      JSON.stringify(Array.from(bookmarks))
+      JSON.stringify(bookmarks)
     );
   };
-  const toggle = (rowId) => {
+  const cycle = (rowId) => {
     const key = String(rowId);
-    if (bookmarks.has(key)) {
-      bookmarks.delete(key);
-    } else if (validIds.has(key)) {
-      bookmarks.add(key);
+    if (!validIds.has(key)) return 0;
+    const current = Number(bookmarks[key]) || 0;
+    const next = (current + 1) % 6;
+    if (next === 0) {
+      delete bookmarks[key];
+    } else {
+      bookmarks[key] = next;
     }
     save();
-    return bookmarks.has(key);
+    return next;
   };
-  const isBookmarked = (rowId) => bookmarks.has(String(rowId));
-  const getAll = () => Array.from(bookmarks);
-  return { toggle, isBookmarked, getAll };
+  const setColor = (rowId, colorIndex) => {
+    const key = String(rowId);
+    if (!validIds.has(key)) return 0;
+    const next = Math.max(0, Math.min(5, Number(colorIndex) || 0));
+    if (next === 0) {
+      delete bookmarks[key];
+    } else {
+      bookmarks[key] = next;
+    }
+    save();
+    return next;
+  };
+  const getColor = (rowId) => Number(bookmarks[String(rowId)]) || 0;
+  const isBookmarked = (rowId) => getColor(rowId) > 0;
+  const getAll = () => Object.keys(bookmarks);
+  const getAllWithColors = () => ({ ...bookmarks });
+  return { cycle, setColor, getColor, isBookmarked, getAll, getAllWithColors };
 };
 
 LogApp.getFieldValue = (event, path) => {

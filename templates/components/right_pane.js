@@ -39,6 +39,7 @@ LogApp.initRightPane = (bus) => {
     }
 
     const isBookmarked = LogApp.bookmarks?.isBookmarked(event.row_id);
+    const colorIndex = LogApp.bookmarks?.getColor(event.row_id) || 0;
     const notes = loadNotes();
     const noteValue = notes[String(event.row_id)] || "";
     let dataBlock = '<div class="text-xs text-base-content/50">No event data available.</div>';
@@ -66,6 +67,12 @@ LogApp.initRightPane = (bus) => {
         ${dataBlock}
         ${isBookmarked ? `
           <div class="bookmark-notes">
+            <div class="text-xs uppercase tracking-wide text-base-content/60">Bookmark Color</div>
+            <div class="bookmark-colors" data-row-id="${event.row_id}">
+              ${[1,2,3,4,5].map((idx) => `
+                <button class="bookmark-color ${colorIndex === idx ? "is-active" : ""}" data-color="${idx}" title="Color ${idx}"></button>
+              `).join("")}
+            </div>
             <div class="text-xs uppercase tracking-wide text-base-content/60">Bookmark Note</div>
             <textarea id="bookmark-note" class="textarea textarea-bordered textarea-sm w-full" rows="3" placeholder="Add a note...">${noteValue}</textarea>
           </div>
@@ -79,6 +86,18 @@ LogApp.initRightPane = (bus) => {
         const updated = loadNotes();
         updated[String(event.row_id)] = noteInput.value;
         saveNotes(updated);
+      });
+    }
+
+    const colorContainer = container.querySelector(".bookmark-colors");
+    if (colorContainer) {
+      colorContainer.addEventListener("click", (clickEvent) => {
+        const button = clickEvent.target.closest(".bookmark-color");
+        if (!button) return;
+        const color = Number(button.dataset.color) || 1;
+        LogApp.bookmarks?.setColor(event.row_id, color);
+        if (bus) bus.emit("bookmarks:changed", LogApp.bookmarks?.getAllWithColors() || {});
+        renderEvent(event);
       });
     }
   };

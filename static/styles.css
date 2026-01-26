@@ -14,6 +14,11 @@
   --color-highlight: rgba(56, 189, 248, 0.45);
   --color-highlight-start: rgba(56, 189, 248, 0.15);
   --color-highlight-mid: rgba(56, 189, 248, 0.08);
+  --bookmark-color-1: rgba(59, 130, 246, 0.95);
+  --bookmark-color-2: rgba(16, 185, 129, 0.95);
+  --bookmark-color-3: rgba(245, 158, 11, 0.95);
+  --bookmark-color-4: rgba(236, 72, 153, 0.95);
+  --bookmark-color-5: rgba(139, 92, 246, 0.95);
 }
 
 #split-root {
@@ -218,12 +223,28 @@
   height: 14px;
 }
 
-.log-line.is-bookmarked .bookmark-toggle {
-  color: rgba(14, 116, 144, 0.9);
-}
-
 .log-line.is-bookmarked .bookmark-toggle svg {
   fill: currentColor;
+}
+
+.log-line[data-bookmark-color="1"] .bookmark-toggle {
+  color: var(--bookmark-color-1);
+}
+
+.log-line[data-bookmark-color="2"] .bookmark-toggle {
+  color: var(--bookmark-color-2);
+}
+
+.log-line[data-bookmark-color="3"] .bookmark-toggle {
+  color: var(--bookmark-color-3);
+}
+
+.log-line[data-bookmark-color="4"] .bookmark-toggle {
+  color: var(--bookmark-color-4);
+}
+
+.log-line[data-bookmark-color="5"] .bookmark-toggle {
+  color: var(--bookmark-color-5);
 }
 
 
@@ -470,6 +491,60 @@
   border-radius: 0.5rem;
   display: grid;
   gap: 0.1rem;
+}
+
+.bookmark-colors {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.35rem;
+}
+
+.bookmark-color {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-strong);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.bookmark-color.is-active {
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.2);
+}
+
+.bookmark-color[data-color="1"] {
+  background: var(--bookmark-color-1);
+}
+
+.bookmark-color[data-color="2"] {
+  background: var(--bookmark-color-2);
+}
+
+.bookmark-color[data-color="3"] {
+  background: var(--bookmark-color-3);
+}
+
+.bookmark-color[data-color="4"] {
+  background: var(--bookmark-color-4);
+}
+
+.bookmark-color[data-color="5"] {
+  background: var(--bookmark-color-5);
+}
+
+.bookmark-color[data-color="0"] {
+  background: transparent;
+  position: relative;
+}
+
+.bookmark-color[data-color="0"]::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 999px;
+  border: 1px dashed var(--color-border-strong);
 }
 
 .bookmark-notes textarea {

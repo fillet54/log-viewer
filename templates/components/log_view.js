@@ -12,8 +12,11 @@ LogApp.initLogList = (logData, bus) => {
 
   const buildLogRow = (event) => {
     const row = document.createElement("div");
-    const bookmarked = LogApp.bookmarks?.isBookmarked(event.row_id);
-    row.className = `log-line log-${event.level.replace(" ", "-")}${bookmarked ? " is-bookmarked" : ""}`;
+    const colorIndex = LogApp.bookmarks?.getColor(event.row_id) || 0;
+    row.className = `log-line log-${event.level.replace(" ", "-")}${
+      colorIndex ? " is-bookmarked" : ""
+    }`;
+    row.dataset.bookmarkColor = String(colorIndex);
     row.dataset.seconds = event.seconds_from_start;
     row.dataset.rowId = event.row_id;
     row.innerHTML = `
@@ -33,9 +36,10 @@ LogApp.initLogList = (logData, bus) => {
     const bookmarkButton = row.querySelector(".bookmark-toggle");
     bookmarkButton.addEventListener("click", (eventClick) => {
       eventClick.stopPropagation();
-      const next = LogApp.bookmarks?.toggle(event.row_id);
-      row.classList.toggle("is-bookmarked", next);
-      if (bus) bus.emit("bookmarks:changed", LogApp.bookmarks?.getAll() || []);
+      const next = LogApp.bookmarks?.cycle(event.row_id) || 0;
+      row.classList.toggle("is-bookmarked", next > 0);
+      row.dataset.bookmarkColor = String(next);
+      if (bus) bus.emit("bookmarks:changed", LogApp.bookmarks?.getAllWithColors() || {});
     });
     row.addEventListener("click", () => {
       if (bus) bus.emit("event:selected", event);
@@ -218,6 +222,18 @@ LogApp.initLogList = (logData, bus) => {
       if (!payload) return;
       if (payload.rowId != null) ensureRowVisible(payload.rowId);
       if (payload.seconds != null) scrollToSeconds(payload.seconds);
+    });
+    bus.on("bookmarks:changed", (map) => {
+      const rows = logList.querySelectorAll(".log-line");
+      rows.forEach((row) => {
+        const rowId = row.dataset.rowId;
+        const colorIndex =
+          (map && rowId != null ? Number(map[String(rowId)]) : null) ??
+          LogApp.bookmarks?.getColor(rowId) ??
+          0;
+        row.classList.toggle("is-bookmarked", colorIndex > 0);
+        row.dataset.bookmarkColor = String(colorIndex || 0);
+      });
     });
   }
 

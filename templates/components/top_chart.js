@@ -118,12 +118,15 @@ LogApp.initChart = (logData, bus) => {
       ids.forEach((id) => {
         const event = events.find((entry) => String(entry.row_id) === String(id));
         if (!event) return;
+        const colorIndex = LogApp.bookmarks?.getColor(event.row_id) || 1;
         const timestamp = new Date(event.utc).getTime();
         const ratio = Math.max(0, Math.min(1, (timestamp - startTime.getTime()) / spanMs));
         const x = chartArea.left + ratio * chartArea.width;
         const y = chartArea.bottom - 6;
         ctx.beginPath();
-        ctx.fillStyle = "rgba(14, 116, 144, 0.9)";
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue(
+          `--bookmark-color-${colorIndex}`
+        ) || "rgba(14, 116, 144, 0.9)";
         ctx.arc(x, y, 3, 0, Math.PI * 2);
         ctx.fill();
         dots.push({ x, y, rowId: event.row_id });
