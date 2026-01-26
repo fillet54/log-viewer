@@ -83,6 +83,25 @@ LogApp.initChart = (logData, bus) => {
     },
   };
 
+  const scrollIndicatorPlugin = {
+    id: "scrollIndicator",
+    afterDatasetsDraw(chart) {
+      const { ctx, chartArea } = chart;
+      const ratio = chart.$scrollRatio;
+      if (typeof ratio !== "number") return;
+      const x = chartArea.left + ratio * chartArea.width;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(x, chartArea.top);
+      ctx.lineTo(x, chartArea.bottom);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(30, 64, 175, 0.65)";
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.restore();
+    },
+  };
+
   const modeBandPlugin = {
     id: "modeBands",
     beforeDatasetsDraw(chart) {
@@ -205,7 +224,7 @@ LogApp.initChart = (logData, bus) => {
         if (bus) bus.emit("log:jump", { seconds: targetSeconds });
       },
     },
-    plugins: [modeBandPlugin, bookmarkPlugin, hoverLinePlugin],
+    plugins: [modeBandPlugin, bookmarkPlugin, hoverLinePlugin, scrollIndicatorPlugin],
   });
 
   const updateHover = (event) => {
@@ -268,6 +287,12 @@ LogApp.initChart = (logData, bus) => {
   if (bus) {
     bus.on("log:filtered", (filtered) => {
       updateFilteredEvents(filtered || []);
+    });
+    bus.on("log:scroll", (payload) => {
+      if (!payload || typeof payload.seconds !== "number") return;
+      const ratio = Math.max(0, Math.min(1, payload.seconds / (spanMs / 1000)));
+      stackedChart.$scrollRatio = ratio;
+      stackedChart.update("none");
     });
     bus.on("bookmarks:changed", () => {
       stackedChart.update();

@@ -198,8 +198,27 @@ LogApp.initLogList = (logData, bus) => {
     return scrollToRowId(rowId);
   };
 
+  let scrollRaf = 0;
   logBody.addEventListener("scroll", () => {
-    requestAnimationFrame(updateVirtual);
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(() => {
+      scrollRaf = 0;
+      updateVirtual();
+      const index = Math.max(
+        0,
+        Math.min(
+          state.filtered.length - 1,
+          Math.floor((logBody.scrollTop + logBody.clientHeight / 2) / state.rowStride)
+        )
+      );
+      const current = state.filtered[index];
+      if (bus && current) {
+        bus.emit("log:scroll", {
+          seconds: current.seconds_from_start,
+          rowId: current.row_id,
+        });
+      }
+    });
   });
 
   if (searchInput) {
