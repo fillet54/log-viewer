@@ -108,6 +108,31 @@ LogApp.initChart = (logData, bus) => {
     },
   };
 
+  const bookmarkPlugin = {
+    id: "bookmarkDots",
+    afterDatasetsDraw(chart) {
+      const { ctx, chartArea } = chart;
+      const ids = LogApp.bookmarks?.getAll() || [];
+      const dots = [];
+      ctx.save();
+      ids.forEach((id) => {
+        const event = events.find((entry) => String(entry.row_id) === String(id));
+        if (!event) return;
+        const timestamp = new Date(event.utc).getTime();
+        const ratio = Math.max(0, Math.min(1, (timestamp - startTime.getTime()) / spanMs));
+        const x = chartArea.left + ratio * chartArea.width;
+        const y = chartArea.bottom - 6;
+        ctx.beginPath();
+        ctx.fillStyle = "rgba(14, 116, 144, 0.9)";
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        dots.push({ x, y, rowId: event.row_id });
+      });
+      chart.$bookmarkDots = dots;
+      ctx.restore();
+    },
+  };
+
   const stackedChart = new Chart(stackedContext, {
     type: "bar",
     data: {
@@ -158,12 +183,21 @@ LogApp.initChart = (logData, bus) => {
         const pos = Chart.helpers.getRelativePosition(event, stackedChart);
         const { chartArea } = stackedChart;
         if (pos.x < chartArea.left || pos.x > chartArea.right) return;
+        const dots = stackedChart.$bookmarkDots || [];
+        for (const dot of dots) {
+          const dx = pos.x - dot.x;
+          const dy = pos.y - dot.y;
+          if (Math.sqrt(dx * dx + dy * dy) <= 6) {
+            if (bus) bus.emit("log:jump", { rowId: dot.rowId });
+            return;
+          }
+        }
         const ratio = (pos.x - chartArea.left) / chartArea.width;
         const targetSeconds = Math.floor((ratio * spanMs) / 1000);
         if (bus) bus.emit("log:jump", { seconds: targetSeconds });
       },
     },
-    plugins: [modeBandPlugin, hoverLinePlugin],
+    plugins: [modeBandPlugin, bookmarkPlugin, hoverLinePlugin],
   });
 
   const updateHover = (event) => {
@@ -226,6 +260,9 @@ LogApp.initChart = (logData, bus) => {
   if (bus) {
     bus.on("log:filtered", (filtered) => {
       updateFilteredEvents(filtered || []);
+    });
+    bus.on("bookmarks:changed", () => {
+      stackedChart.update();
     });
   }
 

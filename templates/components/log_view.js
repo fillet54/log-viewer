@@ -12,7 +12,8 @@ LogApp.initLogList = (logData, bus) => {
 
   const buildLogRow = (event) => {
     const row = document.createElement("div");
-    row.className = `log-line log-${event.level.replace(" ", "-")}`;
+    const bookmarked = LogApp.bookmarks?.isBookmarked(event.row_id);
+    row.className = `log-line log-${event.level.replace(" ", "-")}${bookmarked ? " is-bookmarked" : ""}`;
     row.dataset.seconds = event.seconds_from_start;
     row.dataset.rowId = event.row_id;
     row.innerHTML = `
@@ -23,7 +24,19 @@ LogApp.initLogList = (logData, bus) => {
       <span class="log-offset text-base-content/60">${event.seconds_from_start}s</span>
       <span class="log-desc text-base-content/70">${event.description}</span>
       <span class="log-code text-base-content/50">${event.system}/${event.subsystem}/${event.unit}/${event.code}</span>
+      <button class="bookmark-toggle" title="Toggle bookmark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 4h12v16l-6-3-6 3z" />
+        </svg>
+      </button>
     `;
+    const bookmarkButton = row.querySelector(".bookmark-toggle");
+    bookmarkButton.addEventListener("click", (eventClick) => {
+      eventClick.stopPropagation();
+      const next = LogApp.bookmarks?.toggle(event.row_id);
+      row.classList.toggle("is-bookmarked", next);
+      if (bus) bus.emit("bookmarks:changed", LogApp.bookmarks?.getAll() || []);
+    });
     row.addEventListener("click", () => {
       if (bus) bus.emit("event:selected", event);
     });

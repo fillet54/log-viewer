@@ -149,7 +149,7 @@
   background: var(--color-bg-card);
   border: 1px solid rgba(148, 163, 184, 0.15);
   display: grid;
-  grid-template-columns: 84px 180px 64px 180px 80px minmax(240px, 1fr) 240px;
+  grid-template-columns: 84px 180px 64px 180px 80px minmax(200px, 1fr) minmax(140px, 220px) 28px;
   align-items: center;
   column-gap: 0.45rem;
   row-gap: 0.15rem;
@@ -209,7 +209,36 @@
 
 .log-code {
   text-align: right;
+  padding-right: 0.35rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+.bookmark-toggle {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(148, 163, 184, 0.8);
+  cursor: pointer;
+}
+
+.bookmark-toggle svg {
+  width: 14px;
+  height: 14px;
+}
+
+.log-line.is-bookmarked .bookmark-toggle {
+  color: rgba(14, 116, 144, 0.9);
+}
+
+.log-line.is-bookmarked .bookmark-toggle svg {
+  fill: currentColor;
+}
+
 
 #log-spacer {
   height: 0;
@@ -233,6 +262,14 @@
   display: flex;
   gap: 0;
   height: 100%;
+}
+
+.search-split.search-single #search-history-pane {
+  display: none;
+}
+
+.search-split.search-single #search-results-pane {
+  flex: 1 1 auto;
 }
 
 .ghost-split {

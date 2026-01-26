@@ -2,8 +2,9 @@
   <div class="pane-header compact-header justify-between">
     <span id="search-header-text" class="text-xs uppercase tracking-wide text-base-content/60">Search</span>
     <div id="search-header-tabs" class="search-tabs hidden">
-      <button id="tab-history" class="btn btn-xs btn-ghost search-tab is-active">Search History</button>
-      <button id="tab-filters" class="btn btn-xs btn-ghost search-tab">Filters</button>
+            <button id="tab-history" class="btn btn-xs btn-ghost search-tab is-active">Search History</button>
+            <button id="tab-filters" class="btn btn-xs btn-ghost search-tab">Filters</button>
+            <button id="tab-bookmarks" class="btn btn-xs btn-ghost search-tab">Bookmarks</button>
     </div>
     <button id="toggle-bottom" class="btn btn-ghost btn-xs" title="Toggle search pane">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tool-icon">
@@ -31,6 +32,12 @@
           <div class="search-section">
             <div class="search-section-title">Filters</div>
             <div id="search-filters" class="search-list search-list-compact"></div>
+          </div>
+        </div>
+        <div id="search-bookmark-view" class="search-view hidden">
+          <div class="search-section">
+            <div class="search-section-title">Bookmarks</div>
+            <div id="search-bookmarks" class="search-list search-list-compact"></div>
           </div>
         </div>
       </aside>

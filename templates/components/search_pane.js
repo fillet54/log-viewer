@@ -4,6 +4,7 @@ LogApp.initSearchPane = (logData, bus) => {
   const pinnedList = document.getElementById("search-pinned");
   const historyList = document.getElementById("search-history");
   const filtersList = document.getElementById("search-filters");
+  const bookmarksList = document.getElementById("search-bookmarks");
   const resultsList = document.getElementById("search-results");
   const resultsSpacer = document.getElementById("search-results-spacer");
   const resultsItems = document.getElementById("search-results-list");
@@ -12,13 +13,17 @@ LogApp.initSearchPane = (logData, bus) => {
   const clearHistoryButton = document.getElementById("clear-history");
   const tabHistory = document.getElementById("tab-history");
   const tabFilters = document.getElementById("tab-filters");
+  const tabBookmarks = document.getElementById("tab-bookmarks");
   const historyView = document.getElementById("search-history-view");
   const filterView = document.getElementById("search-filter-view");
+  const bookmarkView = document.getElementById("search-bookmark-view");
+  const searchSplit = document.getElementById("search-split");
 
   if (
     !pinnedList ||
     !historyList ||
     !filtersList ||
+    !bookmarksList ||
     !resultsList ||
     !resultsSpacer ||
     !resultsItems ||
@@ -27,8 +32,10 @@ LogApp.initSearchPane = (logData, bus) => {
     !clearHistoryButton ||
     !tabHistory ||
     !tabFilters ||
+    !tabBookmarks ||
     !historyView ||
     !filterView ||
+    !bookmarkView ||
     !logData
   )
     return;
@@ -209,6 +216,47 @@ LogApp.initSearchPane = (logData, bus) => {
     filtersList.appendChild(fragment);
   };
 
+  const getBookmarkEvents = () => {
+    const ids = LogApp.bookmarks?.getAll() || [];
+    return ids
+      .map((id) => events.find((entry) => String(entry.row_id) === String(id)))
+      .filter(Boolean);
+  };
+
+  const renderBookmarks = () => {
+    bookmarksList.innerHTML = "";
+    const fragment = document.createDocumentFragment();
+    getBookmarkEvents().forEach((event) => {
+      const row = document.createElement("div");
+      row.className = `log-line log-${event.level.replace(" ", "-")} search-result-row is-bookmarked`;
+      row.innerHTML = `
+        <span class="badge badge-sm level-tag">${event.level}</span>
+        <span class="log-time text-base-content/60">${event.utc}</span>
+        <span class="log-action font-semibold">${event.action}</span>
+        <span class="log-name">${event.name}</span>
+        <span class="log-offset text-base-content/60">${event.seconds_from_start}s</span>
+        <span class="log-desc text-base-content/70">${event.description}</span>
+        <span class="log-code text-base-content/50">${event.system}/${event.subsystem}/${event.unit}/${event.code}</span>
+        <button class="bookmark-toggle" title="Toggle bookmark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 4h12v16l-6-3-6 3z" />
+          </svg>
+        </button>
+      `;
+      row.querySelector(".bookmark-toggle").addEventListener("click", (eventClick) => {
+        eventClick.stopPropagation();
+        LogApp.bookmarks?.toggle(event.row_id);
+        renderBookmarks();
+        if (bus) bus.emit("bookmarks:changed", LogApp.bookmarks?.getAll() || []);
+      });
+      row.addEventListener("click", () => {
+        if (bus) bus.emit("log:jump", { rowId: event.row_id });
+      });
+      fragment.appendChild(row);
+    });
+    bookmarksList.appendChild(fragment);
+  };
+
   const applyFilters = () => {
     const active = filters.filter((item) => item.enabled).map((item) => item.query);
     if (bus) bus.emit("filters:apply", active);
@@ -216,7 +264,10 @@ LogApp.initSearchPane = (logData, bus) => {
 
   const renderResultRow = (event) => {
     const row = document.createElement("div");
-    row.className = `log-line log-${event.level.replace(" ", "-")} search-result-row`;
+    const bookmarked = LogApp.bookmarks?.isBookmarked(event.row_id);
+    row.className = `log-line log-${event.level.replace(" ", "-")} search-result-row${
+      bookmarked ? " is-bookmarked" : ""
+    }`;
     row.innerHTML = `
       <span class="badge badge-sm level-tag">${event.level}</span>
       <span class="log-time text-base-content/60">${event.utc}</span>
@@ -225,7 +276,19 @@ LogApp.initSearchPane = (logData, bus) => {
       <span class="log-offset text-base-content/60">${event.seconds_from_start}s</span>
       <span class="log-desc text-base-content/70">${event.description}</span>
       <span class="log-code text-base-content/50">${event.system}/${event.subsystem}/${event.unit}/${event.code}</span>
+      <button class="bookmark-toggle" title="Toggle bookmark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 4h12v16l-6-3-6 3z" />
+        </svg>
+      </button>
     `;
+    row.querySelector(".bookmark-toggle").addEventListener("click", (eventClick) => {
+      eventClick.stopPropagation();
+      const next = LogApp.bookmarks?.toggle(event.row_id);
+      row.classList.toggle("is-bookmarked", next);
+      renderBookmarks();
+      if (bus) bus.emit("bookmarks:changed", LogApp.bookmarks?.getAll() || []);
+    });
     row.addEventListener("click", () => {
       if (bus) bus.emit("log:jump", { rowId: event.row_id });
     });
@@ -291,14 +354,17 @@ LogApp.initSearchPane = (logData, bus) => {
   };
 
   let pendingSearch = 0;
+  let currentTab = "history";
   const runSearch = (commitHistory = false) => {
     const query = queryInput.value.trim();
+    const isBookmarks = currentTab === "bookmarks";
+    const source = isBookmarks ? getBookmarkEvents() : events;
     if (!query) {
-      renderResults(events);
-      if (commitHistory) addHistory(query, events.length, events[0]?.level);
+      renderResults(source);
+      if (commitHistory && !isBookmarks) addHistory(query, source.length, source[0]?.level);
       return;
     }
-    if (LogApp.searchWorker) {
+    if (LogApp.searchWorker && !isBookmarks) {
       const requestId = ++pendingSearch;
       LogApp.runSearchQuery(LogApp.searchWorker, query, (indices) => {
         if (requestId !== pendingSearch) return;
@@ -308,9 +374,9 @@ LogApp.initSearchPane = (logData, bus) => {
       });
       return;
     }
-    const filtered = events.filter(LogApp.getQueryPredicate(query));
+    const filtered = source.filter(LogApp.getQueryPredicate(query));
     renderResults(filtered);
-    if (commitHistory) addHistory(query, filtered.length, filtered[0]?.level);
+    if (commitHistory && !isBookmarks) addHistory(query, filtered.length, filtered[0]?.level);
   };
 
   runButton.addEventListener("click", () => runSearch(true));
@@ -329,23 +395,40 @@ LogApp.initSearchPane = (logData, bus) => {
 
   const setTab = (tab) => {
     const isHistory = tab === "history";
+    const isFilters = tab === "filters";
+    const isBookmarks = tab === "bookmarks";
+    currentTab = tab;
     tabHistory.classList.toggle("is-active", isHistory);
-    tabFilters.classList.toggle("is-active", !isHistory);
+    tabFilters.classList.toggle("is-active", isFilters);
+    tabBookmarks.classList.toggle("is-active", isBookmarks);
     historyView.classList.toggle("hidden", !isHistory);
-    filterView.classList.toggle("hidden", isHistory);
+    filterView.classList.toggle("hidden", !isFilters);
+    bookmarkView.classList.toggle("hidden", !isBookmarks);
+    if (searchSplit) searchSplit.classList.toggle("search-single", isBookmarks);
+    runSearch(false);
   };
 
   tabHistory.addEventListener("click", () => setTab("history"));
   tabFilters.addEventListener("click", () => setTab("filters"));
+  tabBookmarks.addEventListener("click", () => setTab("bookmarks"));
 
   renderPinned();
   renderHistory();
   renderFilters();
+  renderBookmarks();
   if (events.length) {
     measureResultRow();
   }
   renderResults(events.slice(0, 200));
   applyFilters();
+
+  if (bus) {
+    bus.on("bookmarks:changed", renderBookmarks);
+    bus.on("bookmarks:changed", () => {
+      resultsState.lastRange = [0, 0];
+      runSearch(false);
+    });
+  }
 
   resultsList.addEventListener("scroll", () => {
     requestAnimationFrame(updateResultsVirtual);

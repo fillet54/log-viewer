@@ -21,6 +21,7 @@ LogApp.STORAGE_KEYS = {
   searchPinned: "loglayout.search.pinned",
   searchFilters: "loglayout.search.filters",
   chartTooltips: "loglayout.chart.tooltips",
+  bookmarks: "loglayout.bookmarks",
 };
 
 LogApp.createEventBus = () => {
@@ -87,6 +88,40 @@ LogApp.smoothScrollTo = (container, targetTop, durationMs = 200, onComplete = nu
     }
   };
   requestAnimationFrame(step);
+};
+
+LogApp.createBookmarkStore = (events = []) => {
+  const validIds = new Set(events.map((event) => String(event.row_id)));
+  const load = () => {
+    try {
+      const raw = localStorage.getItem(LogApp.STORAGE_KEYS.bookmarks);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(parsed)) return new Set();
+      return new Set(parsed.filter((id) => validIds.has(String(id))));
+    } catch (err) {
+      return new Set();
+    }
+  };
+  let bookmarks = load();
+  const save = () => {
+    localStorage.setItem(
+      LogApp.STORAGE_KEYS.bookmarks,
+      JSON.stringify(Array.from(bookmarks))
+    );
+  };
+  const toggle = (rowId) => {
+    const key = String(rowId);
+    if (bookmarks.has(key)) {
+      bookmarks.delete(key);
+    } else if (validIds.has(key)) {
+      bookmarks.add(key);
+    }
+    save();
+    return bookmarks.has(key);
+  };
+  const isBookmarked = (rowId) => bookmarks.has(String(rowId));
+  const getAll = () => Array.from(bookmarks);
+  return { toggle, isBookmarked, getAll };
 };
 
 LogApp.getFieldValue = (event, path) => {
@@ -611,6 +646,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const bus = LogApp.createEventBus();
   const logData = LogApp.loadLogData();
   LogApp.searchWorker = LogApp.createSearchWorker(logData?.events || []);
+  LogApp.bookmarks = LogApp.createBookmarkStore(logData?.events || []);
 
   LogApp.initSplits();
   LogApp.initLogList(logData, bus);
