@@ -219,11 +219,11 @@ LogApp.initSearchPane = (logData, bus) => {
   };
 
   let pendingSearch = 0;
-  const runSearch = () => {
+  const runSearch = (commitHistory = false) => {
     const query = queryInput.value.trim();
     if (!query) {
       renderResults(events);
-      addHistory(query, events.length, events[0]?.level);
+      if (commitHistory) addHistory(query, events.length, events[0]?.level);
       return;
     }
     if (LogApp.searchWorker) {
@@ -232,23 +232,23 @@ LogApp.initSearchPane = (logData, bus) => {
         if (requestId !== pendingSearch) return;
         const filtered = indices.map((idx) => events[idx]);
         renderResults(filtered);
-        addHistory(query, filtered.length, filtered[0]?.level);
+        if (commitHistory) addHistory(query, filtered.length, filtered[0]?.level);
       });
       return;
     }
     const filtered = events.filter(LogApp.getQueryPredicate(query));
     renderResults(filtered);
-    addHistory(query, filtered.length, filtered[0]?.level);
+    if (commitHistory) addHistory(query, filtered.length, filtered[0]?.level);
   };
 
-  runButton.addEventListener("click", runSearch);
+  runButton.addEventListener("click", () => runSearch(true));
   queryInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") runSearch();
+    if (event.key === "Enter") runSearch(true);
   });
   let inputDebounce = null;
   queryInput.addEventListener("input", () => {
     if (inputDebounce) window.clearTimeout(inputDebounce);
-    inputDebounce = window.setTimeout(runSearch, 250);
+    inputDebounce = window.setTimeout(() => runSearch(false), 250);
   });
 
   const setTab = (tab) => {
