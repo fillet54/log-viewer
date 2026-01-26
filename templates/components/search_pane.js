@@ -250,6 +250,7 @@ LogApp.initSearchPane = (logData, bus) => {
         if (bus) bus.emit("bookmarks:changed", LogApp.bookmarks?.getAll() || []);
       });
       row.addEventListener("click", () => {
+        if (bus) bus.emit("event:selected", event);
         if (bus) bus.emit("log:jump", { rowId: event.row_id });
       });
       fragment.appendChild(row);
@@ -290,6 +291,7 @@ LogApp.initSearchPane = (logData, bus) => {
       if (bus) bus.emit("bookmarks:changed", LogApp.bookmarks?.getAll() || []);
     });
     row.addEventListener("click", () => {
+      if (bus) bus.emit("event:selected", event);
       if (bus) bus.emit("log:jump", { rowId: event.row_id });
     });
     return row;

@@ -188,6 +188,8 @@ LogApp.initChart = (logData, bus) => {
           const dx = pos.x - dot.x;
           const dy = pos.y - dot.y;
           if (Math.sqrt(dx * dx + dy * dy) <= 6) {
+            const event = events.find((entry) => String(entry.row_id) === String(dot.rowId));
+            if (bus && event) bus.emit("event:selected", event);
             if (bus) bus.emit("log:jump", { rowId: dot.rowId });
             return;
           }

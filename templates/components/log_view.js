@@ -163,16 +163,17 @@ LogApp.initLogList = (logData, bus) => {
     if (index == null) return null;
     const targetTop = index * state.rowStride - logBody.clientHeight / 2 + state.rowStride / 2;
     const clamped = Math.max(0, Math.min(targetTop, logBody.scrollHeight));
+    const selected = state.filtered[index];
     LogApp.smoothScrollTo(logBody, clamped, duration, () => {
-      const event = state.filtered[index];
-      if (!event) return;
-      const row = logList.querySelector(`[data-row-id="${event.row_id}"]`);
+      if (!selected) return;
+      const row = logList.querySelector(`[data-row-id="${selected.row_id}"]`);
       if (!row) return;
       row.classList.remove("log-highlight");
       void row.offsetWidth;
       row.classList.add("log-highlight");
     });
-    return state.filtered[index];
+    if (bus && selected) bus.emit("event:selected", selected);
+    return selected;
   };
 
   const scrollToSeconds = (seconds) => {
