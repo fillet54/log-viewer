@@ -24,6 +24,9 @@ LogApp.initLogList = (logData, bus) => {
       <span class="log-desc text-base-content/70">${event.description}</span>
       <span class="log-code text-base-content/50">${event.system}/${event.subsystem}/${event.unit}/${event.code}</span>
     `;
+    row.addEventListener("click", () => {
+      if (bus) bus.emit("event:selected", event);
+    });
     return row;
   };
 

@@ -7,6 +7,8 @@
 
 {% include 'components/search_pane.js' %}
 
+{% include 'components/right_pane.js' %}
+
 window.LogApp = window.LogApp || {};
 
 LogApp.STORAGE_KEYS = {
@@ -95,4 +97,5 @@ window.addEventListener("DOMContentLoaded", () => {
   LogApp.initLogList(logData, bus);
   LogApp.initChart(logData, bus);
   LogApp.initSearchPane(logData, bus);
+  LogApp.initRightPane(bus);
 });

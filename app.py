@@ -14,6 +14,10 @@ FAULT_CATALOG = [
         "subsystem": "Distribution",
         "unit": "PDU-1",
         "code": "PWR-214",
+        "data": {
+            "voltage": {"min": 26.8, "max": 28.4, "units": "V"},
+            "bus": {"id": "A", "load_pct": 62},
+        },
     },
     {
         "id": "temp_core",
@@ -24,6 +28,10 @@ FAULT_CATALOG = [
         "subsystem": "Cooling",
         "unit": "FAN-3",
         "code": "THM-501",
+        "data": {
+            "temp_c": {"current": 92.4, "limit": 85.0},
+            "sensor": {"id": "core-7", "status": "latched"},
+        },
     },
     {
         "id": "link_loss",
@@ -44,6 +52,10 @@ FAULT_CATALOG = [
         "subsystem": "Database",
         "unit": "DB-1",
         "code": "DB-907",
+        "data": {
+            "query": {"id": "q-1842", "duration_ms": 2412},
+            "host": {"name": "db-primary", "pool": "writer"},
+        },
     },
     {
         "id": "sensor_glitch",
@@ -64,6 +76,10 @@ FAULT_CATALOG = [
         "subsystem": "Auth",
         "unit": "AUTH-2",
         "code": "SEC-201",
+        "data": {
+            "user": {"id": "svc-ingest", "attempts": 5},
+            "source": {"ip": "10.24.1.18", "zone": "dmz"},
+        },
     },
     {
         "id": "queue_lag",
@@ -84,6 +100,10 @@ FAULT_CATALOG = [
         "subsystem": "Stability",
         "unit": "CTRL-1",
         "code": "CTL-888",
+        "data": {
+            "loop": {"axis": "yaw", "gain": 1.8},
+            "error": {"rms": 0.42, "limit": 0.25},
+        },
     },
     {
         "id": "mem_warn",
@@ -172,6 +192,7 @@ def generate_logs(hours: float, seed_value: str | None):
                 "subsystem": choice["subsystem"],
                 "unit": choice["unit"],
                 "code": choice["code"],
+                "data": choice.get("data"),
                 "action": action,
                 "utc": timestamp.isoformat(timespec="seconds") + "Z",
                 "seconds_from_start": int(offset),
