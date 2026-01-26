@@ -278,6 +278,11 @@ LogApp.initSearchPane = (logData, bus) => {
     resultsState.items = items;
     resultsState.lastRange = [0, 0];
     setResultsSpacer();
+    if (!items.length) {
+      resultsItems.style.transform = "translateY(0)";
+      resultsItems.innerHTML = '<div class="no-results">No Results</div>';
+      return;
+    }
     updateResultsVirtual();
   };
 
