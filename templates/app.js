@@ -22,6 +22,7 @@ LogApp.STORAGE_KEYS = {
   searchFilters: "loglayout.search.filters",
   chartTooltips: "loglayout.chart.tooltips",
   bookmarks: "loglayout.bookmarks",
+  bookmarkNotes: "loglayout.bookmark.notes",
 };
 
 LogApp.createEventBus = () => {

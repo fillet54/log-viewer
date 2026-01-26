@@ -485,6 +485,10 @@
   gap: 0.1rem;
 }
 
+.bookmark-notes textarea {
+  min-height: 72px;
+}
+
 .data-row {
   display: grid;
   grid-template-columns: 1fr auto;
