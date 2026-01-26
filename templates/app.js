@@ -557,4 +557,25 @@ window.addEventListener("DOMContentLoaded", () => {
   LogApp.initChart(logData, bus);
   LogApp.initSearchPane(logData, bus);
   LogApp.initRightPane(bus);
+
+  const debugStrip = document.getElementById("debug-strip");
+  if (debugStrip) {
+    debugStrip.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-toggle]");
+      if (!button) return;
+      const toggle = button.dataset.toggle;
+      if (toggle === "debug-hide-chart") {
+        const chart = document.querySelector(".chart-band");
+        if (chart) chart.classList.toggle("debug-hidden");
+      }
+      if (toggle === "debug-hide-right") {
+        const right = document.getElementById("pane-right");
+        if (right) right.classList.toggle("debug-hidden");
+      }
+      if (toggle === "debug-hide-results") {
+        const results = document.getElementById("search-results");
+        if (results) results.classList.toggle("debug-hidden");
+      }
+    });
+  }
 });

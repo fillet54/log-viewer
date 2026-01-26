@@ -231,7 +231,8 @@ LogApp.initSearchPane = (logData, bus) => {
   const resultsState = {
     items: [],
     rowStride: 28,
-    overscan: 6,
+    overscan: 4,
+    maxVisible: 80,
     lastRange: [0, 0],
   };
 
@@ -263,8 +264,10 @@ LogApp.initSearchPane = (logData, bus) => {
   const updateResultsVirtual = () => {
     const scrollTop = resultsList.scrollTop;
     const startIndex = Math.max(0, Math.floor(scrollTop / resultsState.rowStride) - resultsState.overscan);
-    const visibleCount =
-      Math.ceil(resultsList.clientHeight / resultsState.rowStride) + resultsState.overscan * 2;
+    const visibleCount = Math.min(
+      resultsState.maxVisible,
+      Math.ceil(resultsList.clientHeight / resultsState.rowStride) + resultsState.overscan * 2
+    );
     const endIndex = Math.min(resultsState.items.length, startIndex + visibleCount);
     if (resultsState.lastRange[0] === startIndex && resultsState.lastRange[1] === endIndex) return;
     resultsState.lastRange = [startIndex, endIndex];
@@ -304,6 +307,12 @@ LogApp.initSearchPane = (logData, bus) => {
   runButton.addEventListener("click", () => runSearch(true));
   queryInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") runSearch(true);
+  });
+  queryInput.addEventListener("input", () => {
+    resultsItems.innerHTML = "";
+    resultsSpacer.style.height = "0";
+    resultsState.items = [];
+    resultsState.lastRange = [0, 0];
   });
   // Live search disabled; only Search button or Enter triggers.
 
