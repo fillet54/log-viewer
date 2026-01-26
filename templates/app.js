@@ -154,6 +154,19 @@ LogApp.tokenizeQuery = (input) => {
         break;
       }
     }
+    if (value.includes(":") && input[i] === "(") {
+      let depth = 0;
+      let group = "";
+      while (i < input.length) {
+        const c = input[i];
+        if (c === "(") depth += 1;
+        if (c === ")") depth -= 1;
+        group += c;
+        i += 1;
+        if (depth === 0) break;
+      }
+      value += group;
+    }
     if (value.toUpperCase() === "OR" || value === "|") {
       tokens.push({ type: "OR" });
     } else {
@@ -215,6 +228,16 @@ LogApp.parseQuery = (input) => {
     if (colonIndex > 0) {
       const field = value.slice(0, colonIndex);
       const term = value.slice(colonIndex + 1);
+      if (term.startsWith("(") && term.endsWith(")")) {
+        const inner = term.slice(1, -1);
+        const parts = inner
+          .split(/\s+/)
+          .map((item) => item.trim())
+          .filter((item) => item && item.toUpperCase() !== "OR" && item !== "|");
+        if (!parts.length) return { type: "EMPTY" };
+        const nodes = parts.map((part) => ({ type: "FIELD", field, term: part }));
+        return nodes.reduce((left, right) => ({ type: "OR", left, right }));
+      }
       return { type: "FIELD", field, term };
     }
     return { type: "BARE", term: value };
@@ -373,10 +396,37 @@ LogApp.createSearchWorker = (events = []) => {
               quoted += input[i];
               i += 1;
             }
-            value += `\"${quoted}\"`;
+            value += `"${quoted}"`;
             if (input[i] === '"') i += 1;
             break;
           }
+          if (value.includes(":") && input[i] === "(") {
+            let depth = 0;
+            let group = "";
+            while (i < input.length) {
+              const c = input[i];
+              if (c === "(") depth += 1;
+              if (c === ")") depth -= 1;
+              group += c;
+              i += 1;
+              if (depth === 0) break;
+            }
+            value += group;
+            break;
+          }
+        }
+        if (value.includes(":") && input[i] === "(") {
+          let depth = 0;
+          let group = "";
+          while (i < input.length) {
+            const c = input[i];
+            if (c === "(") depth += 1;
+            if (c === ")") depth -= 1;
+            group += c;
+            i += 1;
+            if (depth === 0) break;
+          }
+          value += group;
         }
         if (value.toUpperCase() === "OR" || value === "|") {
           tokens.push({ type: "OR" });
@@ -439,6 +489,16 @@ LogApp.createSearchWorker = (events = []) => {
         if (colonIndex > 0) {
           const field = value.slice(0, colonIndex);
           const term = value.slice(colonIndex + 1);
+          if (term.startsWith("(") && term.endsWith(")")) {
+            const inner = term.slice(1, -1);
+            const parts = inner
+              .split(/\s+/)
+              .map((item) => item.trim())
+              .filter((item) => item && item.toUpperCase() !== "OR" && item !== "|");
+            if (!parts.length) return { type: "EMPTY" };
+            const nodes = parts.map((part) => ({ type: "FIELD", field, term: part }));
+            return nodes.reduce((left, right) => ({ type: "OR", left, right }));
+          }
           return { type: "FIELD", field, term };
         }
         return { type: "BARE", term: value };
