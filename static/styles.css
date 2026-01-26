@@ -141,7 +141,7 @@
   background: var(--color-bg-card);
   border: 1px solid rgba(148, 163, 184, 0.15);
   display: grid;
-  grid-template-columns: 84px 180px 64px 180px 80px 64px minmax(200px, 1fr) minmax(140px, 220px) 28px;
+  grid-template-columns: 180px 64px 180px 80px 64px minmax(200px, 1fr) minmax(140px, 220px) 28px;
   align-items: center;
   column-gap: 0.45rem;
   row-gap: 0.15rem;
@@ -473,13 +473,23 @@
   padding: 0.3rem 0.45rem;
   border-radius: 0.5rem;
   display: grid;
-  grid-template-columns: 70px 1fr 50px 20px 20px;
+  grid-template-columns: minmax(0, 1fr) 20px 20px 50px;
   gap: 0.35rem;
   align-items: center;
   cursor: pointer;
   font-size: 0.72rem;
   line-height: 1.1;
   background-color: transparent;
+}
+
+.search-time {
+  text-align: right;
+}
+
+.search-query {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #search-results-spacer {

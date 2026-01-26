@@ -23,7 +23,6 @@ LogApp.initLogList = (logData, bus) => {
     row.dataset.rowId = event.row_id;
     const channels = new Set(event.channels || []);
     row.innerHTML = `
-      <span class="badge badge-sm level-tag">${colorLabel}</span>
       <span class="log-time text-base-content/60">${event.utctime}</span>
       <span class="log-action font-semibold">${event.set_clear}</span>
       <span class="log-name">${event.name}</span>

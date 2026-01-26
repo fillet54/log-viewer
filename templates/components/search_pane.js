@@ -67,15 +67,14 @@ LogApp.initSearchPane = (logData, bus) => {
       const row = document.createElement("div");
       row.className = "search-item search-history-item";
       row.innerHTML = `
-        <span class="search-level">${item.color || item.level || "search"}</span>
-        <span>${item.label}</span>
-        <span class="search-time">${item.count}</span>
+        <span class="search-query">${item.label}</span>
         <button class="pin-button ${isPinned ? "is-pinned" : ""}" title="${isPinned ? "Unpin" : "Pin"}">
           ${pinIcon}
         </button>
         <button class="pin-button promote-button" title="Promote to filter">
           ${filterIcon}
         </button>
+        <span class="search-time">${item.count}</span>
       `;
       row.querySelector(".pin-button").addEventListener("click", (event) => {
         event.stopPropagation();
@@ -237,7 +236,6 @@ LogApp.initSearchPane = (logData, bus) => {
       row.dataset.bookmarkColor = String(colorIndex);
       const channels = new Set(event.channels || []);
       row.innerHTML = `
-        <span class="badge badge-sm level-tag">${colorLabel}</span>
         <span class="log-time text-base-content/60">${event.utctime}</span>
         <span class="log-action font-semibold">${event.set_clear}</span>
         <span class="log-name">${event.name}</span>
@@ -287,7 +285,6 @@ LogApp.initSearchPane = (logData, bus) => {
     row.dataset.bookmarkColor = String(colorIndex);
     const channels = new Set(event.channels || []);
     row.innerHTML = `
-      <span class="badge badge-sm level-tag">${colorLabel}</span>
       <span class="log-time text-base-content/60">${event.utctime}</span>
       <span class="log-action font-semibold">${event.set_clear}</span>
       <span class="log-name">${event.name}</span>
