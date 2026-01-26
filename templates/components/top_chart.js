@@ -206,19 +206,22 @@ LogApp.initChart = (logData, bus) => {
       },
       onClick: (event) => {
         const pos = Chart.helpers.getRelativePosition(event, stackedChart);
-        const { chartArea } = stackedChart;
-        if (pos.x < chartArea.left || pos.x > chartArea.right) return;
+        const { chartArea, scales } = stackedChart;
         const dots = stackedChart.$bookmarkDots || [];
         for (const dot of dots) {
           const dx = pos.x - dot.x;
           const dy = pos.y - dot.y;
-          if (Math.sqrt(dx * dx + dy * dy) <= 6) {
+          if (Math.sqrt(dx * dx + dy * dy) <= 10) {
             const event = events.find((entry) => String(entry.row_id) === String(dot.rowId));
             if (bus && event) bus.emit("event:selected", event);
             if (bus) bus.emit("log:jump", { rowId: dot.rowId });
             return;
           }
         }
+        const xScale = scales?.x;
+        const dotHitBottom = xScale ? xScale.bottom + 12 : chartArea.bottom + 12;
+        if (pos.x < chartArea.left || pos.x > chartArea.right) return;
+        if (pos.y < chartArea.top || pos.y > dotHitBottom) return;
         const ratio = (pos.x - chartArea.left) / chartArea.width;
         const targetSeconds = Math.floor((ratio * spanMs) / 1000);
         if (bus) bus.emit("log:jump", { seconds: targetSeconds });
@@ -253,6 +256,20 @@ LogApp.initChart = (logData, bus) => {
     stackedChart.$hoverX = null;
     stackedChart.$hoverTime = null;
     stackedChart.draw();
+  });
+  stackedCanvas.addEventListener("click", (event) => {
+    const pos = Chart.helpers.getRelativePosition(event, stackedChart);
+    const dots = stackedChart.$bookmarkDots || [];
+    for (const dot of dots) {
+      const dx = pos.x - dot.x;
+      const dy = pos.y - dot.y;
+      if (Math.sqrt(dx * dx + dy * dy) <= 10) {
+        const hit = events.find((entry) => String(entry.row_id) === String(dot.rowId));
+        if (bus && hit) bus.emit("event:selected", hit);
+        if (bus) bus.emit("log:jump", { rowId: dot.rowId });
+        return;
+      }
+    }
   });
 
   const toggleTooltips = document.getElementById("toggle-tooltips");
