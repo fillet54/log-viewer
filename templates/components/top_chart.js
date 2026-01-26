@@ -45,6 +45,8 @@ LogApp.initChart = (logData, bus) => {
   const initialBuckets = buildBuckets(events);
 
   const stackedContext = stackedCanvas.getContext("2d");
+  const modeSegments = Array.isArray(logData.modes) ? logData.modes : [];
+  const modeColors = ["rgba(59, 130, 246, 0.08)", "rgba(14, 165, 233, 0.08)", "rgba(16, 185, 129, 0.08)", "rgba(249, 115, 22, 0.08)"];
   const hoverLinePlugin = {
     id: "hoverLine",
     afterDatasetsDraw(chart) {
@@ -77,6 +79,31 @@ LogApp.initChart = (logData, bus) => {
         ctx.textBaseline = "middle";
         ctx.fillText(label, boxX + padding, boxY + boxHeight / 2);
       }
+      ctx.restore();
+    },
+  };
+
+  const modeBandPlugin = {
+    id: "modeBands",
+    beforeDatasetsDraw(chart) {
+      const { ctx, chartArea } = chart;
+      if (!modeSegments.length) return;
+      ctx.save();
+      modeSegments.forEach((mode, idx) => {
+        const start = new Date(mode.start).getTime();
+        const end = new Date(mode.end).getTime();
+        const startRatio = Math.max(0, Math.min(1, (start - startTime.getTime()) / spanMs));
+        const endRatio = Math.max(0, Math.min(1, (end - startTime.getTime()) / spanMs));
+        const x0 = chartArea.left + startRatio * chartArea.width;
+        const x1 = chartArea.left + endRatio * chartArea.width;
+        const width = Math.max(0, x1 - x0);
+        ctx.fillStyle = modeColors[idx % modeColors.length];
+        ctx.fillRect(x0, chartArea.top, width, chartArea.height);
+        ctx.fillStyle = "rgba(15, 23, 42, 0.5)";
+        ctx.font = "11px ui-sans-serif, system-ui, -apple-system, sans-serif";
+        ctx.textBaseline = "top";
+        ctx.fillText(mode.name, x0 + 4, chartArea.top + 4);
+      });
       ctx.restore();
     },
   };
@@ -136,7 +163,7 @@ LogApp.initChart = (logData, bus) => {
         if (bus) bus.emit("log:jump", { seconds: targetSeconds });
       },
     },
-    plugins: [hoverLinePlugin],
+    plugins: [modeBandPlugin, hoverLinePlugin],
   });
 
   const updateHover = (event) => {

@@ -178,12 +178,31 @@ def generate_logs(hours: float, seed_value: str | None):
             }
         )
 
+    # Create simple system mode segments spanning the log range.
+    mode_labels = ["Startup", "Self Test", "Execution", "Pre-Shutdown"]
+    mode_count = max(2, min(len(mode_labels), int(hours) + 1))
+    mode_span = span_seconds / mode_count
+    modes = []
+    for idx in range(mode_count):
+        start_s = int(idx * mode_span)
+        end_s = int((idx + 1) * mode_span) if idx < mode_count - 1 else span_seconds
+        start_ts = start_time + timedelta(seconds=start_s)
+        end_ts = start_time + timedelta(seconds=end_s)
+        modes.append(
+            {
+                "name": mode_labels[idx],
+                "start": start_ts.isoformat(timespec="seconds") + "Z",
+                "end": end_ts.isoformat(timespec="seconds") + "Z",
+            }
+        )
+
     return {
         "start": start_time.isoformat(timespec="seconds") + "Z",
         "end": end_time.isoformat(timespec="seconds") + "Z",
         "hours": hours,
         "seed": seed_value if seed_value is not None else str(seed_int),
         "events": events,
+        "modes": modes,
     }
 
 
