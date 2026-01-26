@@ -74,6 +74,7 @@ LogApp.initLogList = (logData, bus) => {
     maxVisible: 120,
     lastRange: [0, 0],
     indexByRowId: new Map(),
+    selectedRowId: null,
   };
 
   const rebuildIndex = () => {
@@ -92,7 +93,11 @@ LogApp.initLogList = (logData, bus) => {
     logList.innerHTML = "";
     const fragment = document.createDocumentFragment();
     for (let i = startIndex; i < endIndex; i += 1) {
-      fragment.appendChild(buildLogRow(state.filtered[i]));
+      const row = buildLogRow(state.filtered[i]);
+      if (state.selectedRowId && String(state.selectedRowId) === row.dataset.rowId) {
+        row.classList.add("log-selected");
+      }
+      fragment.appendChild(row);
     }
     logList.appendChild(fragment);
   };
@@ -250,6 +255,13 @@ LogApp.initLogList = (logData, bus) => {
       if (!payload) return;
       if (payload.rowId != null) ensureRowVisible(payload.rowId);
       if (payload.seconds != null) scrollToSeconds(payload.seconds);
+    });
+    bus.on("event:selected", (event) => {
+      state.selectedRowId = event?.row_id ?? null;
+      const rows = logList.querySelectorAll(".log-line");
+      rows.forEach((row) => {
+        row.classList.toggle("log-selected", row.dataset.rowId === String(state.selectedRowId));
+      });
     });
     bus.on("bookmarks:changed", (map) => {
       const rows = logList.querySelectorAll(".log-line");
