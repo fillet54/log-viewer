@@ -7,6 +7,7 @@ LogApp.initSearchPane = (logData, bus) => {
   const resultsList = document.getElementById("search-results");
   const queryInput = document.getElementById("search-query");
   const runButton = document.getElementById("run-search");
+  const clearHistoryButton = document.getElementById("clear-history");
   const tabHistory = document.getElementById("tab-history");
   const tabFilters = document.getElementById("tab-filters");
   const historyView = document.getElementById("search-history-view");
@@ -19,6 +20,7 @@ LogApp.initSearchPane = (logData, bus) => {
     !resultsList ||
     !queryInput ||
     !runButton ||
+    !clearHistoryButton ||
     !tabHistory ||
     !tabFilters ||
     !historyView ||
@@ -159,6 +161,17 @@ LogApp.initSearchPane = (logData, bus) => {
     renderHistory();
   };
 
+  const clearHistory = () => {
+    const pinnedQueries = new Set(pinned.map((item) => item.query));
+    const filterQueries = new Set(filters.map((item) => item.query));
+    const remaining = history.filter(
+      (item) => pinnedQueries.has(item.query) || filterQueries.has(item.query)
+    );
+    history.splice(0, history.length, ...remaining);
+    persist();
+    renderHistory();
+  };
+
   const renderFilters = () => {
     filtersList.innerHTML = "";
     const fragment = document.createDocumentFragment();
@@ -250,6 +263,8 @@ LogApp.initSearchPane = (logData, bus) => {
     if (inputDebounce) window.clearTimeout(inputDebounce);
     inputDebounce = window.setTimeout(() => runSearch(false), 250);
   });
+
+  clearHistoryButton.addEventListener("click", clearHistory);
 
   const setTab = (tab) => {
     const isHistory = tab === "history";
