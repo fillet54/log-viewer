@@ -80,19 +80,39 @@ LogApp.initLogList = (logData, bus) => {
     renderRange(startIndex, endIndex);
   };
 
-  const matchesQuery = (event, term) => {
-    const haystack = `${event.level} ${event.action} ${event.name} ${event.description} ${event.system} ${event.subsystem} ${event.unit} ${event.code}`;
-    return haystack.toLowerCase().includes(term);
-  };
-
+  let pendingFilter = 0;
   const applyFilterQueries = (queries) => {
-    const terms = queries.map((q) => q.trim().toLowerCase()).filter(Boolean);
+    const terms = queries.map((q) => q.trim()).filter(Boolean);
     state.filterQuery = terms.join(" | ");
     if (!terms.length) {
       state.filtered = state.events;
-    } else {
-      state.filtered = state.events.filter((event) => terms.some((term) => matchesQuery(event, term)));
+      rebuildIndex();
+      setSpacer();
+      state.lastRange = [0, 0];
+      updateVirtual();
+      if (bus) bus.emit("log:filtered", state.filtered);
+      return;
     }
+
+    const query = terms.join(" OR ");
+    if (LogApp.searchWorker) {
+      const requestId = ++pendingFilter;
+      LogApp.runSearchQuery(LogApp.searchWorker, query, (indices) => {
+        if (requestId !== pendingFilter) return;
+        state.filtered = indices.map((idx) => state.events[idx]);
+        rebuildIndex();
+        setSpacer();
+        state.lastRange = [0, 0];
+        updateVirtual();
+        if (bus) bus.emit("log:filtered", state.filtered);
+      });
+      return;
+    }
+
+    const predicates = terms.map((term) => LogApp.getQueryPredicate(term));
+    state.filtered = state.events.filter((event) =>
+      predicates.some((predicate) => predicate(event))
+    );
     rebuildIndex();
     setSpacer();
     state.lastRange = [0, 0];

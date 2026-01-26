@@ -197,10 +197,12 @@ LogApp.initSearchPane = (logData, bus) => {
     if (bus) bus.emit("filters:apply", active);
   };
 
+  const MAX_RESULTS = 200;
+
   const renderResults = (items) => {
     resultsList.innerHTML = "";
     const fragment = document.createDocumentFragment();
-    items.forEach((event) => {
+    items.slice(0, MAX_RESULTS).forEach((event) => {
       const row = document.createElement("div");
       row.className = "search-item search-result";
       row.innerHTML = `
@@ -216,13 +218,25 @@ LogApp.initSearchPane = (logData, bus) => {
     resultsList.appendChild(fragment);
   };
 
+  let pendingSearch = 0;
   const runSearch = () => {
-    const query = queryInput.value.trim().toLowerCase();
-    const filtered = events.filter((event) => {
-      if (!query) return true;
-      const haystack = `${event.level} ${event.action} ${event.name} ${event.description} ${event.system} ${event.subsystem} ${event.unit} ${event.code}`;
-      return haystack.toLowerCase().includes(query);
-    });
+    const query = queryInput.value.trim();
+    if (!query) {
+      renderResults(events);
+      addHistory(query, events.length, events[0]?.level);
+      return;
+    }
+    if (LogApp.searchWorker) {
+      const requestId = ++pendingSearch;
+      LogApp.runSearchQuery(LogApp.searchWorker, query, (indices) => {
+        if (requestId !== pendingSearch) return;
+        const filtered = indices.map((idx) => events[idx]);
+        renderResults(filtered);
+        addHistory(query, filtered.length, filtered[0]?.level);
+      });
+      return;
+    }
+    const filtered = events.filter(LogApp.getQueryPredicate(query));
     renderResults(filtered);
     addHistory(query, filtered.length, filtered[0]?.level);
   };
@@ -230,6 +244,11 @@ LogApp.initSearchPane = (logData, bus) => {
   runButton.addEventListener("click", runSearch);
   queryInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") runSearch();
+  });
+  let inputDebounce = null;
+  queryInput.addEventListener("input", () => {
+    if (inputDebounce) window.clearTimeout(inputDebounce);
+    inputDebounce = window.setTimeout(runSearch, 250);
   });
 
   const setTab = (tab) => {
