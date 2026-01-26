@@ -111,9 +111,12 @@ LogApp.initChart = (logData, bus) => {
   const bookmarkPlugin = {
     id: "bookmarkDots",
     afterDatasetsDraw(chart) {
-      const { ctx, chartArea } = chart;
+      const { ctx, chartArea, scales } = chart;
       const ids = LogApp.bookmarks?.getAll() || [];
       const dots = [];
+      const xScale = scales?.x;
+      const yBase = xScale ? xScale.bottom : chartArea.bottom;
+      const dotY = Math.min(chartArea.bottom + 5, yBase + 2);
       ctx.save();
       ids.forEach((id) => {
         const event = events.find((entry) => String(entry.row_id) === String(id));
@@ -122,7 +125,7 @@ LogApp.initChart = (logData, bus) => {
         const timestamp = new Date(event.utc).getTime();
         const ratio = Math.max(0, Math.min(1, (timestamp - startTime.getTime()) / spanMs));
         const x = chartArea.left + ratio * chartArea.width;
-        const y = chartArea.bottom - 6;
+        const y = dotY;
         ctx.beginPath();
         ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue(
           `--bookmark-color-${colorIndex}`
