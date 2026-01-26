@@ -216,11 +216,15 @@ LogApp.initSearchPane = (logData, bus) => {
 
   const renderResultRow = (event) => {
     const row = document.createElement("div");
-    row.className = "search-item search-result";
+    row.className = `log-line log-${event.level.replace(" ", "-")} search-result-row`;
     row.innerHTML = `
-      <span class="search-level">${event.level}</span>
-      <span>${event.name} — ${event.description}</span>
-      <span class="search-time">${event.utc.slice(11, 19)}</span>
+      <span class="badge badge-sm level-tag">${event.level}</span>
+      <span class="log-time text-base-content/60">${event.utc}</span>
+      <span class="log-action font-semibold">${event.action}</span>
+      <span class="log-name">${event.name}</span>
+      <span class="log-offset text-base-content/60">${event.seconds_from_start}s</span>
+      <span class="log-desc text-base-content/70">${event.description}</span>
+      <span class="log-code text-base-content/50">${event.system}/${event.subsystem}/${event.unit}/${event.code}</span>
     `;
     row.addEventListener("click", () => {
       if (bus) bus.emit("log:jump", { rowId: event.row_id });
