@@ -17,11 +17,6 @@
   <body class="min-h-screen bg-base-200 text-base-content">
     <main class="h-screen w-screen p-3">
       <div id="split-root" class="h-full w-full rounded-2xl bg-base-100 shadow-xl ghost-split">
-        <div class="debug-strip" id="debug-strip">
-          <button class="btn btn-xs btn-ghost" data-toggle="debug-hide-chart">Toggle Chart</button>
-          <button class="btn btn-xs btn-ghost" data-toggle="debug-hide-right">Toggle Right Pane</button>
-          <button class="btn btn-xs btn-ghost" data-toggle="debug-hide-results">Toggle Search Results</button>
-        </div>
         <section id="pane-top" class="flex">
           <div id="split-top" class="flex h-full w-full ghost-split">
             {% include 'components/log_view.html' %}

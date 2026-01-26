@@ -24,19 +24,6 @@
   overflow: hidden;
 }
 
-.debug-strip {
-  display: flex;
-  gap: 0.4rem;
-  padding: 0.35rem 0.6rem;
-  border-bottom: 1px solid var(--color-border);
-  background: rgba(248, 250, 252, 0.9);
-  font-size: 0.7rem;
-}
-
-.debug-hidden {
-  display: none !important;
-}
-
 #pane-top {
   flex: 0 0 70%;
   min-height: 0;
