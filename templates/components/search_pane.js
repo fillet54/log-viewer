@@ -67,7 +67,7 @@ LogApp.initSearchPane = (logData, bus) => {
       const row = document.createElement("div");
       row.className = "search-item search-history-item";
       row.innerHTML = `
-        <span class="search-level">${item.level}</span>
+        <span class="search-level">${item.color || item.level || "search"}</span>
         <span>${item.label}</span>
         <span class="search-time">${item.count}</span>
         <button class="pin-button ${isPinned ? "is-pinned" : ""}" title="${isPinned ? "Unpin" : "Pin"}">
@@ -124,7 +124,7 @@ LogApp.initSearchPane = (logData, bus) => {
       const item = history.find((entry) => entry.query === query) || {
         query,
         count: 0,
-        level: "search",
+        color: "search",
         label: query || "(all events)",
       };
       pinned.unshift(item);
@@ -154,13 +154,13 @@ LogApp.initSearchPane = (logData, bus) => {
     renderList(history.slice(0, 50), historyList, false);
   };
 
-  const addHistory = (query, count, level) => {
+  const addHistory = (query, count, color) => {
     if (query === "" && !count) return;
     const existingIndex = history.findIndex((item) => item.query === query);
     const item = {
       query,
       count,
-      level: level || "search",
+      color: color || "search",
       label: query || "(all events)",
     };
     if (existingIndex >= 0) {
@@ -229,16 +229,25 @@ LogApp.initSearchPane = (logData, bus) => {
     getBookmarkEvents().forEach((event) => {
       const row = document.createElement("div");
       const colorIndex = LogApp.bookmarks?.getColor(event.row_id) || 0;
-      row.className = `log-line log-${event.level.replace(" ", "-")} search-result-row${
+      const colorLabel = event.color || "Green";
+      const colorClass = String(colorLabel).toLowerCase().replace(/\s+/g, "-");
+      row.className = `log-line log-${colorClass} search-result-row${
         colorIndex ? " is-bookmarked" : ""
       }`;
       row.dataset.bookmarkColor = String(colorIndex);
+      const channels = new Set(event.channels || []);
       row.innerHTML = `
-        <span class="badge badge-sm level-tag">${event.level}</span>
-        <span class="log-time text-base-content/60">${event.utc}</span>
-        <span class="log-action font-semibold">${event.action}</span>
+        <span class="badge badge-sm level-tag">${colorLabel}</span>
+        <span class="log-time text-base-content/60">${event.utctime}</span>
+        <span class="log-action font-semibold">${event.set_clear}</span>
         <span class="log-name">${event.name}</span>
-        <span class="log-offset text-base-content/60">${event.seconds_from_start}s</span>
+        <span class="log-offset text-base-content/60">${event.norm_time}s</span>
+        <span class="log-channels">
+          <span class="log-channel ${channels.has("A") ? "is-on" : ""}">A</span>
+          <span class="log-channel ${channels.has("B") ? "is-on" : ""}">B</span>
+          <span class="log-channel ${channels.has("C") ? "is-on" : ""}">C</span>
+          <span class="log-channel ${channels.has("D") ? "is-on" : ""}">D</span>
+        </span>
         <span class="log-desc text-base-content/70">${event.description}</span>
         <span class="log-code text-base-content/50">${event.system}/${event.subsystem}/${event.unit}/${event.code}</span>
         <button class="bookmark-toggle" title="Toggle bookmark">
@@ -270,16 +279,25 @@ LogApp.initSearchPane = (logData, bus) => {
   const renderResultRow = (event) => {
     const row = document.createElement("div");
     const colorIndex = LogApp.bookmarks?.getColor(event.row_id) || 0;
-    row.className = `log-line log-${event.level.replace(" ", "-")} search-result-row${
+    const colorLabel = event.color || "Green";
+    const colorClass = String(colorLabel).toLowerCase().replace(/\s+/g, "-");
+    row.className = `log-line log-${colorClass} search-result-row${
       colorIndex ? " is-bookmarked" : ""
     }`;
     row.dataset.bookmarkColor = String(colorIndex);
+    const channels = new Set(event.channels || []);
     row.innerHTML = `
-      <span class="badge badge-sm level-tag">${event.level}</span>
-      <span class="log-time text-base-content/60">${event.utc}</span>
-      <span class="log-action font-semibold">${event.action}</span>
+      <span class="badge badge-sm level-tag">${colorLabel}</span>
+      <span class="log-time text-base-content/60">${event.utctime}</span>
+      <span class="log-action font-semibold">${event.set_clear}</span>
       <span class="log-name">${event.name}</span>
-      <span class="log-offset text-base-content/60">${event.seconds_from_start}s</span>
+      <span class="log-offset text-base-content/60">${event.norm_time}s</span>
+      <span class="log-channels">
+        <span class="log-channel ${channels.has("A") ? "is-on" : ""}">A</span>
+        <span class="log-channel ${channels.has("B") ? "is-on" : ""}">B</span>
+        <span class="log-channel ${channels.has("C") ? "is-on" : ""}">C</span>
+        <span class="log-channel ${channels.has("D") ? "is-on" : ""}">D</span>
+      </span>
       <span class="log-desc text-base-content/70">${event.description}</span>
       <span class="log-code text-base-content/50">${event.system}/${event.subsystem}/${event.unit}/${event.code}</span>
       <button class="bookmark-toggle" title="Toggle bookmark">
@@ -369,7 +387,7 @@ LogApp.initSearchPane = (logData, bus) => {
     const source = isBookmarks ? getBookmarkEvents() : events;
     if (!query) {
       renderResults(source);
-      if (commitHistory && !isBookmarks) addHistory(query, source.length, source[0]?.level);
+      if (commitHistory && !isBookmarks) addHistory(query, source.length, source[0]?.color);
       return;
     }
     if (LogApp.searchWorker && !isBookmarks) {
@@ -378,13 +396,13 @@ LogApp.initSearchPane = (logData, bus) => {
         if (requestId !== pendingSearch) return;
         const filtered = indices.map((idx) => events[idx]);
         renderResults(filtered);
-        if (commitHistory) addHistory(query, filtered.length, filtered[0]?.level);
+        if (commitHistory) addHistory(query, filtered.length, filtered[0]?.color);
       });
       return;
     }
     const filtered = source.filter(LogApp.getQueryPredicate(query));
     renderResults(filtered);
-    if (commitHistory && !isBookmarks) addHistory(query, filtered.length, filtered[0]?.level);
+    if (commitHistory && !isBookmarks) addHistory(query, filtered.length, filtered[0]?.color);
   };
 
   runButton.addEventListener("click", () => runSearch(true));

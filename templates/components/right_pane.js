@@ -61,7 +61,7 @@ LogApp.initRightPane = (bus) => {
     container.innerHTML = `
       <div class="space-y-3">
         <div class="text-sm font-semibold">${event.name}</div>
-        <div class="text-xs text-base-content/60">${event.utc} • ${event.action}</div>
+        <div class="text-xs text-base-content/60">${event.utctime} • ${event.set_clear}</div>
         <div class="text-xs text-base-content/70">${event.description}</div>
         <div class="text-xs text-base-content/50">${event.system}/${event.subsystem}/${event.unit}/${event.code}</div>
         ${dataBlock}

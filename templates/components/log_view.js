@@ -12,19 +12,28 @@ LogApp.initLogList = (logData, bus) => {
 
   const buildLogRow = (event) => {
     const row = document.createElement("div");
+    const colorLabel = event.color || "Green";
+    const colorClass = String(colorLabel).toLowerCase().replace(/\s+/g, "-");
     const colorIndex = LogApp.bookmarks?.getColor(event.row_id) || 0;
-    row.className = `log-line log-${event.level.replace(" ", "-")}${
+    row.className = `log-line log-${colorClass}${
       colorIndex ? " is-bookmarked" : ""
     }`;
     row.dataset.bookmarkColor = String(colorIndex);
-    row.dataset.seconds = event.seconds_from_start;
+    row.dataset.seconds = event.norm_time;
     row.dataset.rowId = event.row_id;
+    const channels = new Set(event.channels || []);
     row.innerHTML = `
-      <span class="badge badge-sm level-tag">${event.level}</span>
-      <span class="log-time text-base-content/60">${event.utc}</span>
-      <span class="log-action font-semibold">${event.action}</span>
+      <span class="badge badge-sm level-tag">${colorLabel}</span>
+      <span class="log-time text-base-content/60">${event.utctime}</span>
+      <span class="log-action font-semibold">${event.set_clear}</span>
       <span class="log-name">${event.name}</span>
-      <span class="log-offset text-base-content/60">${event.seconds_from_start}s</span>
+      <span class="log-offset text-base-content/60">${event.norm_time}s</span>
+      <span class="log-channels">
+        <span class="log-channel ${channels.has("A") ? "is-on" : ""}">A</span>
+        <span class="log-channel ${channels.has("B") ? "is-on" : ""}">B</span>
+        <span class="log-channel ${channels.has("C") ? "is-on" : ""}">C</span>
+        <span class="log-channel ${channels.has("D") ? "is-on" : ""}">D</span>
+      </span>
       <span class="log-desc text-base-content/70">${event.description}</span>
       <span class="log-code text-base-content/50">${event.system}/${event.subsystem}/${event.unit}/${event.code}</span>
       <button class="bookmark-toggle" title="Toggle bookmark">
@@ -148,7 +157,7 @@ LogApp.initLogList = (logData, bus) => {
     let hi = list.length - 1;
     while (lo <= hi) {
       const mid = Math.floor((lo + hi) / 2);
-      const seconds = list[mid].seconds_from_start;
+      const seconds = list[mid].norm_time;
       if (seconds === targetSeconds) return mid;
       if (seconds < targetSeconds) {
         lo = mid + 1;
@@ -158,19 +167,19 @@ LogApp.initLogList = (logData, bus) => {
     }
     if (lo >= list.length) return list.length - 1;
     if (hi < 0) return 0;
-    const loDiff = Math.abs(list[lo].seconds_from_start - targetSeconds);
-    const hiDiff = Math.abs(list[hi].seconds_from_start - targetSeconds);
+    const loDiff = Math.abs(list[lo].norm_time - targetSeconds);
+    const hiDiff = Math.abs(list[hi].norm_time - targetSeconds);
     return loDiff < hiDiff ? lo : hi;
   };
 
   const scrollToIndex = (index, duration = 180) => {
     if (index == null) return null;
-    const targetTop = index * state.rowStride - logBody.clientHeight / 2 + state.rowStride / 2;
+      const targetTop = index * state.rowStride - logBody.clientHeight / 2 + state.rowStride / 2;
     const clamped = Math.max(0, Math.min(targetTop, logBody.scrollHeight));
     const selected = state.filtered[index];
     LogApp.smoothScrollTo(logBody, clamped, duration, () => {
       if (!selected) return;
-      const row = logList.querySelector(`[data-row-id="${selected.row_id}"]`);
+        const row = logList.querySelector(`[data-row-id="${selected.row_id}"]`);
       if (!row) return;
       row.classList.remove("log-highlight");
       void row.offsetWidth;
@@ -214,7 +223,7 @@ LogApp.initLogList = (logData, bus) => {
       const current = state.filtered[index];
       if (bus && current) {
         bus.emit("log:scroll", {
-          seconds: current.seconds_from_start,
+          seconds: current.norm_time,
           rowId: current.row_id,
         });
       }

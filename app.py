@@ -9,7 +9,7 @@ FAULT_CATALOG = [
         "id": "pwr_bus",
         "name": "Power Bus Drift",
         "description": "Voltage drift detected on primary bus.",
-        "level": "yellow",
+        "color": "Yellow",
         "system": "Power",
         "subsystem": "Distribution",
         "unit": "PDU-1",
@@ -23,7 +23,7 @@ FAULT_CATALOG = [
         "id": "temp_core",
         "name": "Core Temp Spike",
         "description": "Thermal threshold exceeded on core stack.",
-        "level": "red",
+        "color": "Red",
         "system": "Thermal",
         "subsystem": "Cooling",
         "unit": "FAN-3",
@@ -37,7 +37,7 @@ FAULT_CATALOG = [
         "id": "link_loss",
         "name": "Link Loss",
         "description": "Packet loss above tolerance.",
-        "level": "yellow",
+        "color": "Yellow",
         "system": "Network",
         "subsystem": "Backplane",
         "unit": "SW-2",
@@ -47,7 +47,7 @@ FAULT_CATALOG = [
         "id": "db_timeout",
         "name": "DB Timeout",
         "description": "Query timeout exceeded 2000ms.",
-        "level": "red",
+        "color": "Red",
         "system": "Storage",
         "subsystem": "Database",
         "unit": "DB-1",
@@ -61,7 +61,7 @@ FAULT_CATALOG = [
         "id": "sensor_glitch",
         "name": "Sensor Glitch",
         "description": "Transient sensor anomaly detected.",
-        "level": "green",
+        "color": "Green",
         "system": "Telemetry",
         "subsystem": "Sensors",
         "unit": "SEN-9",
@@ -71,7 +71,7 @@ FAULT_CATALOG = [
         "id": "auth_fail",
         "name": "Auth Failure",
         "description": "Repeated authentication failure.",
-        "level": "yellow",
+        "color": "Yellow",
         "system": "Security",
         "subsystem": "Auth",
         "unit": "AUTH-2",
@@ -85,7 +85,7 @@ FAULT_CATALOG = [
         "id": "queue_lag",
         "name": "Queue Lag",
         "description": "Ingestion queue lag above threshold.",
-        "level": "green",
+        "color": "Green",
         "system": "Ingest",
         "subsystem": "Queue",
         "unit": "Q-4",
@@ -95,7 +95,7 @@ FAULT_CATALOG = [
         "id": "ctrl_fault",
         "name": "Control Fault",
         "description": "Control loop instability detected.",
-        "level": "dark red",
+        "color": "Flashing Red",
         "system": "Control",
         "subsystem": "Stability",
         "unit": "CTRL-1",
@@ -109,7 +109,7 @@ FAULT_CATALOG = [
         "id": "mem_warn",
         "name": "Memory Pressure",
         "description": "Memory usage above 85%.",
-        "level": "yellow",
+        "color": "Yellow",
         "system": "Compute",
         "subsystem": "Memory",
         "unit": "CPU-2",
@@ -119,7 +119,7 @@ FAULT_CATALOG = [
         "id": "disk_slow",
         "name": "Disk Slowdown",
         "description": "I/O latency above baseline.",
-        "level": "green",
+        "color": "Green",
         "system": "Storage",
         "subsystem": "IO",
         "unit": "DSK-7",
@@ -127,7 +127,7 @@ FAULT_CATALOG = [
     },
 ]
 
-LEVEL_ORDER = ["green", "yellow", "red", "dark red"]
+LEVEL_ORDER = ["Green", "Yellow", "Red", "Flashing Red"]
 
 
 def _seed_to_int(seed_value: str | None) -> int:
@@ -139,12 +139,12 @@ def _seed_to_int(seed_value: str | None) -> int:
         return abs(hash(seed_value)) % (10**9)
 
 
-def _level_weight(level: str, cluster_weight: float) -> float:
-    if level == "green":
+def _level_weight(color: str, cluster_weight: float) -> float:
+    if color == "Green":
         return 1.2
-    if level == "yellow":
+    if color == "Yellow":
         return 0.9 + cluster_weight * 1.6
-    if level == "red":
+    if color == "Red":
         return 0.6 + cluster_weight * 1.8
     return 0.3 + cluster_weight * 2.0
 
@@ -174,28 +174,45 @@ def generate_logs(hours: float, seed_value: str | None):
 
     for idx, offset in enumerate(time_offsets):
         weight = cluster_weight(offset)
-        weights = [_level_weight(item["level"], weight) for item in FAULT_CATALOG]
+        weights = [_level_weight(item["color"], weight) for item in FAULT_CATALOG]
         choice = rng.choices(FAULT_CATALOG, weights=weights, k=1)[0]
         is_set = states[choice["id"]]
-        action = "clear" if is_set else "set"
+        set_clear = "clear" if is_set else "set"
         states[choice["id"]] = not is_set
 
         timestamp = start_time + timedelta(seconds=offset)
+        channels = ["A", "B", "C", "D"]
+        if rng.random() < 0.85:
+            seen_channels = channels
+        else:
+            seen_channels = rng.sample(channels, rng.randint(1, 3))
+
+        def _channel_time(letter: str) -> int | None:
+            if letter not in seen_channels:
+                return None
+            jitter = rng.uniform(-1.8, 1.8)
+            return max(0, int(offset + jitter))
+
         events.append(
             {
                 "row_id": idx + 1,
                 "id": choice["id"],
                 "name": choice["name"],
                 "description": choice["description"],
-                "level": choice["level"],
+                "color": choice["color"],
                 "system": choice["system"],
                 "subsystem": choice["subsystem"],
                 "unit": choice["unit"],
                 "code": choice["code"],
                 "data": choice.get("data"),
-                "action": action,
-                "utc": timestamp.isoformat(timespec="seconds") + "Z",
-                "seconds_from_start": int(offset),
+                "set_clear": set_clear,
+                "utctime": timestamp.isoformat(timespec="seconds") + "Z",
+                "norm_time": int(offset),
+                "a_time": _channel_time("A"),
+                "b_time": _channel_time("B"),
+                "c_time": _channel_time("C"),
+                "d_time": _channel_time("D"),
+                "channels": seen_channels,
             }
         )
 

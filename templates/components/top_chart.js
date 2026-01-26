@@ -24,19 +24,19 @@ LogApp.initChart = (logData, bus) => {
 
   const buildBuckets = (sourceEvents) => {
     const buckets = {
-      green: new Array(bucketCount).fill(0),
-      yellow: new Array(bucketCount).fill(0),
-      red: new Array(bucketCount).fill(0),
-      "dark red": new Array(bucketCount).fill(0),
+      Green: new Array(bucketCount).fill(0),
+      Yellow: new Array(bucketCount).fill(0),
+      Red: new Array(bucketCount).fill(0),
+      "Flashing Red": new Array(bucketCount).fill(0),
     };
     sourceEvents.forEach((event) => {
-      const timestamp = new Date(event.utc);
+      const timestamp = new Date(event.utctime);
       const index = Math.min(
         bucketCount - 1,
         Math.max(0, Math.floor((timestamp - startTime) / bucketSize))
       );
-      if (buckets[event.level]) {
-        buckets[event.level][index] += 1;
+      if (buckets[event.color]) {
+        buckets[event.color][index] += 1;
       }
     });
     return buckets;
@@ -141,7 +141,7 @@ LogApp.initChart = (logData, bus) => {
         const event = events.find((entry) => String(entry.row_id) === String(id));
         if (!event) return;
         const colorIndex = LogApp.bookmarks?.getColor(event.row_id) || 1;
-        const timestamp = new Date(event.utc).getTime();
+        const timestamp = new Date(event.utctime).getTime();
         const ratio = Math.max(0, Math.min(1, (timestamp - startTime.getTime()) / spanMs));
         const x = chartArea.left + ratio * chartArea.width;
         const y = dotY;
@@ -165,28 +165,28 @@ LogApp.initChart = (logData, bus) => {
       datasets: [
         {
           label: "Green",
-          data: initialBuckets.green,
+          data: initialBuckets.Green,
           backgroundColor: "rgba(34, 197, 94, 0.75)",
           borderColor: "rgba(22, 163, 74, 1)",
           borderWidth: 1,
         },
         {
           label: "Yellow",
-          data: initialBuckets.yellow,
+          data: initialBuckets.Yellow,
           backgroundColor: "rgba(250, 204, 21, 0.8)",
           borderColor: "rgba(234, 179, 8, 1)",
           borderWidth: 1,
         },
         {
           label: "Red",
-          data: initialBuckets.red,
+          data: initialBuckets.Red,
           backgroundColor: "rgba(239, 68, 68, 0.8)",
           borderColor: "rgba(220, 38, 38, 1)",
           borderWidth: 1,
         },
         {
-          label: "Dark Red",
-          data: initialBuckets["dark red"],
+          label: "Flashing Red",
+          data: initialBuckets["Flashing Red"],
           backgroundColor: "rgba(127, 29, 29, 0.85)",
           borderColor: "rgba(88, 28, 28, 1)",
           borderWidth: 1,
@@ -277,10 +277,10 @@ LogApp.initChart = (logData, bus) => {
 
   const updateFilteredEvents = (filteredEvents) => {
     const buckets = buildBuckets(filteredEvents);
-    stackedChart.data.datasets[0].data = buckets.green;
-    stackedChart.data.datasets[1].data = buckets.yellow;
-    stackedChart.data.datasets[2].data = buckets.red;
-    stackedChart.data.datasets[3].data = buckets["dark red"];
+    stackedChart.data.datasets[0].data = buckets.Green;
+    stackedChart.data.datasets[1].data = buckets.Yellow;
+    stackedChart.data.datasets[2].data = buckets.Red;
+    stackedChart.data.datasets[3].data = buckets["Flashing Red"];
     stackedChart.update();
   };
 
