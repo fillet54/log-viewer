@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="max-w-6xl mx-auto w-full px-4 py-8 space-y-6">
+    <div class="bg-base-100 shadow rounded-xl p-5">
+      <h1 class="text-xl font-semibold mb-3">Log Datasets</h1>
+      <form method="get" class="flex flex-wrap gap-3 items-end mb-4">
+        <label class="form-control max-w-xs">
+          <span class="label-text mb-1">Dataset</span>
+          <select name="dataset_id" class="select select-bordered">
+            <option value="">All datasets</option>
+            {% for dataset in datasets %}
+              <option value="{{ dataset.id }}" {% if dataset.id == selected_dataset_id %}selected{% endif %}>
+                {{ dataset.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+        <button class="btn btn-primary" type="submit">Filter</button>
+        <a class="btn btn-ghost" href="{{ url_for('logs_index') }}">Reset</a>
+        <a class="btn btn-outline ml-auto" href="{{ url_for('upload_logs') }}">Upload / Generate</a>
+      </form>
+
+      {% if boots %}
+        <div class="space-y-3">
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Dataset</th>
+                  <th>Shard</th>
+                  <th>Boot ID</th>
+                  <th>System</th>
+                  <th>Event ID</th>
+                  <th>Tags</th>
+                  <th>Events</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for boot in boots %}
+                  {% set meta = boot_meta_map.get(boot.boot_id) %}
+                  <tr>
+                    <td>{{ boot.dataset_name }}</td>
+                    <td>{{ boot.shard_name }}</td>
+                    <td>{{ boot.boot_id }}</td>
+                    <td>{{ meta.system }}</td>
+                    <td>{{ meta.event_id }}</td>
+                    <td>{{ meta.tags }}</td>
+                    <td>{{ boot.event_count }}</td>
+                    <td class="flex gap-2">
+                      <a class="btn btn-xs btn-outline" href="{{ url_for('index', shard=boot.shard_id, boot=boot.boot_id) }}">Open</a>
+                      <a class="btn btn-xs btn-ghost" href="{{ url_for('edit_boot', shard_id=boot.shard_id, boot_id=boot.boot_id) }}">Edit</a>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <div class="text-base-content/70">No logs found. Upload or generate a log to create one.</div>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
