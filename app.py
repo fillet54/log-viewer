@@ -122,7 +122,7 @@ def login():
             return redirect(url_for("login"))
         user = get_or_create_user(email)
         token = issue_login_token(user["id"])
-        login_link = url_for("consume_token", token=token, _external=True)
+        login_link = url_for("consume_token_route", token=token, _external=True)
         # TODO: send email with login_link; kept commented for now while SMTP is unavailable.
         # send_login_email(email, login_link)
         flash("Check your email for the magic link. Redirecting for development.")
