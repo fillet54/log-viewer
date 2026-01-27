@@ -1,0 +1,21 @@
+<template id="log-row-template">
+  <div class="log-line">
+    <span class="log-time text-base-content/60" data-field="utctime"></span>
+    <span class="log-action font-semibold" data-field="action"></span>
+    <span class="log-name" data-field="name"></span>
+    <span class="log-offset text-base-content/60" data-field="offset"></span>
+    <span class="log-channels">
+      <span class="log-channel" data-channel="A">A</span>
+      <span class="log-channel" data-channel="B">B</span>
+      <span class="log-channel" data-channel="C">C</span>
+      <span class="log-channel" data-channel="D">D</span>
+    </span>
+    <span class="log-desc text-base-content/70" data-field="description"></span>
+    <span class="log-code text-base-content/50" data-field="code"></span>
+    <button class="bookmark-toggle" title="Toggle bookmark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 4h12v16l-6-3-6 3z" />
+      </svg>
+    </button>
+  </div>
+</template>

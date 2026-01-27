@@ -1,67 +1,87 @@
 window.LogApp = window.LogApp || {};
 
+LogApp.renderLogRow = (
+  event,
+  templateEl = document.getElementById("log-row-template"),
+  options = {}
+) => {
+  if (!templateEl?.content?.firstElementChild || !event) return null;
+  const { extraClasses = [] } = options;
+  const row = templateEl.content.firstElementChild.cloneNode(true);
+  const colorLabel = event.color || "Green";
+  const colorClass = String(colorLabel).toLowerCase().replace(/\s+/g, "-");
+  const colorIndex = LogApp.bookmarks?.getColor(event.row_id) || 0;
+  const extra = Array.isArray(extraClasses) ? extraClasses.filter(Boolean) : [];
+  row.className = [`log-line log-${colorClass}${colorIndex ? " is-bookmarked" : ""}`, ...extra].join(
+    " "
+  );
+  row.dataset.bookmarkColor = String(colorIndex);
+  row.dataset.seconds = event.norm_time;
+  row.dataset.rowId = event.row_id;
+
+  const setText = (selector, value) => {
+    const el = row.querySelector(selector);
+    if (el) el.textContent = value ?? "";
+  };
+  setText('[data-field="utctime"]', event.utctime);
+  setText('[data-field="action"]', event.set_clear);
+  setText('[data-field="name"]', event.name);
+  setText('[data-field="offset"]', `${event.norm_time}s`);
+  setText('[data-field="description"]', event.description);
+  setText(
+    '[data-field="code"]',
+    `${event.system}/${event.subsystem}/${event.unit}/${event.code}`
+  );
+
+  const channels = new Set(event.channels || []);
+  ["A", "B", "C", "D"].forEach((channelId) => {
+    const el = row.querySelector(`[data-channel="${channelId}"]`);
+    if (el) el.classList.toggle("is-on", channels.has(channelId));
+  });
+
+  return row;
+};
+
 LogApp.initLogList = (logData, bus) => {
   const logBody = document.getElementById("log-body");
   const logList = document.getElementById("log-list");
   const logSpacer = document.getElementById("log-spacer");
   const searchInput = document.getElementById("log-search");
+  const logRowTemplate = document.getElementById("log-row-template");
 
-  if (!logBody || !logList || !logSpacer || !logData) return null;
+  if (!logBody || !logList || !logSpacer || !logData || !logRowTemplate) return null;
   const events = Array.isArray(logData.events) ? logData.events : [];
   if (!events.length) return null;
 
   const buildLogRow = (event) => {
-    const row = document.createElement("div");
-    const colorLabel = event.color || "Green";
-    const colorClass = String(colorLabel).toLowerCase().replace(/\s+/g, "-");
-    const colorIndex = LogApp.bookmarks?.getColor(event.row_id) || 0;
-    row.className = `log-line log-${colorClass}${
-      colorIndex ? " is-bookmarked" : ""
-    }`;
-    row.dataset.bookmarkColor = String(colorIndex);
-    row.dataset.seconds = event.norm_time;
-    row.dataset.rowId = event.row_id;
-    const channels = new Set(event.channels || []);
-    row.innerHTML = `
-      <span class="log-time text-base-content/60">${event.utctime}</span>
-      <span class="log-action font-semibold">${event.set_clear}</span>
-      <span class="log-name">${event.name}</span>
-      <span class="log-offset text-base-content/60">${event.norm_time}s</span>
-      <span class="log-channels">
-        <span class="log-channel ${channels.has("A") ? "is-on" : ""}">A</span>
-        <span class="log-channel ${channels.has("B") ? "is-on" : ""}">B</span>
-        <span class="log-channel ${channels.has("C") ? "is-on" : ""}">C</span>
-        <span class="log-channel ${channels.has("D") ? "is-on" : ""}">D</span>
-      </span>
-      <span class="log-desc text-base-content/70">${event.description}</span>
-      <span class="log-code text-base-content/50">${event.system}/${event.subsystem}/${event.unit}/${event.code}</span>
-      <button class="bookmark-toggle" title="Toggle bookmark">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 4h12v16l-6-3-6 3z" />
-        </svg>
-      </button>
-    `;
+    const row = LogApp.renderLogRow(event, logRowTemplate);
+    if (!row) return null;
     const bookmarkButton = row.querySelector(".bookmark-toggle");
-    bookmarkButton.addEventListener("click", (eventClick) => {
-      eventClick.stopPropagation();
-      const next = LogApp.bookmarks?.cycle(event.row_id) || 0;
-      row.classList.toggle("is-bookmarked", next > 0);
-      row.dataset.bookmarkColor = String(next);
-      if (bus) bus.emit("bookmarks:changed", LogApp.bookmarks?.getAllWithColors() || {});
-    });
+    if (bookmarkButton) {
+      bookmarkButton.addEventListener("click", (eventClick) => {
+        eventClick.stopPropagation();
+        const next = LogApp.bookmarks?.cycle(event.row_id) || 0;
+        row.classList.toggle("is-bookmarked", next > 0);
+        row.dataset.bookmarkColor = String(next);
+        if (bus) bus.emit("bookmarks:changed", LogApp.bookmarks?.getAllWithColors() || {});
+      });
+    }
     row.addEventListener("click", () => {
       if (bus) bus.emit("event:selected", event);
     });
     return row;
   };
 
-  const sample = buildLogRow(events[0]);
-  sample.style.visibility = "hidden";
-  logList.appendChild(sample);
-  const rowHeight = sample.getBoundingClientRect().height || 38;
   const listStyle = getComputedStyle(logList);
+  const sample = buildLogRow(events[0]);
+  let rowHeight = 38;
+  if (sample) {
+    sample.style.visibility = "hidden";
+    logList.appendChild(sample);
+    rowHeight = sample.getBoundingClientRect().height || rowHeight;
+    logList.removeChild(sample);
+  }
   const gap = parseFloat(listStyle.rowGap || listStyle.gap || "0") || 0;
-  logList.removeChild(sample);
   const rowStride = rowHeight + gap;
 
   const state = {
@@ -93,6 +113,7 @@ LogApp.initLogList = (logData, bus) => {
     const fragment = document.createDocumentFragment();
     for (let i = startIndex; i < endIndex; i += 1) {
       const row = buildLogRow(state.filtered[i]);
+      if (!row) continue;
       if (state.selectedRowId && String(state.selectedRowId) === row.dataset.rowId) {
         row.classList.add("log-selected");
       }

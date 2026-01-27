@@ -18,6 +18,7 @@ LogApp.initSearchPane = (logData, bus) => {
   const filterView = document.getElementById("search-filter-view");
   const bookmarkView = document.getElementById("search-bookmark-view");
   const searchSplit = document.getElementById("search-split");
+  const logRowTemplate = document.getElementById("log-row-template");
 
   if (
     !pinnedList ||
@@ -36,7 +37,8 @@ LogApp.initSearchPane = (logData, bus) => {
     !historyView ||
     !filterView ||
     !bookmarkView ||
-    !logData
+    !logData ||
+    !logRowTemplate
   )
     return;
   const events = Array.isArray(logData.events) ? logData.events : [];
@@ -226,35 +228,10 @@ LogApp.initSearchPane = (logData, bus) => {
     bookmarksList.innerHTML = "";
     const fragment = document.createDocumentFragment();
     getBookmarkEvents().forEach((event) => {
-      const row = document.createElement("div");
-      const colorIndex = LogApp.bookmarks?.getColor(event.row_id) || 0;
-      const colorLabel = event.color || "Green";
-      const colorClass = String(colorLabel).toLowerCase().replace(/\s+/g, "-");
-      row.className = `log-line log-${colorClass} search-result-row${
-        colorIndex ? " is-bookmarked" : ""
-      }`;
-      row.dataset.bookmarkColor = String(colorIndex);
-      const channels = new Set(event.channels || []);
-      row.innerHTML = `
-        <span class="log-time text-base-content/60">${event.utctime}</span>
-        <span class="log-action font-semibold">${event.set_clear}</span>
-        <span class="log-name">${event.name}</span>
-        <span class="log-offset text-base-content/60">${event.norm_time}s</span>
-        <span class="log-channels">
-          <span class="log-channel ${channels.has("A") ? "is-on" : ""}">A</span>
-          <span class="log-channel ${channels.has("B") ? "is-on" : ""}">B</span>
-          <span class="log-channel ${channels.has("C") ? "is-on" : ""}">C</span>
-          <span class="log-channel ${channels.has("D") ? "is-on" : ""}">D</span>
-        </span>
-        <span class="log-desc text-base-content/70">${event.description}</span>
-        <span class="log-code text-base-content/50">${event.system}/${event.subsystem}/${event.unit}/${event.code}</span>
-        <button class="bookmark-toggle" title="Toggle bookmark">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 4h12v16l-6-3-6 3z" />
-          </svg>
-        </button>
-      `;
-      row.querySelector(".bookmark-toggle").addEventListener("click", (eventClick) => {
+      const row = LogApp.renderLogRow(event, logRowTemplate, { extraClasses: ["search-result-row"] });
+      if (!row) return;
+      const bookmarkButton = row.querySelector(".bookmark-toggle");
+      bookmarkButton?.addEventListener("click", (eventClick) => {
         eventClick.stopPropagation();
         LogApp.bookmarks?.cycle(event.row_id);
         renderBookmarks();
@@ -275,35 +252,10 @@ LogApp.initSearchPane = (logData, bus) => {
   };
 
   const renderResultRow = (event) => {
-    const row = document.createElement("div");
-    const colorIndex = LogApp.bookmarks?.getColor(event.row_id) || 0;
-    const colorLabel = event.color || "Green";
-    const colorClass = String(colorLabel).toLowerCase().replace(/\s+/g, "-");
-    row.className = `log-line log-${colorClass} search-result-row${
-      colorIndex ? " is-bookmarked" : ""
-    }`;
-    row.dataset.bookmarkColor = String(colorIndex);
-    const channels = new Set(event.channels || []);
-    row.innerHTML = `
-      <span class="log-time text-base-content/60">${event.utctime}</span>
-      <span class="log-action font-semibold">${event.set_clear}</span>
-      <span class="log-name">${event.name}</span>
-      <span class="log-offset text-base-content/60">${event.norm_time}s</span>
-      <span class="log-channels">
-        <span class="log-channel ${channels.has("A") ? "is-on" : ""}">A</span>
-        <span class="log-channel ${channels.has("B") ? "is-on" : ""}">B</span>
-        <span class="log-channel ${channels.has("C") ? "is-on" : ""}">C</span>
-        <span class="log-channel ${channels.has("D") ? "is-on" : ""}">D</span>
-      </span>
-      <span class="log-desc text-base-content/70">${event.description}</span>
-      <span class="log-code text-base-content/50">${event.system}/${event.subsystem}/${event.unit}/${event.code}</span>
-      <button class="bookmark-toggle" title="Toggle bookmark">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 4h12v16l-6-3-6 3z" />
-        </svg>
-      </button>
-    `;
-    row.querySelector(".bookmark-toggle").addEventListener("click", (eventClick) => {
+    const row = LogApp.renderLogRow(event, logRowTemplate, { extraClasses: ["search-result-row"] });
+    if (!row) return null;
+    const bookmarkButton = row.querySelector(".bookmark-toggle");
+    bookmarkButton?.addEventListener("click", (eventClick) => {
       eventClick.stopPropagation();
       const next = LogApp.bookmarks?.cycle(event.row_id) || 0;
       row.classList.toggle("is-bookmarked", next > 0);
@@ -328,6 +280,7 @@ LogApp.initSearchPane = (logData, bus) => {
 
   const measureResultRow = () => {
     const sample = renderResultRow(events[0]);
+    if (!sample) return;
     sample.style.visibility = "hidden";
     resultsItems.appendChild(sample);
     const rowHeight = sample.getBoundingClientRect().height || 28;
@@ -346,7 +299,8 @@ LogApp.initSearchPane = (logData, bus) => {
     resultsItems.innerHTML = "";
     const fragment = document.createDocumentFragment();
     for (let i = startIndex; i < endIndex; i += 1) {
-      fragment.appendChild(renderResultRow(resultsState.items[i]));
+      const row = renderResultRow(resultsState.items[i]);
+      if (row) fragment.appendChild(row);
     }
     resultsItems.appendChild(fragment);
   };
