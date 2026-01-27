@@ -1,8 +1,27 @@
 from datetime import datetime, timedelta
+import os
 import random
-from flask import Flask, render_template, request, Response
+import secrets
+import sqlite3
+from typing import Any, Dict, Optional
+from flask import (
+    Flask,
+    Response,
+    flash,
+    g,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("LOG_VIEWER_SECRET", "dev-secret-key-change-me")
+app.permanent_session_lifetime = timedelta(days=30)
+app.config["DATABASE"] = os.environ.get(
+    "LOG_VIEWER_DB", os.path.join(app.root_path, "log_viewer.db")
+)
 
 FAULT_CATALOG = [
     {
@@ -130,7 +149,188 @@ FAULT_CATALOG = [
 LEVEL_ORDER = ["Green", "Yellow", "Red", "Flashing Red"]
 
 
-def _seed_to_int(seed_value: str | None) -> int:
+def get_db() -> sqlite3.Connection:
+    if "db" not in g:
+        db_path = app.config["DATABASE"]
+        db_dir = os.path.dirname(db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        g.db = conn
+    return g.db
+
+
+def close_db(_: Optional[BaseException] = None) -> None:
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
+
+
+def init_db() -> None:
+    db = get_db()
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL UNIQUE,
+            name TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            last_seen TEXT
+        )
+    """
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS login_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            token TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            used_at TEXT,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    """
+    )
+    db.commit()
+
+
+def _row_to_user(row: sqlite3.Row) -> Dict[str, Any]:
+    return {
+        "id": row["id"],
+        "email": row["email"],
+        "name": row["name"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+        "last_seen": row["last_seen"],
+    }
+
+
+def get_user(user_id: int) -> Optional[Dict[str, Any]]:
+    db = get_db()
+    row = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    return _row_to_user(row) if row else None
+
+
+def get_or_create_user(email: str) -> Dict[str, Any]:
+    db = get_db()
+    row = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+    now = datetime.utcnow().isoformat()
+    if row:
+        user = _row_to_user(row)
+        return user
+    cursor = db.execute(
+        "INSERT INTO users (email, name, created_at, updated_at, last_seen) VALUES (?, ?, ?, ?, ?)",
+        (email, None, now, now, now),
+    )
+    db.commit()
+    return get_user(cursor.lastrowid)
+
+
+def update_user_name(user_id: int, name: str) -> None:
+    db = get_db()
+    now = datetime.utcnow().isoformat()
+    db.execute("UPDATE users SET name = ?, updated_at = ? WHERE id = ?", (name, now, user_id))
+    db.commit()
+
+
+def update_user_last_seen(user_id: int, when: datetime) -> None:
+    db = get_db()
+    db.execute(
+        "UPDATE users SET last_seen = ?, updated_at = ? WHERE id = ?",
+        (when.isoformat(), when.isoformat(), user_id),
+    )
+    db.commit()
+
+
+def issue_login_token(user_id: int, ttl_minutes: int = 15) -> str:
+    db = get_db()
+    token = secrets.token_urlsafe(32)
+    now = datetime.utcnow()
+    expires_at = now + timedelta(minutes=ttl_minutes)
+    db.execute(
+        """
+        INSERT INTO login_tokens (user_id, token, created_at, expires_at)
+        VALUES (?, ?, ?, ?)
+    """,
+        (user_id, token, now.isoformat(), expires_at.isoformat()),
+    )
+    db.commit()
+    return token
+
+
+def consume_login_token(token: str) -> Optional[int]:
+    db = get_db()
+    now_iso = datetime.utcnow().isoformat()
+    row = db.execute(
+        """
+        SELECT * FROM login_tokens
+        WHERE token = ? AND used_at IS NULL AND expires_at >= ?
+    """,
+        (token, now_iso),
+    ).fetchone()
+    if not row:
+        return None
+    db.execute(
+        "UPDATE login_tokens SET used_at = ? WHERE id = ?", (now_iso, row["id"])
+    )
+    db.commit()
+    return int(row["user_id"])
+
+
+def login_user(user_id: int) -> None:
+    session.clear()
+    session.permanent = True
+    now = datetime.utcnow().isoformat()
+    session["user_id"] = user_id
+    session["last_seen"] = now
+    update_user_last_seen(user_id, datetime.fromisoformat(now))
+
+
+@app.teardown_appcontext
+def teardown_db(error: Optional[BaseException] = None) -> None:
+    close_db(error)
+
+
+@app.context_processor
+def inject_user() -> Dict[str, Any]:
+    return {"current_user": getattr(g, "current_user", None)}
+
+
+@app.before_request
+def load_user() -> None:
+    init_db()
+    g.current_user = None
+    user_id = session.get("user_id")
+    last_seen_str = session.get("last_seen")
+    if not user_id:
+        return
+    now = datetime.utcnow()
+    last_seen = None
+    try:
+        last_seen = datetime.fromisoformat(last_seen_str) if last_seen_str else None
+    except (TypeError, ValueError):
+        last_seen = None
+
+    if last_seen and now - last_seen > timedelta(days=30):
+        session.clear()
+        return
+
+    user = get_user(int(user_id))
+    if not user:
+        session.clear()
+        return
+
+    g.current_user = user
+    needs_refresh = last_seen is None or now - last_seen >= timedelta(hours=12)
+    if needs_refresh:
+        session["last_seen"] = now.isoformat()
+        session.modified = True
+        update_user_last_seen(user["id"], now)
+
+def _seed_to_int(seed_value: Optional[str]) -> int:
     if seed_value is None or seed_value == "":
         return 1
     try:
@@ -149,7 +349,7 @@ def _level_weight(color: str, cluster_weight: float) -> float:
     return 0.3 + cluster_weight * 2.0
 
 
-def generate_logs(hours: float, seed_value: str | None):
+def generate_logs(hours: float, seed_value: Optional[str]):
     seed_int = _seed_to_int(seed_value)
     rng = random.Random(seed_int)
     total_events = max(1, int(hours * 500))
@@ -187,7 +387,7 @@ def generate_logs(hours: float, seed_value: str | None):
         else:
             seen_channels = rng.sample(channels, rng.randint(1, 3))
 
-        def _channel_time(letter: str) -> int | None:
+        def _channel_time(letter: str) -> Optional[int]:
             if letter not in seen_channels:
                 return None
             jitter = rng.uniform(-1.8, 1.8)
@@ -242,6 +442,67 @@ def generate_logs(hours: float, seed_value: str | None):
         "events": events,
         "modes": modes,
     }
+
+
+def _require_login_redirect():
+    if g.current_user:
+        return None
+    flash("Please log in to continue.")
+    return redirect(url_for("login"))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if g.current_user:
+        return redirect(url_for("index"))
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        if not email:
+            flash("Email is required.")
+            return redirect(url_for("login"))
+        user = get_or_create_user(email)
+        token = issue_login_token(user["id"])
+        login_link = url_for("consume_token", token=token, _external=True)
+        # TODO: send email with login_link; kept commented for now while SMTP is unavailable.
+        # send_login_email(email, login_link)
+        flash("Check your email for the magic link. Redirecting for development.")
+        return redirect(login_link)
+    return render_template("login.html")
+
+
+@app.route("/auth/<token>")
+def consume_token(token: str):
+    user_id = consume_login_token(token)
+    if not user_id:
+        flash("That login link is invalid or expired. Request a new one.")
+        return redirect(url_for("login"))
+    login_user(user_id)
+    user = get_user(user_id)
+    if user and not user.get("name"):
+        return redirect(url_for("profile", first_login=1))
+    return redirect(url_for("index"))
+
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    flash("You have been logged out.")
+    return redirect(url_for("index"))
+
+
+@app.route("/profile", methods=["GET", "POST"])
+def profile():
+    redirect_response = _require_login_redirect()
+    if redirect_response:
+        return redirect_response
+    user = g.current_user
+    if request.method == "POST":
+        name = (request.form.get("name") or "").strip()
+        update_user_name(user["id"], name)
+        g.current_user["name"] = name
+        flash("Profile updated.")
+        return redirect(url_for("profile"))
+    return render_template("profile.html", user=user, first_login=request.args.get("first_login"))
 
 
 @app.route("/")

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="flex items-center justify-center px-4 py-10">
+    <div class="w-full max-w-md bg-base-100 shadow-lg rounded-xl p-6">
+      <h1 class="text-xl font-semibold mb-2">Sign in</h1>
+      <p class="text-sm text-base-content/70 mb-4">
+        Enter your email to receive a one-time link. For development you'll be sent directly to the link.
+      </p>
+      <form method="post" class="space-y-4">
+        <label class="form-control w-full">
+          <span class="label-text mb-1">Email</span>
+          <input
+            type="email"
+            name="email"
+            required
+            class="input input-bordered w-full"
+            placeholder="you@example.com"
+          />
+        </label>
+        <button class="btn btn-primary w-full" type="submit">Send magic link</button>
+      </form>
+    </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="flex items-center justify-center px-4 py-10">
+    <div class="w-full max-w-lg bg-base-100 shadow-lg rounded-xl p-6">
+      <h1 class="text-xl font-semibold mb-2">Profile</h1>
+      {% if first_login %}
+        <p class="text-sm text-base-content/70 mb-3">
+          Welcome! Add your name so teammates know who you are.
+        </p>
+      {% endif %}
+      <form method="post" class="space-y-4">
+        <label class="form-control w-full">
+          <span class="label-text mb-1">Email</span>
+          <input
+            type="email"
+            class="input input-bordered w-full"
+            value="{{ user.email }}"
+            disabled
+          />
+        </label>
+        <label class="form-control w-full">
+          <span class="label-text mb-1">Name</span>
+          <input
+            type="text"
+            name="name"
+            class="input input-bordered w-full"
+            value="{{ user.name or '' }}"
+            placeholder="Your name"
+            required
+          />
+        </label>
+        <div class="flex items-center justify-between">
+          <a class="btn btn-ghost btn-sm" href="{{ url_for('index') }}">Back</a>
+          <button class="btn btn-primary" type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}

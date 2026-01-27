@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}HTML Log Viewer{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+    {% block head_extra %}{% endblock %}
+  </head>
+  <body class="bg-base-200 text-base-content min-h-screen flex flex-col h-screen">
+    <div class="min-h-screen flex flex-col">
+      <header class="bg-base-100 border-b border-base-300 shadow-sm">
+        <div class="max-w-screen-2xl mx-auto flex items-center justify-between px-4 py-3 gap-4">
+          <a href="{{ url_for('index') }}" class="font-semibold tracking-tight text-lg">
+            HTML Log Viewer
+          </a>
+          <div class="flex items-center gap-2">
+            {% if current_user %}
+              <span class="text-sm text-base-content/70">
+                Signed in as {{ current_user.name or current_user.email }}
+              </span>
+              <a class="btn btn-xs btn-ghost" href="{{ url_for('profile') }}">Profile</a>
+              <form method="post" action="{{ url_for('logout') }}">
+                <button class="btn btn-xs btn-outline" type="submit">Logout</button>
+              </form>
+            {% else %}
+              <a class="btn btn-xs btn-primary" href="{{ url_for('login') }}">Log in</a>
+            {% endif %}
+          </div>
+        </div>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="bg-warning/20 text-warning">
+              <div class="max-w-screen-2xl mx-auto px-4 py-2 flex flex-col gap-1">
+                {% for message in messages %}
+                  <div class="text-sm">{{ message }}</div>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+        {% endwith %}
+      </header>
+      <main class="flex-1 w-full flex flex-col min-h-0">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+    {% block body_scripts %}{% endblock %}
+  </body>
+</html>

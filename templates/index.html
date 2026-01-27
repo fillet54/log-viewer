@@ -1,35 +1,22 @@
-<!doctype html>
-<html lang="en" data-theme="light">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>HTML Log Viewer</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link
-      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css"
-      rel="stylesheet"
-      type="text/css"
-    />
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
-  </head>
-  <body class="min-h-screen bg-base-200 text-base-content">
-    {% include 'components/log_row_template.html' %}
-    <main class="h-screen w-screen p-3">
-      <div id="split-root" class="h-full w-full rounded-2xl bg-base-100 shadow-xl ghost-split">
-        <section id="pane-top" class="flex">
-          <div id="split-top" class="flex h-full w-full ghost-split">
-            {% include 'components/log_view.html' %}
-            {% include 'components/right_pane.html' %}
-          </div>
-        </section>
+{% extends "base.html" %}
 
-        {% include 'components/search_pane.html' %}
-      </div>
-    </main>
+{% block content %}
+  {% include 'components/log_row_template.html' %}
+  <main class="flex-1 w-full p-3 min-h-0 flex">
+    <div id="split-root" class="flex-1 h-full w-full rounded-2xl bg-base-100 shadow-xl ghost-split">
+      <section id="pane-top" class="flex">
+        <div id="split-top" class="flex h-full w-full ghost-split">
+          {% include 'components/log_view.html' %}
+          {% include 'components/right_pane.html' %}
+        </div>
+      </section>
 
-    <script src="{{ url_for('app_js') }}"></script>
-    <script id="log-data" type="application/json">{{ log_data | tojson }}</script>
-  </body>
-</html>
+      {% include 'components/search_pane.html' %}
+    </div>
+  </main>
+{% endblock %}
+
+{% block body_scripts %}
+  <script src="{{ url_for('app_js') }}"></script>
+  <script id="log-data" type="application/json">{{ log_data | tojson }}</script>
+{% endblock %}
