@@ -1,137 +1,94 @@
 window.LogApp = window.LogApp || {};
 
-LogApp.getFieldValue = (event, path) => {
-  if (!event || !path) return null;
-  const parts = path.split(".");
-  let current = event;
-  for (const part of parts) {
-    if (current == null || typeof current !== "object") return null;
-    current = current[part];
-  }
-  return current;
-};
-
-LogApp.toComparable = (value) => {
-  if (value == null) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  return JSON.stringify(value);
-};
-
-LogApp.globToRegex = (pattern) => {
-  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-  const regex = "^" + escaped.replace(/\*/g, ".*") + "$";
-  return new RegExp(regex, "i");
-};
-
-LogApp.tokenizeQuery = (input) => {
-  const tokens = [];
-  let i = 0;
-  while (i < input.length) {
-    const ch = input[i];
-    if (/\s/.test(ch)) {
-      i += 1;
-      continue;
+LogApp.buildSearchParser = () => {
+  const getFieldValue = (event, path) => {
+    if (!event || !path) return null;
+    const parts = path.split(".");
+    let current = event;
+    for (const part of parts) {
+      if (current == null || typeof current !== "object") return null;
+      current = current[part];
     }
-    if (ch === "(" || ch === ")") {
-      tokens.push({ type: ch });
-      i += 1;
-      continue;
-    }
-    if (ch === '"') {
-      let j = i + 1;
-      let value = "";
-      while (j < input.length && input[j] !== '"') {
-        value += input[j];
-        j += 1;
-      }
-      tokens.push({ type: "TERM", value });
-      i = j + 1;
-      continue;
-    }
-    let value = "";
-    while (i < input.length && !/\s|\(|\)/.test(input[i])) {
-      value += input[i];
-      i += 1;
-      if (value.includes(":") && input[i] === '"') {
+    return current;
+  };
+
+  const toComparable = (value) => {
+    if (value == null) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    return JSON.stringify(value);
+  };
+
+  const globToRegex = (pattern) => {
+    const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    const regex = "^" + escaped.replace(/\*/g, ".*") + "$";
+    return new RegExp(regex, "i");
+  };
+
+  const tokenizeQuery = (input) => {
+    const tokens = [];
+    let i = 0;
+    while (i < input.length) {
+      const ch = input[i];
+      if (/\s/.test(ch)) {
         i += 1;
-        let quoted = "";
-        while (i < input.length && input[i] !== '"') {
-          quoted += input[i];
-          i += 1;
+        continue;
+      }
+      if (ch === "(" || ch === ")") {
+        tokens.push({ type: ch });
+        i += 1;
+        continue;
+      }
+      if (ch === '"') {
+        let j = i + 1;
+        let value = "";
+        while (j < input.length && input[j] !== '"') {
+          value += input[j];
+          j += 1;
         }
-        value += `"${quoted}"`;
-        if (input[i] === '"') i += 1;
-        break;
+        tokens.push({ type: "TERM", value });
+        i = j + 1;
+        continue;
       }
-    }
-    if (value.includes(":") && input[i] === "(") {
-      let depth = 0;
-      let group = "";
-      while (i < input.length) {
-        const c = input[i];
-        if (c === "(") depth += 1;
-        if (c === ")") depth -= 1;
-        group += c;
+
+      let value = "";
+      while (i < input.length && !/\s|\(|\)/.test(input[i])) {
+        value += input[i];
         i += 1;
-        if (depth === 0) break;
+        if (value.includes(":") && input[i] === '"') {
+          i += 1;
+          let quoted = "";
+          while (i < input.length && input[i] !== '"') {
+            quoted += input[i];
+            i += 1;
+          }
+          value += `"${quoted}"`;
+          if (input[i] === '"') i += 1;
+          break;
+        }
       }
-      value += group;
-    }
-    if (value.toUpperCase() === "OR" || value === "|") {
-      tokens.push({ type: "OR" });
-    } else {
-      tokens.push({ type: "TERM", value });
-    }
-  }
-  return tokens;
-};
 
-LogApp.parseQuery = (input) => {
-  const tokens = LogApp.tokenizeQuery(input || "");
-  let idx = 0;
+      if (value.includes(":") && input[i] === "(") {
+        let depth = 0;
+        let group = "";
+        while (i < input.length) {
+          const c = input[i];
+          if (c === "(") depth += 1;
+          if (c === ")") depth -= 1;
+          group += c;
+          i += 1;
+          if (depth === 0) break;
+        }
+        value += group;
+      }
 
-  const peek = () => tokens[idx];
-  const consume = () => tokens[idx++];
-
-  const parseExpression = () => {
-    let node = parseTerm();
-    while (peek() && peek().type === "OR") {
-      consume();
-      node = { type: "OR", left: node, right: parseTerm() };
+      if (value.toUpperCase() === "OR" || value === "|") {
+        tokens.push({ type: "OR" });
+      } else {
+        tokens.push({ type: "TERM", value });
+      }
     }
-    return node;
-  };
-
-  const parseTerm = () => {
-    const factors = [];
-    while (peek() && peek().type !== "OR" && peek().type !== ")") {
-      factors.push(parseFactor());
-    }
-    if (factors.length === 1) return factors[0];
-    return { type: "AND", items: factors };
-  };
-
-  const parseFactor = () => {
-    const token = peek();
-    if (!token) return { type: "EMPTY" };
-    if (token.type === "TERM" && token.value.startsWith("-")) {
-      consume();
-      const value = token.value.slice(1);
-      return { type: "NOT", node: parseAtomFromValue(value) };
-    }
-    if (token.type === "(") {
-      consume();
-      const node = parseExpression();
-      if (peek() && peek().type === ")") consume();
-      return node;
-    }
-    if (token.type === "TERM") {
-      consume();
-      return parseAtomFromValue(token.value);
-    }
-    consume();
-    return { type: "EMPTY" };
+    return tokens;
   };
 
   const parseAtomFromValue = (value) => {
@@ -154,321 +111,172 @@ LogApp.parseQuery = (input) => {
     return { type: "BARE", term: value };
   };
 
-  if (!tokens.length) return { type: "EMPTY" };
-  return parseExpression();
-};
+  const parseQuery = (input) => {
+    const tokens = tokenizeQuery(input || "");
+    let idx = 0;
 
-LogApp.matchFieldTerm = (event, field, term) => {
-  const value = LogApp.getFieldValue(event, field);
-  if (value == null) return false;
-  const text = LogApp.toComparable(value);
-  const cleaned = term.startsWith('"') && term.endsWith('"') ? term.slice(1, -1) : term;
-  if (term.includes("*")) {
-    return LogApp.globToRegex(cleaned).test(text);
-  }
-  if (field === "name") {
-    return LogApp.globToRegex(cleaned + "*").test(text);
-  }
-  return text.toLowerCase() === cleaned.toLowerCase();
-};
+    const peek = () => tokens[idx];
+    const consume = () => tokens[idx++];
+    const canStartExpression = (token) => token.type === "TERM" || token.type === "(";
 
-LogApp.matchBareTerm = (event, term) => {
-  if (!term) return true;
-  const nameValue = LogApp.toComparable(event?.name || "");
-  if (LogApp.globToRegex(`${term}*`).test(nameValue)) return true;
-  const entries = Object.entries(event || {});
-  for (const [key, value] of entries) {
-    if (key === "data") continue;
-    const text = LogApp.toComparable(value);
-    if (text && text.toLowerCase() === term.toLowerCase()) return true;
-  }
-  return false;
-};
+    const parsePrimary = () => {
+      const token = consume();
+      if (!token) return { type: "EMPTY" };
+      if (token.type === "TERM") {
+        if (token.value.startsWith("-")) {
+          const value = token.value.slice(1);
+          return { type: "NOT", node: parseAtomFromValue(value) };
+        }
+        return parseAtomFromValue(token.value);
+      }
+      if (token.type === "(") {
+        const node = parseExpression(0);
+        if (peek() && peek().type === ")") consume();
+        return node;
+      }
+      return { type: "EMPTY" };
+    };
 
-LogApp.matchesQuery = (event, query) => {
-  const ast = LogApp.parseQuery(query);
-  const evalNode = (node) => {
+    const parseExpression = (minBp) => {
+      let left = parsePrimary();
+      while (true) {
+        const next = peek();
+        let op = null;
+        let lbp = 0;
+        if (next && next.type === "OR") {
+          op = "OR";
+          lbp = 1;
+        } else if (next && canStartExpression(next)) {
+          op = "AND";
+          lbp = 2;
+        } else {
+          break;
+        }
+        if (lbp < minBp) break;
+        if (op === "OR") consume();
+        const right = parseExpression(lbp + 1);
+        if (op === "AND") {
+          if (left.type === "AND") {
+            left.items.push(right);
+          } else {
+            left = { type: "AND", items: [left, right] };
+          }
+        } else {
+          left = { type: "OR", left, right };
+        }
+      }
+      return left;
+    };
+
+    if (!tokens.length) return { type: "EMPTY" };
+    return parseExpression(0);
+  };
+
+  const matchFieldTerm = (event, field, term) => {
+    const value = getFieldValue(event, field);
+    if (value == null) return false;
+    const text = toComparable(value);
+    const cleaned = term.startsWith('"') && term.endsWith('"') ? term.slice(1, -1) : term;
+    if (term.includes("*")) {
+      return globToRegex(cleaned).test(text);
+    }
+    if (field === "name") {
+      return globToRegex(cleaned + "*").test(text);
+    }
+    return text.toLowerCase() === cleaned.toLowerCase();
+  };
+
+  const matchBareTerm = (event, term) => {
+    if (!term) return true;
+    const nameValue = toComparable(event?.name || "");
+    if (globToRegex(`${term}*`).test(nameValue)) return true;
+    const entries = Object.entries(event || {});
+    for (const [key, value] of entries) {
+      if (key === "data") continue;
+      const text = toComparable(value);
+      if (text && text.toLowerCase() === term.toLowerCase()) return true;
+    }
+    return false;
+  };
+
+  const evalNode = (node, event) => {
     if (!node) return true;
     switch (node.type) {
       case "EMPTY":
         return true;
       case "OR":
-        return evalNode(node.left) || evalNode(node.right);
+        return evalNode(node.left, event) || evalNode(node.right, event);
       case "AND":
-        return node.items.every(evalNode);
+        return node.items.every((item) => evalNode(item, event));
       case "NOT":
-        return !evalNode(node.node);
+        return !evalNode(node.node, event);
       case "FIELD":
-        return LogApp.matchFieldTerm(event, node.field, node.term);
+        return matchFieldTerm(event, node.field, node.term);
       case "BARE":
-        return LogApp.matchBareTerm(event, node.term);
+        return matchBareTerm(event, node.term);
       default:
         return true;
     }
   };
-  return evalNode(ast);
+
+  const matchesQuery = (event, query) => {
+    const ast = parseQuery(query);
+    return evalNode(ast, event);
+  };
+
+  const makePredicate = (query) => {
+    const ast = parseQuery(query);
+    return (event) => evalNode(ast, event);
+  };
+
+  const getQueryPredicate = (() => {
+    const cache = new Map();
+    return (query) => {
+      const key = query || "";
+      if (cache.has(key)) return cache.get(key);
+      const predicate = makePredicate(key);
+      cache.set(key, predicate);
+      return predicate;
+    };
+  })();
+
+  return {
+    getFieldValue,
+    toComparable,
+    globToRegex,
+    tokenizeQuery,
+    parseQuery,
+    matchFieldTerm,
+    matchBareTerm,
+    matchesQuery,
+    makePredicate,
+    getQueryPredicate,
+  };
 };
 
-LogApp.getQueryPredicate = (() => {
-  const cache = new Map();
-  return (query) => {
-    const key = query || "";
-    if (cache.has(key)) return cache.get(key);
-    const ast = LogApp.parseQuery(key);
-    const predicate = (event) => {
-      const evalNode = (node) => {
-        if (!node) return true;
-        switch (node.type) {
-          case "EMPTY":
-            return true;
-          case "OR":
-            return evalNode(node.left) || evalNode(node.right);
-          case "AND":
-            return node.items.every(evalNode);
-          case "NOT":
-            return !evalNode(node.node);
-          case "FIELD":
-            return LogApp.matchFieldTerm(event, node.field, node.term);
-          case "BARE":
-            return LogApp.matchBareTerm(event, node.term);
-          default:
-            return true;
-        }
-      };
-      return evalNode(ast);
-    };
-    cache.set(key, predicate);
-    return predicate;
-  };
-})();
+LogApp.searchParser = LogApp.buildSearchParser();
+[
+  "getFieldValue",
+  "toComparable",
+  "globToRegex",
+  "tokenizeQuery",
+  "parseQuery",
+  "matchFieldTerm",
+  "matchBareTerm",
+  "matchesQuery",
+  "makePredicate",
+  "getQueryPredicate",
+].forEach((key) => {
+  LogApp[key] = LogApp.searchParser[key];
+});
 
 LogApp.createSearchWorker = (events = []) => {
   if (typeof Worker === "undefined") return null;
-  const workerMain = () => {
+  const parserSource = LogApp.buildSearchParser.toString();
+  const workerMain = (builderSource) => {
     let EVENTS = [];
-
-    const getFieldValue = (event, path) => {
-      if (!event || !path) return null;
-      const parts = path.split(".");
-      let current = event;
-      for (const part of parts) {
-        if (current == null || typeof current !== "object") return null;
-        current = current[part];
-      }
-      return current;
-    };
-
-    const toComparable = (value) => {
-      if (value == null) return "";
-      if (typeof value === "string") return value;
-      if (typeof value === "number" || typeof value === "boolean") return String(value);
-      return JSON.stringify(value);
-    };
-
-    const globToRegex = (pattern) => {
-      const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-      const regex = "^" + escaped.replace(/\*/g, ".*") + "$";
-      return new RegExp(regex, "i");
-    };
-
-    const tokenizeQuery = (input) => {
-      const tokens = [];
-      let i = 0;
-      while (i < input.length) {
-        const ch = input[i];
-        if (/\s/.test(ch)) {
-          i += 1;
-          continue;
-        }
-        if (ch === "(" || ch === ")") {
-          tokens.push({ type: ch });
-          i += 1;
-          continue;
-        }
-        if (ch === '"') {
-          let j = i + 1;
-          let value = "";
-          while (j < input.length && input[j] !== '"') {
-            value += input[j];
-            j += 1;
-          }
-          tokens.push({ type: "TERM", value });
-          i = j + 1;
-          continue;
-        }
-        let value = "";
-        while (i < input.length && !/\s|\(|\)/.test(input[i])) {
-          value += input[i];
-          i += 1;
-          if (value.includes(":") && input[i] === '"') {
-            i += 1;
-            let quoted = "";
-            while (i < input.length && input[i] !== '"') {
-              quoted += input[i];
-              i += 1;
-            }
-            value += `"${quoted}"`;
-            if (input[i] === '"') i += 1;
-            break;
-          }
-          if (value.includes(":") && input[i] === "(") {
-            let depth = 0;
-            let group = "";
-            while (i < input.length) {
-              const c = input[i];
-              if (c === "(") depth += 1;
-              if (c === ")") depth -= 1;
-              group += c;
-              i += 1;
-              if (depth === 0) break;
-            }
-            value += group;
-            break;
-          }
-        }
-        if (value.includes(":") && input[i] === "(") {
-          let depth = 0;
-          let group = "";
-          while (i < input.length) {
-            const c = input[i];
-            if (c === "(") depth += 1;
-            if (c === ")") depth -= 1;
-            group += c;
-            i += 1;
-            if (depth === 0) break;
-          }
-          value += group;
-        }
-        if (value.toUpperCase() === "OR" || value === "|") {
-          tokens.push({ type: "OR" });
-        } else {
-          tokens.push({ type: "TERM", value });
-        }
-      }
-      return tokens;
-    };
-
-    const parseQuery = (input) => {
-      const tokens = tokenizeQuery(input || "");
-      let idx = 0;
-
-      const peek = () => tokens[idx];
-      const consume = () => tokens[idx++];
-
-      const parseExpression = () => {
-        let node = parseTerm();
-        while (peek() && peek().type === "OR") {
-          consume();
-          node = { type: "OR", left: node, right: parseTerm() };
-        }
-        return node;
-      };
-
-      const parseTerm = () => {
-        const factors = [];
-        while (peek() && peek().type !== "OR" && peek().type !== ")") {
-          factors.push(parseFactor());
-        }
-        if (factors.length === 1) return factors[0];
-        return { type: "AND", items: factors };
-      };
-
-      const parseFactor = () => {
-        const token = peek();
-        if (!token) return { type: "EMPTY" };
-        if (token.type === "TERM" && token.value.startsWith("-")) {
-          consume();
-          const value = token.value.slice(1);
-          return { type: "NOT", node: parseAtomFromValue(value) };
-        }
-        if (token.type === "(") {
-          consume();
-          const node = parseExpression();
-          if (peek() && peek().type === ")") consume();
-          return node;
-        }
-        if (token.type === "TERM") {
-          consume();
-          return parseAtomFromValue(token.value);
-        }
-        consume();
-        return { type: "EMPTY" };
-      };
-
-      const parseAtomFromValue = (value) => {
-        const colonIndex = value.indexOf(":");
-        if (colonIndex > 0) {
-          const field = value.slice(0, colonIndex);
-          const term = value.slice(colonIndex + 1);
-          if (term.startsWith("(") && term.endsWith(")")) {
-            const inner = term.slice(1, -1);
-            const parts = inner
-              .split(/\s+/)
-              .map((item) => item.trim())
-              .filter((item) => item && item.toUpperCase() !== "OR" && item !== "|");
-            if (!parts.length) return { type: "EMPTY" };
-            const nodes = parts.map((part) => ({ type: "FIELD", field, term: part }));
-            return nodes.reduce((left, right) => ({ type: "OR", left, right }));
-          }
-          return { type: "FIELD", field, term };
-        }
-        return { type: "BARE", term: value };
-      };
-
-      if (!tokens.length) return { type: "EMPTY" };
-      return parseExpression();
-    };
-
-    const matchFieldTerm = (event, field, term) => {
-      const value = getFieldValue(event, field);
-      if (value == null) return false;
-      const text = toComparable(value);
-      const cleaned = term.startsWith('"') && term.endsWith('"') ? term.slice(1, -1) : term;
-      if (term.includes("*")) {
-        return globToRegex(cleaned).test(text);
-      }
-      if (field === "name") {
-        return globToRegex(cleaned + "*").test(text);
-      }
-      return text.toLowerCase() === cleaned.toLowerCase();
-    };
-
-    const matchBareTerm = (event, term) => {
-      if (!term) return true;
-      const nameValue = toComparable(event?.name || "");
-      if (globToRegex(term + "*").test(nameValue)) return true;
-      const entries = Object.entries(event || {});
-      for (const [key, value] of entries) {
-        if (key === "data") continue;
-        const text = toComparable(value);
-        if (text && text.toLowerCase() === term.toLowerCase()) return true;
-      }
-      return false;
-    };
-
-    const makePredicate = (query) => {
-      const ast = parseQuery(query);
-      const evalNode = (node, event) => {
-        if (!node) return true;
-        switch (node.type) {
-          case "EMPTY":
-            return true;
-          case "OR":
-            return evalNode(node.left, event) || evalNode(node.right, event);
-          case "AND":
-            return node.items.every((item) => evalNode(item, event));
-          case "NOT":
-            return !evalNode(node.node, event);
-          case "FIELD":
-            return matchFieldTerm(event, node.field, node.term);
-          case "BARE":
-            return matchBareTerm(event, node.term);
-          default:
-            return true;
-        }
-      };
-      return (event) => evalNode(ast, event);
-    };
+    const buildParser = eval("(" + builderSource + ")");
+    const parser = buildParser();
 
     onmessage = (event) => {
       const payload = event.data || {};
@@ -484,7 +292,7 @@ LogApp.createSearchWorker = (events = []) => {
           postMessage({ type: "result", id: payload.id, indices: all });
           return;
         }
-        const predicate = makePredicate(query);
+        const predicate = parser.makePredicate(query);
         const indices = [];
         for (let i = 0; i < EVENTS.length; i += 1) {
           if (predicate(EVENTS[i])) indices.push(i);
@@ -493,7 +301,7 @@ LogApp.createSearchWorker = (events = []) => {
       }
     };
   };
-  const workerCode = "(" + workerMain.toString() + ")();";
+  const workerCode = "(" + workerMain.toString() + ")(" + parserSource + ");";
 
   const blob = new Blob([workerCode], { type: "application/javascript" });
   const worker = new Worker(URL.createObjectURL(blob));
