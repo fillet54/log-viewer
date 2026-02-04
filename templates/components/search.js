@@ -123,15 +123,64 @@ LogApp.buildSearchParser = () => {
       const key = node.key.toLowerCase();
 
       if (fieldHandlers[key]) {
-        return fieldHandlers[key](obj, node.value, evaluate);
+        return fieldHandlers[key](obj, node.value, evaluate, node.op);
       }
 
-      return defaultFieldEval(key, node.value, obj);
+      return defaultFieldEval(key, node.value, obj, node.op);
     }
 
-    function defaultFieldEval(key, valueNode, obj) {
+    function defaultFieldEval(key, valueNode, obj, op) {
       if (!valueNode || valueNode.type !== "TEXT") return false;
-      return matchFieldTerm(obj, key, valueNode.value);
+      if (valueNode.value == null) return false;
+      if (!op || op === ":") {
+        return matchFieldTerm(obj, key, valueNode.value);
+      }
+      if (op === "~") {
+        return containsField(obj, key, valueNode.value);
+      }
+      if (![">", ">=", "<", "<="].includes(op)) return false;
+      return compareField(obj, key, valueNode.value, op);
+    }
+
+    function compareField(obj, key, rawValue, op) {
+      const fieldValue = getFieldValue(obj, key);
+      if (fieldValue == null) return false;
+      const target = Number(rawValue);
+      if (!Number.isFinite(target)) return false;
+      const compareOne = (value) => {
+        const num = Number(value);
+        if (!Number.isFinite(num)) return false;
+        switch (op) {
+          case ">":
+            return num > target;
+          case ">=":
+            return num >= target;
+          case "<":
+            return num < target;
+          case "<=":
+            return num <= target;
+          default:
+            return false;
+        }
+      };
+      if (Array.isArray(fieldValue)) {
+        return fieldValue.some((item) => compareOne(item));
+      }
+      return compareOne(fieldValue);
+    }
+
+    function containsField(obj, key, rawValue) {
+      const fieldValue = getFieldValue(obj, key);
+      if (fieldValue == null) return false;
+      const needle = String(rawValue).toLowerCase();
+      const contains = (value) => {
+        if (value == null) return false;
+        return String(value).toLowerCase().includes(needle);
+      };
+      if (Array.isArray(fieldValue)) {
+        return fieldValue.some((item) => contains(item));
+      }
+      return contains(fieldValue);
     }
   };
 
@@ -185,13 +234,14 @@ LogApp.buildSearchParser = () => {
       return next();
     };
 
-    const startsExpression = (type) =>
-      type === "LPAREN" ||
-      type === "WORD" ||
-      type === "PHRASE" ||
-      type === "NOT" ||
-      type === "MINUS" ||
-      type === "FIELD";
+  const startsExpression = (type) =>
+    type === "LPAREN" ||
+    type === "WORD" ||
+    type === "PHRASE" ||
+    type === "AND" ||
+    type === "NOT" ||
+    type === "MINUS" ||
+    type === "FIELD";
 
     const skipWhitespace = () => {
       while (i < input.length && isWhitespace(input[i])) i++;
@@ -209,6 +259,16 @@ LogApp.buildSearchParser = () => {
       if (ch === "(") return (i++, { type: "LPAREN", start, end: i });
       if (ch === ")") return (i++, { type: "RPAREN", start, end: i });
       if (ch === "|") return (i++, { type: "OR", start, end: i });
+      if (ch === "~") return (i++, { type: "CONTAINS", op: "~", start, end: i });
+      if (ch === ">" || ch === "<") {
+        let op = ch;
+        i += 1;
+        if (input[i] === "=") {
+          op += "=";
+          i += 1;
+        }
+        return { type: "COMP", op, start, end: i };
+      }
       if (ch === "-" && (i === 0 || isWhitespace(prev) || prev === "(")) {
         return (i++, { type: "MINUS", start, end: i });
       }
@@ -222,13 +282,29 @@ LogApp.buildSearchParser = () => {
       const word = readWord();
       const upper = word.toUpperCase();
 
-      if (i < input.length && input[i] === ":") {
-        i++;
-        return { type: "FIELD", key: word, start: wordStart, end: i };
+      if (i < input.length) {
+        if (input[i] === ":") {
+          i++;
+          return { type: "FIELD", key: word, op: ":", start: wordStart, end: i };
+        }
+        if (input[i] === "~") {
+          i++;
+          return { type: "FIELD", key: word, op: "~", start: wordStart, end: i };
+        }
+        if (input[i] === ">" || input[i] === "<") {
+          let op = input[i];
+          i += 1;
+          if (input[i] === "=") {
+            op += "=";
+            i += 1;
+          }
+          return { type: "FIELD", key: word, op, start: wordStart, end: i };
+        }
       }
 
-      if (upper === "OR") return { type: "OR", start: wordStart, end: i };
-      if (upper === "NOT") return { type: "NOT", start: wordStart, end: i };
+    if (upper === "OR") return { type: "OR", start: wordStart, end: i };
+    if (upper === "AND") return { type: "AND", start: wordStart, end: i };
+    if (upper === "NOT") return { type: "NOT", start: wordStart, end: i };
       return { type: "WORD", value: word, start: wordStart, end: i };
     };
 
@@ -241,7 +317,10 @@ LogApp.buildSearchParser = () => {
       c !== ")" &&
       c !== ":" &&
       c !== '"' &&
-      c !== "|";
+      c !== "|" &&
+      c !== "~" &&
+      c !== ">" &&
+      c !== "<";
 
     const readWord = () => {
       const start = i;
@@ -291,18 +370,21 @@ LogApp.buildSearchParser = () => {
       let op = null;
       let lbp = 0;
 
-      if (next && next.type === "OR") {
-        op = "OR";
-        lbp = 1;
-      } else if (next && ts.startsExpression(next.type)) {
-        op = "AND";
-        lbp = 2;
-      } else {
-        break;
-      }
+    if (next && next.type === "OR") {
+      op = "OR";
+      lbp = 1;
+    } else if (next && next.type === "AND") {
+      op = "AND";
+      lbp = 2;
+    } else if (next && ts.startsExpression(next.type)) {
+      op = "AND";
+      lbp = 2;
+    } else {
+      break;
+    }
 
       if (lbp < minBp) break;
-      if (op === "OR") ts.next();
+    if (op === "OR" || op === "AND") ts.next();
 
       const right = parseExpression(ts, lbp + 1);
       if (op === "AND") {
@@ -321,6 +403,11 @@ LogApp.buildSearchParser = () => {
     if (token.type === "EOF") return { type: "EMPTY" };
 
     if (token.type === "WORD") {
+      if (ts.peek().type === "COMP" || ts.peek().type === "CONTAINS") {
+        const comp = ts.next();
+        const value = parsePrimaryValue(ts);
+        return { type: "FILTER", key: token.value, op: comp.op, value };
+      }
       return { type: "TEXT", value: token.value, kind: "word" };
     }
     if (token.type === "PHRASE") {
@@ -335,13 +422,13 @@ LogApp.buildSearchParser = () => {
       return expr;
     }
     if (token.type === "FIELD") {
-      if (ts.match("LPAREN")) {
+      if ((token.op === ":" || token.op === "~") && ts.match("LPAREN")) {
         const expr = parseExpression(ts, 0);
         ts.expect("RPAREN", "Expected ')'");
-        return scopeField(token.key, expr);
+        return scopeField(token.key, expr, token.op);
       }
       const value = parsePrimaryValue(ts);
-      return { type: "FILTER", key: token.key, op: ":", value };
+      return { type: "FILTER", key: token.key, op: token.op, value };
     }
 
     throw ts.error("Expected a term", token);
@@ -360,19 +447,19 @@ LogApp.buildSearchParser = () => {
     throw ts.error("Expected a field value", next);
   }
 
-  function scopeField(field, node) {
+  function scopeField(field, node, op = ":") {
     if (!node) return { type: "EMPTY" };
     if (node.type === "TEXT") {
-      return { type: "FILTER", key: field, op: ":", value: node };
+      return { type: "FILTER", key: field, op, value: node };
     }
     if (node.type === "AND") {
-      return makeAnd(node.terms.map((term) => scopeField(field, term)));
+      return makeAnd(node.terms.map((term) => scopeField(field, term, op)));
     }
     if (node.type === "OR") {
-      return makeOr(node.terms.map((term) => scopeField(field, term)));
+      return makeOr(node.terms.map((term) => scopeField(field, term, op)));
     }
     if (node.type === "NOT") {
-      return { type: "NOT", term: scopeField(field, node.term) };
+      return { type: "NOT", term: scopeField(field, node.term, op) };
     }
     return node;
   }
