@@ -12,6 +12,34 @@ LogApp.buildSearchParser = () => {
     return current;
   };
 
+  const getFieldValues = (event, path) => {
+    if (!event || !path) return [];
+    if (path === "$") return [];
+    if (path === "$.*") {
+      return collectAnyValues(event);
+    }
+    if (path.startsWith("$.")) {
+      const subPath = path.slice(2);
+      if (!subPath) return [];
+      return collectDeepValues(event, subPath.split("."));
+    }
+    const deepIndex = path.indexOf("$.");
+    if (deepIndex === -1) {
+      return [getFieldValue(event, path)];
+    }
+    const basePath = path.slice(0, deepIndex);
+    const subPath = path.slice(deepIndex + 2);
+    const baseValue = basePath ? getFieldValue(event, basePath) : event;
+    if (baseValue == null) return [];
+    if (!subPath || subPath === "*") return collectAnyValues(baseValue);
+    if (subPath.endsWith(".*")) {
+      const trimmed = subPath.slice(0, -2);
+      const targets = collectDeepValues(baseValue, trimmed.split("."));
+      return targets.flatMap((value) => (value == null ? [] : collectAnyValues(value)));
+    }
+    return collectDeepValues(baseValue, subPath.split("."));
+  };
+
   const toComparable = (value) => {
     if (value == null) return "";
     if (typeof value === "string") return value;
@@ -45,8 +73,9 @@ LogApp.buildSearchParser = () => {
   };
 
   const matchFieldTerm = (event, field, term) => {
-    const value = getFieldValue(event, field);
-    if (value == null) return false;
+    if (field === "$") {
+      return matchKeyNameTerm(event, term);
+    }
     const cleaned = term.startsWith('"') && term.endsWith('"') ? term.slice(1, -1) : term;
 
     const applyMatch = (candidate) => {
@@ -61,18 +90,24 @@ LogApp.buildSearchParser = () => {
       return text.toLowerCase() === cleaned.toLowerCase();
     };
 
-    if (Array.isArray(value)) {
-      return value.some((item) => applyMatch(item));
+    const values = getFieldValues(event, field);
+    for (const value of values) {
+      if (Array.isArray(value)) {
+        if (value.some((item) => applyMatch(item))) return true;
+        continue;
+      }
+      if (typeof value === "boolean") {
+        if (cleaned.toLowerCase() === "true" && value === true) return true;
+        if (cleaned.toLowerCase() === "false" && value === false) return true;
+        continue;
+      }
+      if (typeof value === "number") {
+        if (String(value) === cleaned) return true;
+        continue;
+      }
+      if (applyMatch(value)) return true;
     }
-    if (typeof value === "boolean") {
-      if (cleaned.toLowerCase() === "true") return value === true;
-      if (cleaned.toLowerCase() === "false") return value === false;
-      return false;
-    }
-    if (typeof value === "number") {
-      return String(value) === cleaned;
-    }
-    return applyMatch(value);
+    return false;
   };
 
   const matchBareTerm = (event, term) => {
@@ -132,6 +167,7 @@ LogApp.buildSearchParser = () => {
     function defaultFieldEval(key, valueNode, obj, op) {
       if (!valueNode || valueNode.type !== "TEXT") return false;
       if (valueNode.value == null) return false;
+      if (key === "$" && op && op !== ":" && op !== "~") return false;
       if (!op || op === ":") {
         return matchFieldTerm(obj, key, valueNode.value);
       }
@@ -143,8 +179,7 @@ LogApp.buildSearchParser = () => {
     }
 
     function compareField(obj, key, rawValue, op) {
-      const fieldValue = getFieldValue(obj, key);
-      if (fieldValue == null) return false;
+      if (key === "$") return false;
       const target = Number(rawValue);
       if (!Number.isFinite(target)) return false;
       const compareOne = (value) => {
@@ -163,26 +198,119 @@ LogApp.buildSearchParser = () => {
             return false;
         }
       };
-      if (Array.isArray(fieldValue)) {
-        return fieldValue.some((item) => compareOne(item));
+      const values = getFieldValues(obj, key);
+      for (const fieldValue of values) {
+        if (Array.isArray(fieldValue)) {
+          if (fieldValue.some((item) => compareOne(item))) return true;
+          continue;
+        }
+        if (compareOne(fieldValue)) return true;
       }
-      return compareOne(fieldValue);
+      return false;
     }
 
     function containsField(obj, key, rawValue) {
-      const fieldValue = getFieldValue(obj, key);
-      if (fieldValue == null) return false;
+      if (key === "$") return matchKeyNameContains(obj, rawValue);
       const needle = String(rawValue).toLowerCase();
       const contains = (value) => {
         if (value == null) return false;
         return String(value).toLowerCase().includes(needle);
       };
-      if (Array.isArray(fieldValue)) {
-        return fieldValue.some((item) => contains(item));
+      const values = getFieldValues(obj, key);
+      for (const fieldValue of values) {
+        if (Array.isArray(fieldValue)) {
+          if (fieldValue.some((item) => contains(item))) return true;
+          continue;
+        }
+        if (contains(fieldValue)) return true;
       }
-      return contains(fieldValue);
+      return false;
     }
   };
+
+  function collectDeepValues(root, pathParts) {
+    const results = [];
+    const seen = new Set();
+
+    const walk = (node) => {
+      if (node == null || typeof node !== "object") return;
+      if (seen.has(node)) return;
+      seen.add(node);
+
+      const value = getFieldValue(node, pathParts.join("."));
+      if (value != null) results.push(value);
+
+      if (Array.isArray(node)) {
+        node.forEach((item) => walk(item));
+        return;
+      }
+      Object.values(node).forEach((child) => walk(child));
+    };
+
+    walk(root);
+    return results;
+  }
+
+  function collectAnyValues(root) {
+    const results = [];
+    const seen = new Set();
+
+    const walk = (node) => {
+      if (node == null || typeof node !== "object") return;
+      if (seen.has(node)) return;
+      seen.add(node);
+
+      if (Array.isArray(node)) {
+        node.forEach((item) => walk(item));
+        return;
+      }
+      Object.values(node).forEach((value) => {
+        results.push(value);
+        walk(value);
+      });
+    };
+
+    walk(root);
+    return results;
+  }
+
+  function matchKeyNameTerm(root, term) {
+    const cleaned = term.startsWith('"') && term.endsWith('"') ? term.slice(1, -1) : term;
+    const isWildcard = cleaned.includes("*");
+    const matcher = isWildcard ? LogApp.globToRegex(cleaned) : null;
+    return collectKeyNames(root).some((key) => {
+      if (isWildcard) return matcher.test(key);
+      return key.toLowerCase() === cleaned.toLowerCase();
+    });
+  }
+
+  function matchKeyNameContains(root, term) {
+    const needle = String(term).toLowerCase();
+    return collectKeyNames(root).some((key) => key.toLowerCase().includes(needle));
+  }
+
+  function collectKeyNames(root) {
+    const results = [];
+    const seen = new Set();
+
+    const walk = (node) => {
+      if (node == null || typeof node !== "object") return;
+      if (seen.has(node)) return;
+      seen.add(node);
+
+      if (Array.isArray(node)) {
+        node.forEach((item) => walk(item));
+        return;
+      }
+      Object.entries(node).forEach(([key, value]) => {
+        results.push(String(key));
+        walk(value);
+      });
+    };
+
+    walk(root);
+    return results;
+  }
 
   const makePredicate = (query, options = {}) => {
     const ast = parseQuery(query);
