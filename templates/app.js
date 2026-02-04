@@ -9,7 +9,7 @@
 
 {% include 'components/right_pane.js' %}
 
-{% include 'components/search_utils.js' %}
+{% include 'components/search.js' %}
 
 window.LogApp = window.LogApp || {};
 
