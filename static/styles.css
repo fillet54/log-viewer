@@ -644,6 +644,22 @@
   font-size: 0.7rem;
 }
 
+.search-help-button {
+  color: hsl(var(--bc));
+  opacity: 0.8;
+}
+
+.search-help-button:hover {
+  opacity: 1;
+}
+
+.search-help-button svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+
 .filter-toggle {
   display: inline-flex;
   align-items: center;
