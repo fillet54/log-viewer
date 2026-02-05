@@ -6,6 +6,7 @@ from flask import (
     Response,
     flash,
     g,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -33,10 +34,12 @@ from storage import (
     init_db,
     insert_events_into_shard,
     issue_login_token,
+    list_bookmarks_for_user,
     list_boots_for_shard,
     list_datasets,
     load_log_data_from_shard,
     parse_events_from_upload,
+    set_bookmark,
     update_boot_metadata,
     update_user_last_seen,
     update_user_name,
@@ -368,6 +371,36 @@ def edit_boot(shard_id: int, boot_id: str):
         event_id=event_id_val,
         tags=tags_val,
     )
+
+
+@app.route("/api/bookmarks", methods=["GET", "POST"])
+def bookmarks_api():
+    if not g.current_user:
+        return jsonify({"error": "login_required"}), 401
+    user_id = g.current_user["id"]
+    if request.method == "GET":
+        shard_id = request.args.get("shard_id", type=int)
+        boot_id = request.args.get("boot_id", type=str)
+        if not shard_id or not boot_id:
+            return jsonify({"error": "missing_params"}), 400
+        bookmarks = list_bookmarks_for_user(user_id, shard_id, boot_id)
+        return jsonify({"bookmarks": bookmarks})
+
+    payload = request.get_json(silent=True) or {}
+    shard_id = payload.get("shard_id")
+    boot_id = payload.get("boot_id")
+    row_id = payload.get("row_id")
+    color_index = payload.get("color_index")
+    if not shard_id or not boot_id or row_id is None or color_index is None:
+        return jsonify({"error": "missing_params"}), 400
+    try:
+        shard_id = int(shard_id)
+        row_id = int(row_id)
+        color_index = int(color_index)
+    except (TypeError, ValueError):
+        return jsonify({"error": "invalid_params"}), 400
+    set_bookmark(user_id, shard_id, str(boot_id), row_id, color_index)
+    return jsonify({"row_id": row_id, "color_index": color_index})
 
 
 if __name__ == "__main__":

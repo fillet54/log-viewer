@@ -104,6 +104,23 @@ def init_db() -> None:
         )
     """
     )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS bookmarks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            shard_id INTEGER NOT NULL,
+            boot_id TEXT NOT NULL,
+            row_id INTEGER NOT NULL,
+            color_index INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(user_id, shard_id, boot_id, row_id),
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (shard_id) REFERENCES shards (id)
+        )
+    """
+    )
     cols = [row["name"] for row in db.execute("PRAGMA table_info(log_index)")]
     if "boot_id" not in cols:
         db.execute("ALTER TABLE log_index ADD COLUMN boot_id TEXT")
@@ -611,6 +628,7 @@ def load_log_data_from_shard(shard: Dict[str, Any], boot_id: Optional[str] = Non
         "events": events,
         "modes": [],
         "boot_id": target_boot,
+        "shard_id": shard["id"],
     }
 
 
@@ -673,5 +691,48 @@ def update_boot_metadata(shard: Dict[str, Any], boot_id: str, system: str, event
             )
             for r in rows
         ],
+    )
+    db.commit()
+
+
+def list_bookmarks_for_user(
+    user_id: int, shard_id: int, boot_id: str
+) -> Dict[str, int]:
+    db = get_db()
+    rows = db.execute(
+        """
+        SELECT row_id, color_index
+        FROM bookmarks
+        WHERE user_id = ? AND shard_id = ? AND boot_id = ?
+        ORDER BY row_id
+    """,
+        (user_id, shard_id, boot_id),
+    ).fetchall()
+    return {str(row["row_id"]): int(row["color_index"]) for row in rows}
+
+
+def set_bookmark(
+    user_id: int, shard_id: int, boot_id: str, row_id: int, color_index: int
+) -> None:
+    db = get_db()
+    now = datetime.utcnow().isoformat()
+    if color_index <= 0:
+        db.execute(
+            """
+            DELETE FROM bookmarks
+            WHERE user_id = ? AND shard_id = ? AND boot_id = ? AND row_id = ?
+        """,
+            (user_id, shard_id, boot_id, row_id),
+        )
+        db.commit()
+        return
+    db.execute(
+        """
+        INSERT INTO bookmarks (user_id, shard_id, boot_id, row_id, color_index, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id, shard_id, boot_id, row_id)
+        DO UPDATE SET color_index = excluded.color_index, updated_at = excluded.updated_at
+    """,
+        (user_id, shard_id, boot_id, row_id, color_index, now, now),
     )
     db.commit()

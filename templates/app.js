@@ -12,6 +12,7 @@
 {% include 'components/search.js' %}
 
 window.LogApp = window.LogApp || {};
+LogApp.isLoggedIn = {{ "true" if current_user else "false" }};
 
 LogApp.STORAGE_KEYS = {
   root: "loglayout.split.root",
@@ -93,65 +94,106 @@ LogApp.smoothScrollTo = (container, targetTop, durationMs = 200, onComplete = nu
   requestAnimationFrame(step);
 };
 
-LogApp.createBookmarkStore = (events = []) => {
+LogApp.createBookmarkStore = (logData, bus) => {
+  const events = Array.isArray(logData?.events) ? logData.events : [];
   const validIds = new Set(events.map((event) => String(event.row_id)));
-  const load = () => {
+  const shardId = logData?.shard_id;
+  const bootId = logData?.boot_id;
+  const canPersist = Boolean(LogApp.isLoggedIn && shardId && bootId);
+  let lastLoginNotice = 0;
+  let bookmarks = {};
+
+  const notify = () => {
+    if (bus) bus.emit("bookmarks:changed", getAllWithColors());
+  };
+
+  const load = async () => {
+    if (!canPersist) return;
     try {
-      const raw = localStorage.getItem(LogApp.STORAGE_KEYS.bookmarks);
-      const parsed = raw ? JSON.parse(raw) : {};
-      if (Array.isArray(parsed)) {
-        const legacy = {};
-        parsed.forEach((id) => {
-          const key = String(id);
-          if (validIds.has(key)) legacy[key] = 1;
-        });
-        return legacy;
-      }
-      if (parsed && typeof parsed === "object") {
-        const sanitized = {};
-        Object.entries(parsed).forEach(([key, value]) => {
-          const id = String(key);
-          if (!validIds.has(id)) return;
-          const index = Number(value) || 0;
-          sanitized[id] = Math.max(0, Math.min(5, index));
-        });
-        return sanitized;
-      }
-      return {};
+      const response = await fetch(
+        `/api/bookmarks?shard_id=${encodeURIComponent(shardId)}&boot_id=${encodeURIComponent(bootId)}`
+      );
+      if (!response.ok) return;
+      const payload = await response.json();
+      const incoming = payload?.bookmarks || {};
+      bookmarks = {};
+      Object.entries(incoming).forEach(([key, value]) => {
+        if (!validIds.has(String(key))) return;
+        const index = Math.max(0, Math.min(5, Number(value) || 0));
+        if (index > 0) bookmarks[String(key)] = index;
+      });
+      notify();
     } catch (err) {
-      return {};
+      return;
     }
   };
-  let bookmarks = load();
-  const save = () => {
-    localStorage.setItem(
-      LogApp.STORAGE_KEYS.bookmarks,
-      JSON.stringify(bookmarks)
-    );
+  load();
+
+  const notifyLoginRequired = () => {
+    const now = Date.now();
+    if (now - lastLoginNotice < 2000) return;
+    lastLoginNotice = now;
+    window.alert("Please log in to create bookmarks.");
   };
+
+  const persist = async (rowId, colorIndex, previous) => {
+    if (!canPersist) return;
+    try {
+      const response = await fetch("/api/bookmarks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shard_id: shardId,
+          boot_id: bootId,
+          row_id: rowId,
+          color_index: colorIndex,
+        }),
+      });
+      if (!response.ok) throw new Error("bookmark save failed");
+    } catch (err) {
+      if (previous === 0) {
+        delete bookmarks[String(rowId)];
+      } else {
+        bookmarks[String(rowId)] = previous;
+      }
+      notify();
+    }
+  };
+
   const cycle = (rowId) => {
     const key = String(rowId);
     if (!validIds.has(key)) return 0;
     const current = Number(bookmarks[key]) || 0;
+    if (!canPersist) {
+      if (!LogApp.isLoggedIn) notifyLoginRequired();
+      return current;
+    }
     const next = (current + 1) % 6;
     if (next === 0) {
       delete bookmarks[key];
     } else {
       bookmarks[key] = next;
     }
-    save();
+    notify();
+    persist(rowId, next, current);
     return next;
   };
   const setColor = (rowId, colorIndex) => {
     const key = String(rowId);
     if (!validIds.has(key)) return 0;
+    const current = Number(bookmarks[key]) || 0;
+    if (!canPersist) {
+      if (!LogApp.isLoggedIn) notifyLoginRequired();
+      return current;
+    }
     const next = Math.max(0, Math.min(5, Number(colorIndex) || 0));
     if (next === 0) {
       delete bookmarks[key];
     } else {
       bookmarks[key] = next;
     }
-    save();
+    notify();
+    persist(rowId, next, current);
     return next;
   };
   const getColor = (rowId) => Number(bookmarks[String(rowId)]) || 0;
@@ -165,7 +207,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const bus = LogApp.createEventBus();
   const logData = LogApp.loadLogData();
   LogApp.searchWorker = LogApp.createSearchWorker(logData?.events || []);
-  LogApp.bookmarks = LogApp.createBookmarkStore(logData?.events || []);
+  LogApp.bookmarks = LogApp.createBookmarkStore(logData, bus);
 
   LogApp.initSplits();
   LogApp.initLogList(logData, bus);
