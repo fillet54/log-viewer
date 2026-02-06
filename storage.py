@@ -50,6 +50,44 @@ def ensure_dataset_dir() -> Path:
     return path
 
 
+def _public_dataset_dir() -> Path:
+    path = ensure_dataset_dir() / "public"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _user_dataset_dir(user_id: int) -> Path:
+    path = ensure_dataset_dir() / "users" / str(user_id)
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _dataset_path_for(dataset_id: int, owner_user_id: Optional[int]) -> Path:
+    base = _public_dataset_dir() if owner_user_id is None else _user_dataset_dir(int(owner_user_id))
+    return base / f"dataset_{dataset_id}.db"
+
+
+def _visible_dataset_files(user_id: Optional[int]) -> List[Path]:
+    files: List[Path] = []
+    public_dir = _public_dataset_dir()
+    files.extend(public_dir.glob("*.db"))
+    if user_id is not None:
+        files.extend(_user_dataset_dir(int(user_id)).glob("*.db"))
+    return sorted(files)
+
+
+def _all_dataset_files() -> List[Path]:
+    files: List[Path] = []
+    files.extend((_public_dataset_dir()).glob("*.db"))
+    users_root = ensure_dataset_dir() / "users"
+    if users_root.exists():
+        files.extend(users_root.glob("*/*.db"))
+    # Legacy flat layout fallback.
+    files.extend(ensure_dataset_dir().glob("dataset*.db"))
+    dedup = {str(p): p for p in files}
+    return sorted(dedup.values(), key=lambda p: str(p))
+
+
 def _migrate_logs_schema(conn: sqlite3.Connection) -> None:
     info = conn.execute("PRAGMA table_info(logs)").fetchall()
     col_names = [row["name"] for row in info]
@@ -209,10 +247,6 @@ def _init_dataset_db_schema(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def _dataset_files() -> List[Path]:
-    return sorted(ensure_dataset_dir().glob("*.db"))
-
-
 def _read_dataset_info(path: Path) -> Optional[Dict[str, Any]]:
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
@@ -233,9 +267,10 @@ def _read_dataset_info(path: Path) -> Optional[Dict[str, Any]]:
     }
 
 
-def _scan_datasets() -> List[Dict[str, Any]]:
+def _scan_datasets(user_id: Optional[int] = None, include_all: bool = False) -> List[Dict[str, Any]]:
     datasets = []
-    for path in _dataset_files():
+    files = _all_dataset_files() if include_all else _visible_dataset_files(user_id)
+    for path in files:
         meta = _read_dataset_info(path)
         if meta:
             datasets.append(meta)
@@ -243,12 +278,21 @@ def _scan_datasets() -> List[Dict[str, Any]]:
     return datasets
 
 
+def _dataset_id_exists(dataset_id: int) -> bool:
+    if _dataset_path_for(dataset_id, None).exists():
+        return True
+    users_root = ensure_dataset_dir() / "users"
+    if users_root.exists():
+        return any(users_root.glob(f"*/dataset_{dataset_id}.db"))
+    return False
+
+
 def _next_dataset_id() -> int:
-    existing = {d["id"] for d in _scan_datasets()}
-    next_id = 1
-    while next_id in existing:
-        next_id += 1
-    return next_id
+    seed = int(datetime.utcnow().timestamp() * 1000)
+    candidate = seed
+    while _dataset_id_exists(candidate):
+        candidate += 1
+    return candidate
 
 
 def _set_dataset_info(conn: sqlite3.Connection, dataset: Dict[str, Any]) -> None:
@@ -299,8 +343,6 @@ def _migrate_legacy_app_db(db: sqlite3.Connection) -> None:
 
     dataset_cols = _table_columns(db, "datasets")
     datasets = db.execute("SELECT * FROM datasets ORDER BY id").fetchall()
-    root = ensure_dataset_dir()
-
     has_boots = _table_exists(db, "boots") and "dataset_id" in _table_columns(db, "boots")
     has_index = _table_exists(db, "log_index") and "dataset_id" in _table_columns(db, "log_index")
     has_bookmarks = _table_exists(db, "bookmarks") and "dataset_id" in _table_columns(db, "bookmarks")
@@ -315,13 +357,7 @@ def _migrate_legacy_app_db(db: sqlite3.Connection) -> None:
         updated_at = row["updated_at"] if "updated_at" in dataset_cols else created_at
         log_count = int(row["log_count"] or 0) if "log_count" in dataset_cols else 0
 
-        db_path_raw = row["db_path"] if "db_path" in dataset_cols else None
-        if db_path_raw:
-            dataset_path = Path(db_path_raw)
-            if not dataset_path.is_absolute():
-                dataset_path = root / dataset_path
-        else:
-            dataset_path = root / f"dataset{dataset_id}_{_slugify(name)}.db"
+        dataset_path = _dataset_path_for(dataset_id, owner_user_id)
 
         conn = sqlite3.connect(dataset_path)
         conn.row_factory = sqlite3.Row
@@ -569,15 +605,39 @@ def consume_login_token(token: str) -> Optional[int]:
 
 
 def get_dataset(dataset_id: int) -> Optional[Dict[str, Any]]:
-    for dataset in _scan_datasets():
-        if dataset["id"] == dataset_id:
-            return dataset
+    public_path = _dataset_path_for(dataset_id, None)
+    if public_path.exists():
+        meta = _read_dataset_info(public_path)
+        if meta and int(meta["id"]) == dataset_id:
+            return meta
+
+    current_user = getattr(g, "current_user", None) if g else None
+    if current_user and current_user.get("id") is not None:
+        user_path = _dataset_path_for(dataset_id, int(current_user["id"]))
+        if user_path.exists():
+            meta = _read_dataset_info(user_path)
+            if meta and int(meta["id"]) == dataset_id:
+                return meta
+
+    users_root = ensure_dataset_dir() / "users"
+    if users_root.exists():
+        for path in users_root.glob(f"*/dataset_{dataset_id}.db"):
+            meta = _read_dataset_info(path)
+            if meta and int(meta["id"]) == dataset_id:
+                return meta
+
+    # Legacy flat-layout fallback.
+    for path in ensure_dataset_dir().glob(f"dataset{dataset_id}_*.db"):
+        meta = _read_dataset_info(path)
+        if meta and int(meta["id"]) == dataset_id:
+            return meta
     return None
 
 
 def get_dataset_by_name(name: str, owner_user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
     target = name.strip().lower()
-    for dataset in _scan_datasets():
+    datasets = _scan_datasets(owner_user_id, include_all=False)
+    for dataset in datasets:
         if dataset["name"].strip().lower() != target:
             continue
         if owner_user_id is None and dataset.get("owner_user_id") is None:
@@ -588,10 +648,23 @@ def get_dataset_by_name(name: str, owner_user_id: Optional[int] = None) -> Optio
 
 
 def list_datasets(user_id: Optional[int] = None) -> List[Dict[str, Any]]:
-    datasets = _scan_datasets()
+    datasets = _scan_datasets(user_id, include_all=False)
     if user_id is None:
-        return [d for d in datasets if d.get("owner_user_id") is None]
-    return [d for d in datasets if d.get("owner_user_id") is None or d.get("owner_user_id") == user_id]
+        visible = [d for d in datasets if d.get("owner_user_id") is None]
+    else:
+        visible = [
+            d
+            for d in datasets
+            if d.get("owner_user_id") is None or int(d.get("owner_user_id")) == int(user_id)
+        ]
+    return sorted(
+        visible,
+        key=lambda d: (
+            0 if d.get("owner_user_id") is None else 1,
+            d.get("name", "").lower(),
+            int(d.get("id") or 0),
+        ),
+    )
 
 
 def get_first_dataset(user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
@@ -602,8 +675,7 @@ def get_first_dataset(user_id: Optional[int] = None) -> Optional[Dict[str, Any]]
 def create_dataset(name: str, description: str = "", owner_user_id: Optional[int] = None) -> Dict[str, Any]:
     now = datetime.utcnow().isoformat()
     dataset_id = _next_dataset_id()
-    root = ensure_dataset_dir()
-    path = root / f"dataset{dataset_id}_{_slugify(name)}.db"
+    path = _dataset_path_for(dataset_id, owner_user_id)
     dataset = {
         "id": dataset_id,
         "name": name,

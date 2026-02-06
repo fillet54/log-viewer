@@ -324,10 +324,9 @@ def logs_index():
     filter_mode = (request.args.get("mode") or "").strip().lower()
     if filter_mode not in {"production", "test"}:
         filter_mode = ""
-    if dataset_id:
-        datasets = [d for d in datasets if d["id"] == dataset_id]
-    selected_dataset_id = dataset_id or (datasets[0]["id"] if datasets else None)
-    selected_dataset = next((d for d in datasets if d["id"] == selected_dataset_id), None)
+    all_datasets = datasets
+    selected_dataset_id = dataset_id or (all_datasets[0]["id"] if all_datasets else None)
+    selected_dataset = next((d for d in all_datasets if d["id"] == selected_dataset_id), None)
 
     boots = []
     for dataset in ([selected_dataset] if selected_dataset else []):
@@ -399,7 +398,7 @@ def logs_index():
 
     return render_template(
         "logs.html",
-        datasets=datasets,
+        datasets=all_datasets,
         boots=filtered_boots,
         grouped_boots=grouped_boots,
         selected_dataset_id=selected_dataset_id,
