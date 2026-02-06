@@ -28,7 +28,6 @@
               <thead>
                 <tr>
                   <th>Dataset</th>
-                  <th>Shard</th>
                   <th>Boot ID</th>
                   <th>System</th>
                   <th>Event ID</th>
@@ -39,18 +38,17 @@
               </thead>
               <tbody>
                 {% for boot in boots %}
-                  {% set meta = boot_meta_map.get(boot.boot_id) %}
+                  {% set meta = boot_meta_map.get(boot.meta_key) %}
                   <tr>
                     <td>{{ boot.dataset_name }}</td>
-                    <td>{{ boot.shard_name }}</td>
                     <td>{{ boot.boot_id }}</td>
                     <td>{{ meta.system }}</td>
                     <td>{{ meta.event_id }}</td>
                     <td>{{ meta.tags }}</td>
                     <td>{{ boot.event_count }}</td>
                     <td class="flex gap-2">
-                      <a class="btn btn-xs btn-outline" href="{{ url_for('index', shard=boot.shard_id, boot=boot.boot_id) }}">Open</a>
-                      <a class="btn btn-xs btn-ghost" href="{{ url_for('edit_boot', shard_id=boot.shard_id, boot_id=boot.boot_id) }}">Edit</a>
+                      <a class="btn btn-xs btn-outline" href="{{ url_for('index', dataset=boot.dataset_id, boot=boot.boot_id) }}">Open</a>
+                      <a class="btn btn-xs btn-ghost" href="{{ url_for('edit_boot', dataset_id=boot.dataset_id, boot_id=boot.boot_id) }}">Edit</a>
                     </td>
                   </tr>
                 {% endfor %}

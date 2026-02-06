@@ -98,9 +98,9 @@ LogApp.smoothScrollTo = (container, targetTop, durationMs = 200, onComplete = nu
 LogApp.createBookmarkStore = (logData, bus) => {
   const events = Array.isArray(logData?.events) ? logData.events : [];
   const validIds = new Set(events.map((event) => String(event.row_id)));
-  const shardId = logData?.shard_id;
+  const datasetId = logData?.dataset_id;
   const bootId = logData?.boot_id;
-  const canPersist = Boolean(LogApp.isLoggedIn && shardId && bootId);
+  const canPersist = Boolean(LogApp.isLoggedIn && datasetId && bootId);
   let lastLoginNotice = 0;
   let bookmarks = {};
 
@@ -112,7 +112,7 @@ LogApp.createBookmarkStore = (logData, bus) => {
     if (!canPersist) return;
     try {
       const response = await fetch(
-        `/api/bookmarks?shard_id=${encodeURIComponent(shardId)}&boot_id=${encodeURIComponent(bootId)}`
+        `/api/bookmarks?dataset_id=${encodeURIComponent(datasetId)}&boot_id=${encodeURIComponent(bootId)}`
       );
       if (!response.ok) return;
       const payload = await response.json();
@@ -144,7 +144,7 @@ LogApp.createBookmarkStore = (logData, bus) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          shard_id: shardId,
+          dataset_id: datasetId,
           boot_id: bootId,
           row_id: rowId,
           color_index: colorIndex,
@@ -206,9 +206,9 @@ LogApp.createBookmarkStore = (logData, bus) => {
 
 LogApp.createCommentStore = (logData, bus) => {
   const events = Array.isArray(logData?.events) ? logData.events : [];
-  const shardId = logData?.shard_id;
+  const datasetId = logData?.dataset_id;
   const bootId = logData?.boot_id;
-  const canPersist = Boolean(LogApp.isLoggedIn && shardId && bootId);
+  const canPersist = Boolean(LogApp.isLoggedIn && datasetId && bootId);
   let lastLoginNotice = 0;
   let comments = [];
 
@@ -224,10 +224,10 @@ LogApp.createCommentStore = (logData, bus) => {
   };
 
   const load = async () => {
-    if (!shardId || !bootId) return;
+    if (!datasetId || !bootId) return;
     try {
       const response = await fetch(
-        `/api/comments?shard_id=${encodeURIComponent(shardId)}&boot_id=${encodeURIComponent(bootId)}`
+        `/api/comments?dataset_id=${encodeURIComponent(datasetId)}&boot_id=${encodeURIComponent(bootId)}`
       );
       if (!response.ok) return;
       const payload = await response.json();
@@ -249,7 +249,7 @@ LogApp.createCommentStore = (logData, bus) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          shard_id: shardId,
+          dataset_id: datasetId,
           boot_id: bootId,
           row_id: rowId,
           parent_id: parentId,
