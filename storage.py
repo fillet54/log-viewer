@@ -765,6 +765,16 @@ def list_boots_for_dataset(dataset_id: int) -> List[Dict[str, Any]]:
     ]
 
 
+def get_latest_boot_id_for_dataset(dataset_id: int) -> Optional[str]:
+    dataset = get_dataset(dataset_id)
+    if not dataset:
+        return None
+    conn = get_dataset_db(dataset, attach_app_db=False)
+    boot_id = _latest_boot_id(conn)
+    conn.close()
+    return boot_id
+
+
 def load_log_data_from_dataset(dataset: Dict[str, Any], boot_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
     path = Path(dataset["db_path"])
     if not path.exists():

@@ -24,6 +24,7 @@ from storage import (
     get_boot_meta,
     get_dataset,
     get_dataset_by_name,
+    get_latest_boot_id_for_dataset,
     get_or_create_user,
     get_user,
     get_first_dataset,
@@ -179,7 +180,16 @@ def index():
     boot_id = request.args.get("boot")
     log_data = None
     if dataset:
+        if not boot_id:
+            latest_boot = get_latest_boot_id_for_dataset(dataset["id"])
+            if latest_boot:
+                return redirect(url_for("index", dataset=dataset["id"], boot=latest_boot))
         log_data = load_log_data_from_dataset(dataset, boot_id)
+        if boot_id and not log_data:
+            latest_boot = get_latest_boot_id_for_dataset(dataset["id"])
+            if latest_boot:
+                flash("Requested boot was not found. Showing latest boot.")
+                return redirect(url_for("index", dataset=dataset["id"], boot=latest_boot))
 
     if not log_data:
         hours = request.args.get("hours", default="4")
@@ -211,6 +221,9 @@ def app_js():
 @app.route("/upload", methods=["GET", "POST"])
 def upload_logs():
     current_user_id = g.current_user["id"] if g.current_user else None
+    if request.method == "POST" and not current_user_id:
+        flash("Log in to upload logs.")
+        return redirect(url_for("login"))
     datasets = list_datasets(current_user_id)
     selected_dataset_id = request.form.get("dataset_id", type=int)
     if request.method == "POST":
@@ -225,10 +238,10 @@ def upload_logs():
         if selected_dataset_id:
             dataset_obj = get_dataset(selected_dataset_id)
         if not dataset_obj and dataset_name_new:
-            owner_user_id = current_user_id if is_personal else None
-            if is_personal and not current_user_id:
-                flash("Log in to create a personal dataset.")
+            if not current_user_id:
+                flash("Log in to create a dataset.")
                 return redirect(url_for("login"))
+            owner_user_id = current_user_id if is_personal else None
             dataset_obj = get_dataset_by_name(dataset_name_new, owner_user_id) or create_dataset(
                 dataset_name_new, dataset_description_new, owner_user_id
             )
@@ -253,15 +266,19 @@ def upload_logs():
                 ev.setdefault("event_id", "")
                 ev.setdefault("tags", [])
 
-        insert_events_into_dataset(dataset_obj, events)
+        created_boot_id = insert_events_into_dataset(dataset_obj, events)
         flash(f"Imported {len(events)} events into dataset '{dataset_obj['name']}'.")
-        return redirect(url_for("index", dataset=dataset_obj["id"]))
+        return redirect(url_for("index", dataset=dataset_obj["id"], boot=created_boot_id))
 
+    latest_boot_map = {}
+    for dataset in datasets:
+        latest_boot_map[dataset["id"]] = get_latest_boot_id_for_dataset(dataset["id"])
     return render_template(
         "upload.html",
         datasets=datasets,
         selected_dataset_id=selected_dataset_id,
         current_user_id=current_user_id,
+        latest_boot_map=latest_boot_map,
     )
 
 

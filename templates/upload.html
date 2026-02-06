@@ -23,43 +23,50 @@
           </label>
           <label class="form-control">
             <span class="label-text mb-1">Or create new dataset</span>
-            <input name="dataset_name_new" class="input input-bordered" placeholder="New dataset name" />
+            <input name="dataset_name_new" class="input input-bordered" placeholder="New dataset name" {% if not current_user_id %}disabled{% endif %} />
           </label>
         </div>
 
         <div class="grid md:grid-cols-2 gap-4 items-end">
           <label class="form-control">
             <span class="label-text mb-1">Dataset description (new dataset)</span>
-            <input name="dataset_description_new" class="input input-bordered" placeholder="What this dataset contains" />
+            <input name="dataset_description_new" class="input input-bordered" placeholder="What this dataset contains" {% if not current_user_id %}disabled{% endif %} />
           </label>
           {% if current_user_id %}
             <label class="label justify-start gap-2 cursor-pointer">
               <input type="checkbox" name="dataset_is_personal" class="checkbox checkbox-sm" checked />
               <span class="label-text">Create as personal dataset (only visible by default to you)</span>
             </label>
+          {% else %}
+            <div class="text-sm text-base-content/70">
+              Log in to create datasets. You can still import into existing global datasets.
+            </div>
           {% endif %}
         </div>
 
         <label class="form-control">
           <span class="label-text mb-1">Log file (JSON)</span>
-          <input type="file" name="log_file" accept=".json,application/json" class="file-input file-input-bordered" />
+          <input type="file" name="log_file" accept=".json,application/json" class="file-input file-input-bordered" {% if not current_user_id %}disabled{% endif %} />
         </label>
 
         <div class="grid md:grid-cols-2 gap-4">
           <label class="form-control">
             <span class="label-text mb-1">Or generate hours</span>
-            <input type="number" step="0.25" min="0.25" max="48" name="hours" class="input input-bordered" placeholder="4" />
+            <input type="number" step="0.25" min="0.25" max="48" name="hours" class="input input-bordered" placeholder="4" {% if not current_user_id %}disabled{% endif %} />
           </label>
           <label class="form-control">
             <span class="label-text mb-1">Seed (optional)</span>
-            <input type="text" name="seed" class="input input-bordered" placeholder="Seed value" />
+            <input type="text" name="seed" class="input input-bordered" placeholder="Seed value" {% if not current_user_id %}disabled{% endif %} />
           </label>
         </div>
         <p class="text-sm text-base-content/70">If no file is selected, a synthetic log will be generated with the hours/seed above.</p>
+        {% if not current_user_id %}
+          <p class="text-sm text-warning">Log in is required to upload or generate logs.</p>
+        {% endif %}
 
         <div class="flex justify-end gap-2">
           <a class="btn btn-ghost" href="{{ url_for('index') }}">Cancel</a>
-          <button type="submit" class="btn btn-primary">Import</button>
+          <button type="submit" class="btn btn-primary" {% if not current_user_id %}disabled{% endif %}>Import</button>
         </div>
       </form>
     </div>
@@ -83,7 +90,12 @@
                 </div>
               </div>
               <div class="flex gap-2">
-                <a class="btn btn-xs btn-outline" href="{{ url_for('index', dataset=dataset.id) }}">View</a>
+                {% set latest_boot = latest_boot_map.get(dataset.id) %}
+                {% if latest_boot %}
+                  <a class="btn btn-xs btn-outline" href="{{ url_for('index', dataset=dataset.id, boot=latest_boot) }}">View</a>
+                {% else %}
+                  <a class="btn btn-xs btn-outline" href="{{ url_for('index', dataset=dataset.id) }}">View</a>
+                {% endif %}
                 {% if current_user_id and dataset.owner_user_id == current_user_id %}
                   <form method="post" action="{{ url_for('delete_dataset_route', dataset_id=dataset.id) }}" onsubmit="return confirm('Delete this dataset? This cannot be undone.');">
                     <button class="btn btn-xs btn-error btn-outline" type="submit">Delete</button>
