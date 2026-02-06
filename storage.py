@@ -149,10 +149,14 @@ def _init_dataset_db_schema(conn: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS boots (
             boot_id TEXT PRIMARY KEY,
             created_at TEXT NOT NULL,
-            event_count INTEGER NOT NULL
+            event_count INTEGER NOT NULL,
+            mode TEXT NOT NULL DEFAULT 'production'
         )
     """
     )
+    boot_cols = [row["name"] for row in conn.execute("PRAGMA table_info(boots)")]
+    if "mode" not in boot_cols:
+        conn.execute("ALTER TABLE boots ADD COLUMN mode TEXT NOT NULL DEFAULT 'production'")
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS log_index (
@@ -343,16 +347,26 @@ def _migrate_legacy_app_db(db: sqlite3.Connection) -> None:
         )
 
         if has_boots:
+            boots_cols = _table_columns(db, "boots")
+            mode_expr = "mode" if "mode" in boots_cols else "'production' AS mode"
             boots_rows = db.execute(
-                "SELECT boot_id, created_at, event_count FROM boots WHERE dataset_id = ?",
+                f"SELECT boot_id, created_at, event_count, {mode_expr} FROM boots WHERE dataset_id = ?",
                 (dataset_id,),
             ).fetchall()
             conn.executemany(
                 """
-                INSERT OR REPLACE INTO boots (boot_id, created_at, event_count)
-                VALUES (?, ?, ?)
+                INSERT OR REPLACE INTO boots (boot_id, created_at, event_count, mode)
+                VALUES (?, ?, ?, ?)
             """,
-                [(r["boot_id"], r["created_at"], r["event_count"]) for r in boots_rows],
+                [
+                    (
+                        r["boot_id"],
+                        r["created_at"],
+                        r["event_count"],
+                        (r["mode"] or "production"),
+                    )
+                    for r in boots_rows
+                ],
             )
 
         if has_index:
@@ -667,7 +681,9 @@ def parse_events_from_upload(file_storage) -> List[Dict[str, Any]]:
     return cleaned
 
 
-def insert_events_into_dataset(dataset: Dict[str, Any], events: List[Dict[str, Any]]) -> str:
+def insert_events_into_dataset(
+    dataset: Dict[str, Any], events: List[Dict[str, Any]], mode: str = "production"
+) -> str:
     import secrets
 
     if not events:
@@ -710,8 +726,8 @@ def insert_events_into_dataset(dataset: Dict[str, Any], events: List[Dict[str, A
     )
 
     conn.execute(
-        "INSERT OR REPLACE INTO boots (boot_id, created_at, event_count) VALUES (?, ?, ?)",
-        (boot_id, now_iso, len(events)),
+        "INSERT OR REPLACE INTO boots (boot_id, created_at, event_count, mode) VALUES (?, ?, ?, ?)",
+        (boot_id, now_iso, len(events), mode if mode in {"production", "test"} else "production"),
     )
     conn.executemany(
         """
@@ -752,7 +768,7 @@ def list_boots_for_dataset(dataset_id: int) -> List[Dict[str, Any]]:
         return []
     conn = get_dataset_db(dataset, attach_app_db=False)
     rows = conn.execute(
-        "SELECT boot_id, created_at, event_count FROM boots ORDER BY datetime(created_at) DESC"
+        "SELECT boot_id, created_at, event_count, mode FROM boots ORDER BY datetime(created_at) DESC"
     ).fetchall()
     conn.close()
     return [
@@ -760,6 +776,7 @@ def list_boots_for_dataset(dataset_id: int) -> List[Dict[str, Any]]:
             "boot_id": r["boot_id"],
             "created_at": r["created_at"],
             "event_count": int(r["event_count"]),
+            "mode": r["mode"] or "production",
         }
         for r in rows
     ]
@@ -852,7 +869,7 @@ def get_boot_meta(dataset_id: int, boot_id: str) -> Optional[Dict[str, Any]]:
         return None
     conn = get_dataset_db(dataset, attach_app_db=False)
     row = conn.execute(
-        "SELECT boot_id, created_at, event_count FROM boots WHERE boot_id = ?",
+        "SELECT boot_id, created_at, event_count, mode FROM boots WHERE boot_id = ?",
         (boot_id,),
     ).fetchone()
     conn.close()
@@ -863,11 +880,13 @@ def get_boot_meta(dataset_id: int, boot_id: str) -> Optional[Dict[str, Any]]:
         "boot_id": row["boot_id"],
         "created_at": row["created_at"],
         "event_count": int(row["event_count"]),
+        "mode": row["mode"] or "production",
     }
 
 
 def get_boot_details(dataset: Dict[str, Any], boot_id: str) -> Dict[str, str]:
     conn = get_dataset_db(dataset, attach_app_db=False)
+    boot_row = conn.execute("SELECT mode FROM boots WHERE boot_id = ?", (boot_id,)).fetchone()
     row = conn.execute(
         "SELECT system, event_id, tags FROM logs WHERE boot_id = ? LIMIT 1",
         (boot_id,),
@@ -877,12 +896,17 @@ def get_boot_details(dataset: Dict[str, Any], boot_id: str) -> Dict[str, str]:
         "system": row["system"] if row else "",
         "event_id": row["event_id"] if row else "",
         "tags": row["tags"] if row else "",
+        "mode": (boot_row["mode"] if boot_row else "production") or "production",
     }
 
 
-def update_boot_metadata(dataset: Dict[str, Any], boot_id: str, system: str, event_id: str, tags: List[str]) -> None:
+def update_boot_metadata(
+    dataset: Dict[str, Any], boot_id: str, system: str, event_id: str, tags: List[str], mode: str
+) -> None:
     tags_str = ",".join(tags)
     conn = get_dataset_db(dataset, attach_app_db=False)
+    normalized_mode = mode if mode in {"production", "test"} else "production"
+    conn.execute("UPDATE boots SET mode = ? WHERE boot_id = ?", (normalized_mode, boot_id))
     conn.execute(
         "UPDATE logs SET system = ?, event_id = ?, tags = ? WHERE boot_id = ?",
         (system, event_id, tags_str, boot_id),

@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import os
+import random
 from typing import Any, Optional, Dict
 from flask import (
     Flask,
@@ -250,25 +251,57 @@ def upload_logs():
             return redirect(url_for("upload_logs"))
 
         events = []
+        created_boot_ids = []
         if file and file.filename:
             events = parse_events_from_upload(file)
             if not events:
                 flash("No events found in upload. Ensure JSON is an array or has an 'events' list.")
                 return redirect(url_for("upload_logs"))
+            for ev in events:
+                ev.setdefault("event_id", ev.get("name") or ev.get("id") or "")
+                ev.setdefault("tags", [])
+            created_boot_ids.append(insert_events_into_dataset(dataset_obj, events, mode="production"))
         else:
             try:
                 hours_value = max(0.25, min(48.0, float(gen_hours))) if gen_hours else 4.0
             except (TypeError, ValueError):
                 hours_value = 4.0
-            generated = generate_logs(hours_value, gen_seed or None)
-            events = generated.get("events", [])
-            for ev in events:
-                ev.setdefault("event_id", "")
-                ev.setdefault("tags", [])
+            rng = random.Random(gen_seed if gen_seed else datetime.utcnow().isoformat())
+            boot_count = rng.randint(1, 5)
+            # Keep a small pool so multiple boots share event names.
+            target_pool_size = rng.randint(1, min(3, boot_count))
+            event_name_pool = []
+            total_events = 0
+            for idx in range(boot_count):
+                seed_suffix = f"{gen_seed or 'auto'}-boot-{idx + 1}-{rng.randint(0, 999999)}"
+                generated = generate_logs(hours_value, seed_suffix)
+                events = generated.get("events", [])
+                candidate_name = next(
+                    (
+                        (ev.get("name") or ev.get("id") or "").strip()
+                        for ev in events
+                        if (ev.get("name") or ev.get("id"))
+                    ),
+                    "Generated Event",
+                )
+                if len(event_name_pool) < target_pool_size and candidate_name not in event_name_pool:
+                    event_name_pool.append(candidate_name)
+                if not event_name_pool:
+                    event_name_pool.append(candidate_name)
+                boot_event_name = rng.choice(event_name_pool)
+                for ev in events:
+                    ev["event_id"] = boot_event_name
+                    ev.setdefault("tags", [])
+                mode = rng.choice(["production", "test"])
+                created_boot_ids.append(insert_events_into_dataset(dataset_obj, events, mode=mode))
+                total_events += len(events)
+            flash(
+                f"Generated {boot_count} boots ({total_events} events total) into dataset '{dataset_obj['name']}'."
+            )
+            return redirect(url_for("index", dataset=dataset_obj["id"], boot=created_boot_ids[0]))
 
-        created_boot_id = insert_events_into_dataset(dataset_obj, events)
         flash(f"Imported {len(events)} events into dataset '{dataset_obj['name']}'.")
-        return redirect(url_for("index", dataset=dataset_obj["id"], boot=created_boot_id))
+        return redirect(url_for("index", dataset=dataset_obj["id"], boot=created_boot_ids[0]))
 
     latest_boot_map = {}
     for dataset in datasets:
@@ -287,11 +320,17 @@ def logs_index():
     current_user_id = g.current_user["id"] if g.current_user else None
     datasets = list_datasets(current_user_id)
     dataset_id = request.args.get("dataset_id", type=int)
+    filter_system = (request.args.get("system") or "").strip()
+    filter_mode = (request.args.get("mode") or "").strip().lower()
+    if filter_mode not in {"production", "test"}:
+        filter_mode = ""
     if dataset_id:
         datasets = [d for d in datasets if d["id"] == dataset_id]
+    selected_dataset_id = dataset_id or (datasets[0]["id"] if datasets else None)
+    selected_dataset = next((d for d in datasets if d["id"] == selected_dataset_id), None)
 
     boots = []
-    for dataset in datasets:
+    for dataset in ([selected_dataset] if selected_dataset else []):
         for boot in list_boots_for_dataset(dataset["id"]):
             boots.append(
                 {
@@ -300,6 +339,7 @@ def logs_index():
                     "created_at": boot["created_at"],
                     "dataset_id": dataset["id"],
                     "dataset_name": dataset["name"],
+                    "mode": boot.get("mode", "production"),
                 }
             )
     boots.sort(key=lambda b: b["created_at"], reverse=True)
@@ -315,14 +355,58 @@ def logs_index():
             "system": details.get("system", "") if details else "",
             "event_id": details.get("event_id", "") if details else "",
             "tags": details.get("tags", "") if details else "",
+            "mode": details.get("mode", boot.get("mode", "production")) if details else boot.get("mode", "production"),
         }
+
+    system_options = sorted(
+        {((meta.get("system") or "").strip()) for meta in boot_meta_map.values() if (meta.get("system") or "").strip()},
+        key=str.lower,
+    )
+
+    filtered_boots = []
+    for boot in boots:
+        meta = boot_meta_map.get(boot["meta_key"], {})
+        event_name_val = (meta.get("event_id") or "Uncategorized").strip() or "Uncategorized"
+        system_val = (meta.get("system") or "").strip()
+        mode_val = (meta.get("mode") or boot.get("mode") or "production").strip().lower()
+        if filter_system and system_val != filter_system:
+            continue
+        if filter_mode and mode_val != filter_mode:
+            continue
+        filtered_boots.append(boot)
+
+    grouped_boots = []
+    grouped_map: Dict[str, Dict[str, Any]] = {}
+    for boot in filtered_boots:
+        meta = boot_meta_map.get(boot["meta_key"], {})
+        event_name = (meta.get("event_id") or "Uncategorized").strip() or "Uncategorized"
+        if event_name not in grouped_map:
+            grouped_map[event_name] = {"event_name": event_name, "boots": []}
+        grouped_map[event_name]["boots"].append(boot)
+    for event_name in sorted(grouped_map.keys(), key=str.lower):
+        group = grouped_map[event_name]
+        group["boots"].sort(key=lambda b: b["created_at"], reverse=True)
+        prod_boot = next(
+            (
+                b
+                for b in group["boots"]
+                if (boot_meta_map.get(b["meta_key"], {}).get("mode") or b.get("mode")) == "production"
+            ),
+            None,
+        )
+        group["latest_production_boot"] = prod_boot
+        grouped_boots.append(group)
 
     return render_template(
         "logs.html",
         datasets=datasets,
-        boots=boots,
-        selected_dataset_id=dataset_id,
+        boots=filtered_boots,
+        grouped_boots=grouped_boots,
+        selected_dataset_id=selected_dataset_id,
         boot_meta_map=boot_meta_map,
+        filter_system=filter_system,
+        filter_mode=filter_mode,
+        system_options=system_options,
     )
 
 
@@ -358,13 +442,15 @@ def edit_boot(dataset_id: int, boot_id: str):
     system_val = details.get("system", "") if details else ""
     event_id_val = details.get("event_id", "") if details else ""
     tags_val = details.get("tags", "") if details else ""
+    mode_val = details.get("mode", boot.get("mode", "production")) if details else boot.get("mode", "production")
 
     if request.method == "POST":
         system = (request.form.get("system") or "").strip()
         event_id = (request.form.get("event_id") or "").strip()
         tags_raw = request.form.get("tags") or ""
         tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
-        update_boot_metadata(dataset, boot_id, system, event_id, tags)
+        mode = (request.form.get("mode") or "").strip().lower()
+        update_boot_metadata(dataset, boot_id, system, event_id, tags, mode)
         flash("Boot metadata updated.")
         return redirect(url_for("logs_index"))
 
@@ -375,6 +461,7 @@ def edit_boot(dataset_id: int, boot_id: str):
         system=system_val,
         event_id=event_id_val,
         tags=tags_val,
+        mode=mode_val,
     )
 
 

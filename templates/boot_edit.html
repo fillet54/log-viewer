@@ -14,10 +14,17 @@
             <input class="input input-bordered" name="system" value="{{ system or '' }}" placeholder="System" />
           </label>
           <label class="form-control">
-            <span class="label-text mb-1">Event ID</span>
-            <input class="input input-bordered" name="event_id" value="{{ event_id or '' }}" placeholder="Event ID" />
+            <span class="label-text mb-1">Event Name</span>
+            <input class="input input-bordered" name="event_id" value="{{ event_id or '' }}" placeholder="Event name" />
           </label>
         </div>
+        <label class="form-control">
+          <span class="label-text mb-1">Mode</span>
+          <select class="select select-bordered" name="mode">
+            <option value="production" {% if mode == "production" %}selected{% endif %}>Production</option>
+            <option value="test" {% if mode == "test" %}selected{% endif %}>Test</option>
+          </select>
+        </label>
         <label class="form-control">
           <span class="label-text mb-1">Tags (comma separated)</span>
           <input class="input input-bordered" name="tags" value="{{ tags or '' }}" placeholder="tag1, tag2" />
