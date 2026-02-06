@@ -13,6 +13,7 @@
 
 window.LogApp = window.LogApp || {};
 LogApp.isLoggedIn = {{ "true" if current_user else "false" }};
+LogApp.currentUser = {% if current_user %}{{ {"id": current_user["id"], "name": current_user.get("name"), "email": current_user.get("email")} | tojson }}{% else %}null{% endif %};
 
 LogApp.STORAGE_KEYS = {
   root: "loglayout.split.root",
@@ -203,11 +204,112 @@ LogApp.createBookmarkStore = (logData, bus) => {
   return { cycle, setColor, getColor, isBookmarked, getAll, getAllWithColors };
 };
 
+LogApp.createCommentStore = (logData, bus) => {
+  const events = Array.isArray(logData?.events) ? logData.events : [];
+  const shardId = logData?.shard_id;
+  const bootId = logData?.boot_id;
+  const canPersist = Boolean(LogApp.isLoggedIn && shardId && bootId);
+  let lastLoginNotice = 0;
+  let comments = [];
+
+  const notify = () => {
+    if (bus) bus.emit("comments:changed", getByRowId());
+  };
+
+  const notifyLoginRequired = () => {
+    const now = Date.now();
+    if (now - lastLoginNotice < 2000) return;
+    lastLoginNotice = now;
+    window.alert("Please log in to comment.");
+  };
+
+  const load = async () => {
+    if (!shardId || !bootId) return;
+    try {
+      const response = await fetch(
+        `/api/comments?shard_id=${encodeURIComponent(shardId)}&boot_id=${encodeURIComponent(bootId)}`
+      );
+      if (!response.ok) return;
+      const payload = await response.json();
+      comments = Array.isArray(payload?.comments) ? payload.comments : [];
+      notify();
+    } catch (err) {
+      return;
+    }
+  };
+  load();
+
+  const addComment = async (rowId, body, parentId = null) => {
+    if (!canPersist) {
+      if (!LogApp.isLoggedIn) notifyLoginRequired();
+      return null;
+    }
+    try {
+      const response = await fetch("/api/comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shard_id: shardId,
+          boot_id: bootId,
+          row_id: rowId,
+          parent_id: parentId,
+          body,
+        }),
+      });
+      if (!response.ok) throw new Error("comment save failed");
+      const payload = await response.json();
+      if (payload?.comment) {
+        comments = [...comments, payload.comment];
+        notify();
+        return payload.comment;
+      }
+    } catch (err) {
+      return null;
+    }
+    return null;
+  };
+
+  const getByRowId = () => {
+    const map = new Map();
+    comments.forEach((comment) => {
+      const key = String(comment.row_id);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(comment);
+    });
+    return map;
+  };
+
+  const buildThreads = (rowId) => {
+    const items = (getByRowId().get(String(rowId)) || []).slice();
+    const byId = new Map();
+    items.forEach((item) => byId.set(item.id, { ...item, replies: [] }));
+    const roots = [];
+    items.forEach((item) => {
+      const node = byId.get(item.id);
+      if (item.parent_id && byId.has(item.parent_id)) {
+        byId.get(item.parent_id).replies.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+    return roots;
+  };
+
+  const getActivityRows = () => {
+    const map = getByRowId();
+    const withComments = events.filter((event) => map.has(String(event.row_id)));
+    return withComments.sort((a, b) => (a.norm_time || 0) - (b.norm_time || 0));
+  };
+
+  return { addComment, getByRowId, buildThreads, getActivityRows, reload: load };
+};
+
 window.addEventListener("DOMContentLoaded", () => {
   const bus = LogApp.createEventBus();
   const logData = LogApp.loadLogData();
   LogApp.searchWorker = LogApp.createSearchWorker(logData?.events || []);
   LogApp.bookmarks = LogApp.createBookmarkStore(logData, bus);
+  LogApp.comments = LogApp.createCommentStore(logData, bus);
 
   LogApp.initSplits();
   LogApp.initLogList(logData, bus);

@@ -684,6 +684,50 @@
   transition: transform 0.15s ease;
 }
 
+.comment-section {
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.75rem;
+}
+
+.comment-thread {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.comment-item {
+  border-left: 2px solid var(--color-border);
+  padding-left: 0.6rem;
+}
+
+.comment-meta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+.comment-author {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.comment-body {
+  font-size: 0.8rem;
+  color: var(--color-text);
+}
+
+.activity-item {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.activity-thread {
+  padding-left: 0.6rem;
+}
+
 .filter-toggle.is-on {
   background: rgba(34, 197, 94, 0.2);
   border-color: rgba(22, 163, 74, 0.6);

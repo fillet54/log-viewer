@@ -121,6 +121,23 @@ def init_db() -> None:
         )
     """
     )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            shard_id INTEGER NOT NULL,
+            boot_id TEXT NOT NULL,
+            row_id INTEGER NOT NULL,
+            parent_id INTEGER,
+            body TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (shard_id) REFERENCES shards (id),
+            FOREIGN KEY (parent_id) REFERENCES comments (id)
+        )
+    """
+    )
     cols = [row["name"] for row in db.execute("PRAGMA table_info(log_index)")]
     if "boot_id" not in cols:
         db.execute("ALTER TABLE log_index ADD COLUMN boot_id TEXT")
@@ -736,3 +753,86 @@ def set_bookmark(
         (user_id, shard_id, boot_id, row_id, color_index, now, now),
     )
     db.commit()
+
+
+def list_comments_for_boot(shard_id: int, boot_id: str) -> List[Dict[str, Any]]:
+    db = get_db()
+    rows = db.execute(
+        """
+        SELECT comments.id, comments.row_id, comments.parent_id, comments.body, comments.created_at,
+               users.id AS user_id, users.name AS user_name, users.email AS user_email
+        FROM comments
+        JOIN users ON users.id = comments.user_id
+        WHERE comments.shard_id = ? AND comments.boot_id = ?
+        ORDER BY datetime(comments.created_at) ASC, comments.id ASC
+    """,
+        (shard_id, boot_id),
+    ).fetchall()
+    return [
+        {
+            "id": row["id"],
+            "row_id": row["row_id"],
+            "parent_id": row["parent_id"],
+            "body": row["body"],
+            "created_at": row["created_at"],
+            "user_id": row["user_id"],
+            "user_name": row["user_name"],
+            "user_email": row["user_email"],
+        }
+        for row in rows
+    ]
+
+
+def create_comment(
+    user_id: int,
+    shard_id: int,
+    boot_id: str,
+    row_id: int,
+    body: str,
+    parent_id: Optional[int] = None,
+) -> Dict[str, Any]:
+    db = get_db()
+    now = datetime.utcnow().isoformat()
+    parent_valid = None
+    if parent_id is not None:
+        parent = db.execute(
+            """
+            SELECT id, row_id
+            FROM comments
+            WHERE id = ? AND shard_id = ? AND boot_id = ?
+        """,
+            (parent_id, shard_id, boot_id),
+        ).fetchone()
+        if not parent:
+            raise ValueError("invalid_parent")
+        if parent["row_id"] != row_id:
+            raise ValueError("parent_row_mismatch")
+        parent_valid = parent["id"]
+    cursor = db.execute(
+        """
+        INSERT INTO comments (user_id, shard_id, boot_id, row_id, parent_id, body, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """,
+        (user_id, shard_id, boot_id, row_id, parent_valid, body, now),
+    )
+    db.commit()
+    row = db.execute(
+        """
+        SELECT comments.id, comments.row_id, comments.parent_id, comments.body, comments.created_at,
+               users.id AS user_id, users.name AS user_name, users.email AS user_email
+        FROM comments
+        JOIN users ON users.id = comments.user_id
+        WHERE comments.id = ?
+    """,
+        (cursor.lastrowid,),
+    ).fetchone()
+    return {
+        "id": row["id"],
+        "row_id": row["row_id"],
+        "parent_id": row["parent_id"],
+        "body": row["body"],
+        "created_at": row["created_at"],
+        "user_id": row["user_id"],
+        "user_name": row["user_name"],
+        "user_email": row["user_email"],
+    }

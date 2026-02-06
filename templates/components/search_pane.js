@@ -218,16 +218,22 @@ LogApp.initSearchPane = (logData, bus) => {
   };
 
   const getBookmarkEvents = () => {
-    const ids = LogApp.bookmarks?.getAll() || [];
-    return ids
+    const bookmarkIds = new Set(LogApp.bookmarks?.getAll() || []);
+    const commentRows = LogApp.comments?.getByRowId() || new Map();
+    const commentIds = new Set(Array.from(commentRows.keys()));
+    const ids = new Set([...bookmarkIds, ...commentIds]);
+    return Array.from(ids)
       .map((id) => events.find((entry) => String(entry.row_id) === String(id)))
-      .filter(Boolean);
+      .filter(Boolean)
+      .sort((a, b) => (a.norm_time || 0) - (b.norm_time || 0));
   };
 
   const renderBookmarks = () => {
     bookmarksList.innerHTML = "";
     const fragment = document.createDocumentFragment();
     getBookmarkEvents().forEach((event) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "activity-item";
       const row = LogApp.renderLogRow(event, logRowTemplate, { extraClasses: ["search-result-row"] });
       if (!row) return;
       const bookmarkButton = row.querySelector(".bookmark-toggle");
@@ -241,10 +247,51 @@ LogApp.initSearchPane = (logData, bus) => {
         if (bus) bus.emit("event:selected", event);
         if (bus) bus.emit("log:jump", { rowId: event.row_id });
       });
-      fragment.appendChild(row);
+      wrapper.appendChild(row);
+      const threads = LogApp.comments?.buildThreads(event.row_id) || [];
+      if (threads.length) {
+        const threadContainer = document.createElement("div");
+        threadContainer.className = "activity-thread";
+        threadContainer.innerHTML = renderThread(threads);
+        wrapper.appendChild(threadContainer);
+      }
+      fragment.appendChild(wrapper);
     });
     bookmarksList.appendChild(fragment);
   };
+
+  const escapeHtml = (value) => {
+    const text = String(value ?? "");
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  };
+
+  const renderThread = (threads, depth = 0) => {
+    if (!threads.length) return "";
+    return `
+      <div class="comment-thread">
+        ${threads
+          .map(
+            (comment) => `
+            <div class="comment-item" style="margin-left:${depth * 16}px">
+              <div class="comment-meta">
+                <span class="comment-author">${escapeHtml(comment.user_name || comment.user_email || "User")}</span>
+                <span class="comment-time">${escapeHtml(comment.created_at)}</span>
+              </div>
+              <div class="comment-body">${escapeHtml(comment.body)}</div>
+              ${comment.replies?.length ? renderThread(comment.replies, depth + 1) : ""}
+            </div>
+          `
+          )
+          .join("")}
+      </div>
+    `;
+  };
+
 
   const applyFilters = () => {
     const active = filters.filter((item) => item.enabled).map((item) => item.query);
@@ -268,6 +315,34 @@ LogApp.initSearchPane = (logData, bus) => {
       if (bus) bus.emit("log:jump", { rowId: event.row_id });
     });
     return row;
+  };
+
+  const renderBookmarkResults = (items) => {
+    resultsItems.style.position = "relative";
+    resultsItems.style.transform = "none";
+    resultsItems.innerHTML = "";
+    resultsSpacer.style.height = "0";
+    if (!items.length) {
+      resultsItems.innerHTML = '<div class="no-results">No Results</div>';
+      return;
+    }
+    const fragment = document.createDocumentFragment();
+    items.forEach((event) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "activity-item";
+      const row = renderResultRow(event);
+      if (!row) return;
+      wrapper.appendChild(row);
+      const threads = LogApp.comments?.buildThreads(event.row_id) || [];
+      if (threads.length) {
+        const threadContainer = document.createElement("div");
+        threadContainer.className = "activity-thread";
+        threadContainer.innerHTML = renderThread(threads);
+        wrapper.appendChild(threadContainer);
+      }
+      fragment.appendChild(wrapper);
+    });
+    resultsItems.appendChild(fragment);
   };
 
   const resultsState = {
@@ -306,6 +381,7 @@ LogApp.initSearchPane = (logData, bus) => {
   };
 
   const updateResultsVirtual = () => {
+    if (currentTab === "bookmarks") return;
     const scrollTop = resultsList.scrollTop;
     const startIndex = Math.max(0, Math.floor(scrollTop / resultsState.rowStride) - resultsState.overscan);
     const visibleCount = Math.min(
@@ -319,6 +395,12 @@ LogApp.initSearchPane = (logData, bus) => {
   };
 
   const renderResults = (items) => {
+    if (currentTab === "bookmarks") {
+      renderBookmarkResults(items);
+      return;
+    }
+    resultsItems.style.position = "";
+    resultsItems.style.transform = "";
     resultsState.items = items;
     resultsState.lastRange = [0, 0];
     setResultsSpacer();
@@ -417,6 +499,13 @@ LogApp.initSearchPane = (logData, bus) => {
         row.classList.toggle("is-bookmarked", colorIndex > 0);
         row.dataset.bookmarkColor = String(colorIndex || 0);
       });
+    });
+    bus.on("comments:changed", () => {
+      renderBookmarks();
+      if (currentTab === "bookmarks") {
+        resultsState.lastRange = [0, 0];
+        runSearch(false);
+      }
     });
   }
 

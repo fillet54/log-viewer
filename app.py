@@ -35,10 +35,12 @@ from storage import (
     insert_events_into_shard,
     issue_login_token,
     list_bookmarks_for_user,
+    list_comments_for_boot,
     list_boots_for_shard,
     list_datasets,
     load_log_data_from_shard,
     parse_events_from_upload,
+    create_comment,
     set_bookmark,
     update_boot_metadata,
     update_user_last_seen,
@@ -401,6 +403,43 @@ def bookmarks_api():
         return jsonify({"error": "invalid_params"}), 400
     set_bookmark(user_id, shard_id, str(boot_id), row_id, color_index)
     return jsonify({"row_id": row_id, "color_index": color_index})
+
+
+@app.route("/api/comments", methods=["GET", "POST"])
+def comments_api():
+    if request.method == "GET":
+        shard_id = request.args.get("shard_id", type=int)
+        boot_id = request.args.get("boot_id", type=str)
+        if not shard_id or not boot_id:
+            return jsonify({"error": "missing_params"}), 400
+        comments = list_comments_for_boot(shard_id, boot_id)
+        return jsonify({"comments": comments})
+
+    if not g.current_user:
+        return jsonify({"error": "login_required"}), 401
+    payload = request.get_json(silent=True) or {}
+    shard_id = payload.get("shard_id")
+    boot_id = payload.get("boot_id")
+    row_id = payload.get("row_id")
+    body = (payload.get("body") or "").strip()
+    parent_id = payload.get("parent_id")
+    if not shard_id or not boot_id or row_id is None or not body:
+        return jsonify({"error": "missing_params"}), 400
+    try:
+        shard_id = int(shard_id)
+        row_id = int(row_id)
+        parent_id = int(parent_id) if parent_id is not None else None
+    except (TypeError, ValueError):
+        return jsonify({"error": "invalid_params"}), 400
+    if len(body) > 2000:
+        return jsonify({"error": "body_too_long"}), 400
+    try:
+        comment = create_comment(
+            g.current_user["id"], shard_id, str(boot_id), row_id, body, parent_id
+        )
+    except ValueError:
+        return jsonify({"error": "invalid_parent"}), 400
+    return jsonify({"comment": comment})
 
 
 if __name__ == "__main__":
