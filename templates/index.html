@@ -1,22 +1,22 @@
 {% extends "base.html" %}
 
 {% block content %}
-  {% include 'components/log_row_template.html' %}
   <main class="flex-1 w-full p-3 min-h-0 flex">
-    <div id="split-root" class="flex-1 h-full w-full rounded-2xl bg-base-100 shadow-xl ghost-split">
-      <section id="pane-top" class="flex">
-        <div id="split-top" class="flex h-full w-full ghost-split">
-          {% include 'components/log_view.html' %}
-          {% include 'components/right_pane.html' %}
-        </div>
-      </section>
-
-      {% include 'components/search_pane.html' %}
-    </div>
+    <log-viewer-app>
+      <log-layout>
+        <log-main-view>
+          {% include 'components/shared/log_row_template.html' %}
+        </log-main-view>
+        <log-detail-panel></log-detail-panel>
+        <log-search-panel>
+          {% include 'components/shared/log_row_template.html' %}
+        </log-search-panel>
+      </log-layout>
+      <script type="application/json" data-role="initial-data">{{ log_data | tojson }}</script>
+    </log-viewer-app>
   </main>
 {% endblock %}
 
 {% block body_scripts %}
   <script src="{{ url_for('app_js') }}"></script>
-  <script id="log-data" type="application/json">{{ log_data | tojson }}</script>
 {% endblock %}

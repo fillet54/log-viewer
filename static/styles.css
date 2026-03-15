@@ -21,6 +21,17 @@
   --bookmark-color-5: rgba(139, 92, 246, 0.95);
 }
 
+log-viewer-app,
+log-layout {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+}
+
 #split-root {
   display: flex;
   flex-direction: column;
@@ -370,6 +381,7 @@
   flex-direction: column;
   gap: 0.6rem;
   min-height: 0;
+  min-width: 0;
 }
 
 .search-tabs {
@@ -455,6 +467,7 @@
 .search-list {
   flex: 1 1 auto;
   overflow: auto;
+  width: 100%;
   border-radius: 0.75rem;
   padding: 0.6rem;
   background: var(--color-bg-soft);
@@ -503,6 +516,7 @@
   right: 0;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: 0.35rem;
 }
 
@@ -630,6 +644,8 @@
 
 .search-result-row {
   background: var(--color-bg-card);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .search-history-item {
@@ -720,8 +736,10 @@
 .activity-item {
   display: grid;
   gap: 0.6rem;
+  width: 100%;
   padding: 0.6rem 0;
   border-bottom: 1px solid var(--color-border);
+  box-sizing: border-box;
 }
 
 .activity-thread {

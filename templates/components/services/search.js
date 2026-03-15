@@ -1,6 +1,6 @@
-window.LogApp = window.LogApp || {};
+window.LogSearch = window.LogSearch || {};
 
-LogApp.buildSearchParser = () => {
+LogSearch.buildParser = () => {
   const getFieldValue = (event, path) => {
     if (!event || !path) return null;
     const parts = path.split(".");
@@ -277,7 +277,7 @@ LogApp.buildSearchParser = () => {
   function matchKeyNameTerm(root, term) {
     const cleaned = term.startsWith('"') && term.endsWith('"') ? term.slice(1, -1) : term;
     const isWildcard = cleaned.includes("*");
-    const matcher = isWildcard ? LogApp.globToRegex(cleaned) : null;
+      const matcher = isWildcard ? globToRegex(cleaned) : null;
     return collectKeyNames(root).some((key) => {
       if (isWildcard) return matcher.test(key);
       return key.toLowerCase() === cleaned.toLowerCase();
@@ -618,7 +618,7 @@ LogApp.buildSearchParser = () => {
   };
 };
 
-LogApp.searchParser = LogApp.buildSearchParser();
+LogSearch.parser = LogSearch.buildParser();
 [
   "getFieldValue",
   "toComparable",
@@ -631,12 +631,12 @@ LogApp.searchParser = LogApp.buildSearchParser();
   "makePredicate",
   "getQueryPredicate",
 ].forEach((key) => {
-  LogApp[key] = LogApp.searchParser[key];
+  LogSearch[key] = LogSearch.parser[key];
 });
 
-LogApp.createSearchWorker = (events = []) => {
+LogSearch.createWorker = (events = []) => {
   if (typeof Worker === "undefined") return null;
-  const parserSource = LogApp.buildSearchParser.toString();
+  const parserSource = LogSearch.buildParser.toString();
   const workerMain = (builderSource) => {
     let EVENTS = [];
     const buildParser = eval("(" + builderSource + ")");
@@ -673,7 +673,7 @@ LogApp.createSearchWorker = (events = []) => {
   return worker;
 };
 
-LogApp.runSearchQuery = (() => {
+LogSearch.runQuery = (() => {
   let seq = 0;
   return (worker, query, callback) => {
     if (!worker) return null;
