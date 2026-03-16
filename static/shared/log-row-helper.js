@@ -8,6 +8,14 @@ const ACTION_TEXT_COLORS = {
   "flashing-red": "light",
 };
 
+const hasEventData = (value) => {
+  if (value == null) return false;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "object") return Object.keys(value).length > 0;
+  if (typeof value === "string") return value.trim().length > 0;
+  return true;
+};
+
 LogRowHelper.buildRow = (event, templateEl, options = {}) => {
   if (!templateEl?.content?.firstElementChild || !event) return null;
   const { extraClasses = [], bookmarks = null } = options;
@@ -33,15 +41,22 @@ LogRowHelper.buildRow = (event, templateEl, options = {}) => {
   const offsetValue = Number(event.norm_time);
   setText('[data-field="offset"]', Number.isFinite(offsetValue) ? `${offsetValue.toFixed(3)}s` : "");
   setText('[data-field="description"]', event.description);
-  setText(
-    '[data-field="code"]',
-    `${event.system}/${event.subsystem}/${event.unit}/${event.code}`
-  );
+  const location = [event.system, event.subsystem, event.unit].filter(Boolean).join("/");
+  setText('[data-field="location"]', location ? `(${location})` : "");
 
   const actionEl = row.querySelector('[data-field="action"]');
   if (actionEl) {
     actionEl.dataset.eventColor = colorClass;
     actionEl.dataset.contrast = ACTION_TEXT_COLORS[colorClass] || "light";
+  }
+
+  const hasData = hasEventData(event.data);
+  const dataIndicatorEl = row.querySelector('[data-field="data-indicator"]');
+  if (dataIndicatorEl) {
+    dataIndicatorEl.dataset.hasData = hasData ? "true" : "false";
+    const label = hasData ? "Event has data" : "No event data";
+    dataIndicatorEl.title = label;
+    dataIndicatorEl.setAttribute("aria-label", label);
   }
 
   const channels = new Set(event.channels || []);

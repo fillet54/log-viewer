@@ -155,11 +155,11 @@ log-layout {
   border-bottom: 1px solid rgba(148, 163, 184, 0.15);
   border-left: 0;
   display: grid;
-  grid-template-columns: 180px 88px 76px 180px 92px minmax(200px, 1fr) minmax(140px, 220px) 28px;
+  grid-template-columns: 88px 180px 92px 76px minmax(320px, 1fr) 24px 28px;
   align-items: center;
   column-gap: 0.45rem;
   row-gap: 0.15rem;
-  height: 30px;
+  min-height: 42px;
   overflow: hidden;
 }
 
@@ -210,8 +210,7 @@ log-layout {
 }
 
 .log-time,
-.log-offset,
-.log-code {
+.log-offset {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -261,15 +260,46 @@ log-layout {
   background: rgba(127, 29, 29, 0.95);
 }
 
-.log-desc {
+.log-details {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  align-items: flex-start;
+}
+
+.log-title-row {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.log-name {
+  min-width: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.log-code {
-  text-align: right;
-  padding-right: 0.35rem;
+.log-meta {
+  min-width: 0;
+  font-size: 0.69rem;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log-desc {
+  min-width: 0;
+  width: 100%;
+  font-size: 0.72rem;
+  line-height: 1.1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -313,6 +343,36 @@ log-layout {
   place-items: center;
   color: rgba(148, 163, 184, 0.8);
   cursor: pointer;
+}
+
+.data-indicator {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  justify-self: center;
+}
+
+.data-icon {
+  width: 14px;
+  height: 14px;
+  display: none;
+}
+
+.data-indicator[data-has-data="true"] {
+  color: rgba(37, 99, 235, 0.9);
+}
+
+.data-indicator[data-has-data="false"] {
+  color: rgba(148, 163, 184, 0.8);
+}
+
+.data-indicator[data-has-data="true"] .data-icon-present {
+  display: block;
+}
+
+.data-indicator[data-has-data="false"] .data-icon-empty {
+  display: block;
 }
 
 .bookmark-toggle svg {
