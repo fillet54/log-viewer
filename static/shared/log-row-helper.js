@@ -16,6 +16,34 @@ const hasEventData = (value) => {
   return true;
 };
 
+const COLOR_PREFIX = {
+  green: "G",
+  yellow: "Y",
+  red: "R",
+  "dark-red": "R",
+  "flashing-red": "F",
+};
+
+const buildFaultPrefix = (event, colorClass) => {
+  const rawCode = String(event.code || "").trim();
+  if (!rawCode) return "";
+
+  const parts = rawCode.split("-").filter(Boolean);
+  const severity = COLOR_PREFIX[colorClass] || "G";
+
+  if (parts.length >= 2) {
+    return `${parts[0]}-${severity}-${parts.slice(1).join("-")}`;
+  }
+
+  const systemPrefix = String(event.system || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "")
+    .slice(0, 3);
+
+  return systemPrefix ? `${systemPrefix}-${severity}-${rawCode}` : `${severity}-${rawCode}`;
+};
+
 LogRowHelper.buildRow = (event, templateEl, options = {}) => {
   if (!templateEl?.content?.firstElementChild || !event) return null;
   const { extraClasses = [], bookmarks = null } = options;
@@ -38,6 +66,8 @@ LogRowHelper.buildRow = (event, templateEl, options = {}) => {
   setText('[data-field="utctime"]', event.utctime);
   setText('[data-field="action"]', event.set_clear);
   setText('[data-field="name"]', event.name);
+  const prefixValue = buildFaultPrefix(event, colorClass);
+  setText('[data-field="fault-prefix"]', prefixValue ? `[${prefixValue}]` : "");
   const offsetValue = Number(event.norm_time);
   setText('[data-field="offset"]', Number.isFinite(offsetValue) ? `${offsetValue.toFixed(3)}s` : "");
   setText('[data-field="description"]', event.description);
@@ -57,6 +87,11 @@ LogRowHelper.buildRow = (event, templateEl, options = {}) => {
     const label = hasData ? "Event has data" : "No event data";
     dataIndicatorEl.title = label;
     dataIndicatorEl.setAttribute("aria-label", label);
+  }
+
+  const prefixEl = row.querySelector('[data-field="fault-prefix"]');
+  if (prefixEl) {
+    prefixEl.classList.toggle("is-hidden", !prefixValue);
   }
 
   const channels = new Set(event.channels || []);
