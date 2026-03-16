@@ -255,6 +255,20 @@ LogMainViewChart.mount = (root, services) => {
   }
 
   if (bus) {
+    let pendingScrollSeconds = null;
+    let scrollUpdateScheduled = false;
+    let lastScrollPaintAt = 0;
+    const minScrollPaintIntervalMs = 80;
+
+    const paintScrollIndicator = (timestamp = performance.now()) => {
+      scrollUpdateScheduled = false;
+      if (typeof pendingScrollSeconds !== "number") return;
+      stackedChart.$scrollRatio = Math.max(0, Math.min(1, pendingScrollSeconds / (spanMs / 1000)));
+      pendingScrollSeconds = null;
+      lastScrollPaintAt = timestamp;
+      stackedChart.update("none");
+    };
+
     bus.on("log:filtered", (filtered) => {
       const buckets = buildBuckets(filtered || []);
       stackedChart.data.datasets[0].data = buckets.Green;
@@ -265,8 +279,21 @@ LogMainViewChart.mount = (root, services) => {
     });
     bus.on("log:scroll", (payload) => {
       if (!payload || typeof payload.seconds !== "number") return;
-      stackedChart.$scrollRatio = Math.max(0, Math.min(1, payload.seconds / (spanMs / 1000)));
-      stackedChart.update("none");
+      pendingScrollSeconds = payload.seconds;
+      if (scrollUpdateScheduled) return;
+
+      const now = performance.now();
+      const elapsed = now - lastScrollPaintAt;
+      scrollUpdateScheduled = true;
+
+      if (elapsed >= minScrollPaintIntervalMs) {
+        requestAnimationFrame((timestamp) => paintScrollIndicator(timestamp));
+        return;
+      }
+
+      window.setTimeout(() => {
+        requestAnimationFrame((timestamp) => paintScrollIndicator(timestamp));
+      }, Math.max(0, minScrollPaintIntervalMs - elapsed));
     });
     bus.on("bookmarks:changed", () => {
       stackedChart.update();
