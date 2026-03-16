@@ -148,11 +148,14 @@ log-layout {
 
 .log-line {
   padding: 0.25rem 0.5rem;
-  border-radius: 0.5rem;
+  border-radius: 0;
   background: var(--color-bg-card);
-  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  border-left: 0;
   display: grid;
-  grid-template-columns: 180px 64px 180px 80px 64px minmax(200px, 1fr) minmax(140px, 220px) 28px;
+  grid-template-columns: 180px 88px 76px 180px 92px minmax(200px, 1fr) minmax(140px, 220px) 28px;
   align-items: center;
   column-gap: 0.45rem;
   row-gap: 0.15rem;
@@ -213,6 +216,51 @@ log-layout {
   white-space: nowrap;
 }
 
+.log-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  min-width: 56px;
+  height: 20px;
+  padding: 0 0.45rem;
+  border-radius: 0.35rem;
+  font-size: 0.68rem;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  box-sizing: border-box;
+  padding-top: 3px;
+}
+
+.log-action[data-contrast="dark"] {
+  color: rgba(15, 23, 42, 0.92);
+}
+
+.log-action[data-contrast="light"] {
+  color: rgba(248, 250, 252, 0.98);
+}
+
+.log-action[data-event-color="green"] {
+  background: rgba(34, 197, 94, 0.9);
+}
+
+.log-action[data-event-color="yellow"] {
+  background: rgba(250, 204, 21, 0.9);
+}
+
+.log-action[data-event-color="red"] {
+  background: rgba(239, 68, 68, 0.9);
+}
+
+.log-action[data-event-color="dark-red"] {
+  background: rgba(127, 29, 29, 0.95);
+}
+
+.log-action[data-event-color="flashing-red"] {
+  background: rgba(127, 29, 29, 0.95);
+}
+
 .log-desc {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -229,28 +277,31 @@ log-layout {
 
 .log-channels {
   display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 0.2rem;
   font-size: 0.68rem;
   color: var(--color-text-muted);
 }
 
 .log-channel {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border-radius: 4px;
   border: 1px solid var(--color-border-strong);
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-weight: 600;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   color: rgba(100, 116, 139, 0.6);
   background: rgba(226, 232, 240, 0.4);
 }
 
 .log-channel.is-on {
-  color: rgba(15, 23, 42, 0.8);
-  background: rgba(191, 219, 254, 0.6);
-  border-color: rgba(59, 130, 246, 0.6);
+  color: rgba(248, 250, 252, 0.98);
+  background: rgba(15, 23, 42, 0.95);
+  border-color: rgba(15, 23, 42, 0.95);
 }
 
 .bookmark-toggle {
@@ -305,7 +356,7 @@ log-layout {
   right: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0;
 }
 
 .search-pane {
@@ -517,7 +568,7 @@ log-layout {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 0.35rem;
+  gap: 0;
 }
 
 .no-results {

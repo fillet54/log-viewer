@@ -1,5 +1,13 @@
 window.LogRowHelper = window.LogRowHelper || {};
 
+const ACTION_TEXT_COLORS = {
+  green: "dark",
+  yellow: "dark",
+  red: "light",
+  "dark-red": "light",
+  "flashing-red": "light",
+};
+
 LogRowHelper.buildRow = (event, templateEl, options = {}) => {
   if (!templateEl?.content?.firstElementChild || !event) return null;
   const { extraClasses = [], bookmarks = null } = options;
@@ -22,12 +30,19 @@ LogRowHelper.buildRow = (event, templateEl, options = {}) => {
   setText('[data-field="utctime"]', event.utctime);
   setText('[data-field="action"]', event.set_clear);
   setText('[data-field="name"]', event.name);
-  setText('[data-field="offset"]', `${event.norm_time}s`);
+  const offsetValue = Number(event.norm_time);
+  setText('[data-field="offset"]', Number.isFinite(offsetValue) ? `${offsetValue.toFixed(3)}s` : "");
   setText('[data-field="description"]', event.description);
   setText(
     '[data-field="code"]',
     `${event.system}/${event.subsystem}/${event.unit}/${event.code}`
   );
+
+  const actionEl = row.querySelector('[data-field="action"]');
+  if (actionEl) {
+    actionEl.dataset.eventColor = colorClass;
+    actionEl.dataset.contrast = ACTION_TEXT_COLORS[colorClass] || "light";
+  }
 
   const channels = new Set(event.channels || []);
   ["A", "B", "C", "D"].forEach((channelId) => {
