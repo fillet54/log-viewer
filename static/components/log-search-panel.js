@@ -316,6 +316,37 @@ class LogSearchPanelElement extends LogAppComponentElement {
       .sort((a, b) => (a.norm_time || 0) - (b.norm_time || 0));
   }
 
+  attachRowActions(row, event) {
+    if (!row) return row;
+
+    row.querySelector(".bookmark-toggle")?.addEventListener("click", (eventClick) => {
+      eventClick.stopPropagation();
+      const next = this.bookmarks?.cycle(event.row_id) || 0;
+      row.classList.toggle("is-bookmarked", next > 0);
+      row.dataset.bookmarkColor = String(next);
+      this.renderBookmarks();
+      if (this.bus) this.bus.emit("bookmarks:changed", this.bookmarks?.getAllWithColors() || {});
+    });
+
+    row.querySelectorAll(".match-link").forEach((button) => {
+      button.addEventListener("click", (eventClick) => {
+        eventClick.stopPropagation();
+        const linkedRowId = button.dataset.linkedRowId;
+        if (!linkedRowId || !this.bus) return;
+        const linkedEvent = this.events.find((entry) => String(entry.row_id) === String(linkedRowId)) || null;
+        if (linkedEvent) this.bus.emit("event:selected", linkedEvent);
+        this.bus.emit("log:jump", { rowId: linkedRowId });
+      });
+    });
+
+    row.addEventListener("click", () => {
+      if (this.bus) this.bus.emit("event:selected", event);
+      if (this.bus) this.bus.emit("log:jump", { rowId: event.row_id });
+    });
+
+    return row;
+  }
+
   renderBookmarks() {
     this.bookmarksList.innerHTML = "";
     const fragment = document.createDocumentFragment();
@@ -327,17 +358,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
         bookmarks: this.bookmarks,
       });
       if (!row) return;
-      row.querySelector(".bookmark-toggle")?.addEventListener("click", (eventClick) => {
-        eventClick.stopPropagation();
-        this.bookmarks?.cycle(event.row_id);
-        this.renderBookmarks();
-        if (this.bus) this.bus.emit("bookmarks:changed", this.bookmarks?.getAllWithColors() || {});
-      });
-      row.addEventListener("click", () => {
-        if (this.bus) this.bus.emit("event:selected", event);
-        if (this.bus) this.bus.emit("log:jump", { rowId: event.row_id });
-      });
-      wrapper.appendChild(row);
+      wrapper.appendChild(this.attachRowActions(row, event));
       const threads = this.comments?.buildThreads(event.row_id) || [];
       if (threads.length) {
         const threadContainer = document.createElement("div");
@@ -356,19 +377,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
       bookmarks: this.bookmarks,
     });
     if (!row) return null;
-    row.querySelector(".bookmark-toggle")?.addEventListener("click", (eventClick) => {
-      eventClick.stopPropagation();
-      const next = this.bookmarks?.cycle(event.row_id) || 0;
-      row.classList.toggle("is-bookmarked", next > 0);
-      row.dataset.bookmarkColor = String(next);
-      this.renderBookmarks();
-      if (this.bus) this.bus.emit("bookmarks:changed", this.bookmarks?.getAllWithColors() || {});
-    });
-    row.addEventListener("click", () => {
-      if (this.bus) this.bus.emit("event:selected", event);
-      if (this.bus) this.bus.emit("log:jump", { rowId: event.row_id });
-    });
-    return row;
+    return this.attachRowActions(row, event);
   }
 
   renderBookmarkResults(items) {

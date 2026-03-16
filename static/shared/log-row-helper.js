@@ -64,7 +64,7 @@ LogRowHelper.buildRow = (event, templateEl, options = {}) => {
     if (el) el.textContent = value ?? "";
   };
   setText('[data-field="utctime"]', event.utctime);
-  setText('[data-field="action"]', event.set_clear);
+  setText('[data-field="action-label"]', event.set_clear);
   setText('[data-field="name"]', event.name);
   const prefixValue = buildFaultPrefix(event, colorClass);
   setText('[data-field="fault-prefix"]', prefixValue ? `[${prefixValue}]` : "");
@@ -79,6 +79,7 @@ LogRowHelper.buildRow = (event, templateEl, options = {}) => {
     actionEl.dataset.eventColor = colorClass;
     actionEl.dataset.contrast = ACTION_TEXT_COLORS[colorClass] || "light";
   }
+  const matchContainer = row.querySelector('[data-field="match-links"]');
 
   const hasData = hasEventData(event.data);
   const dataIndicatorEl = row.querySelector('[data-field="data-indicator"]');
@@ -92,6 +93,59 @@ LogRowHelper.buildRow = (event, templateEl, options = {}) => {
   const prefixEl = row.querySelector('[data-field="fault-prefix"]');
   if (prefixEl) {
     prefixEl.classList.toggle("is-hidden", !prefixValue);
+  }
+
+  if (matchContainer) {
+    const summary = event.matchSummary || { items: [] };
+    matchContainer.innerHTML = "";
+    matchContainer.classList.toggle("is-empty", !summary.items?.length);
+    const items = summary.items || [];
+    if (actionEl) {
+      actionEl.classList.toggle("is-mixed", !summary.collapsed && items.length > 1);
+    }
+    if (summary.collapsed || items.length <= 1) {
+      items.forEach((item) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "match-link";
+        button.dataset.linkedRowId = String(item.linkedRowId);
+        button.dataset.linkDirection = item.direction || "";
+        button.title = item.title || "";
+        button.setAttribute("aria-label", item.title || item.label || "Jump to matched event");
+        button.innerHTML = `<span class="match-value">${item.label}</span>`;
+        matchContainer.appendChild(button);
+      });
+    } else if (items.length) {
+      const minItem = items.reduce((best, item) =>
+        best == null || Number(item.durationSeconds) < Number(best.durationSeconds) ? item : best
+      );
+      const preview = document.createElement("span");
+      preview.className = "match-preview";
+      preview.textContent = `${minItem.label}*`;
+      preview.title = "Hover to show all channel durations";
+      matchContainer.appendChild(preview);
+
+      const detail = document.createElement("span");
+      detail.className = "match-detail";
+      items.forEach((item, index) => {
+        if (index > 0) {
+          const separator = document.createElement("span");
+          separator.className = "match-separator";
+          separator.textContent = "/";
+          detail.appendChild(separator);
+        }
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "match-link";
+        button.dataset.linkedRowId = String(item.linkedRowId);
+        button.dataset.linkDirection = item.direction || "";
+        button.title = item.title || "";
+        button.setAttribute("aria-label", item.title || item.label || "Jump to matched event");
+        button.innerHTML = `<span class="match-value">${item.label}</span>`;
+        detail.appendChild(button);
+      });
+      matchContainer.appendChild(detail);
+    }
   }
 
   const channels = new Set(event.channels || []);

@@ -149,6 +149,31 @@ def _level_weight(color: str, cluster_weight: float) -> float:
     return 0.3 + cluster_weight * 2.0
 
 
+def _choose_fault(rng: random.Random, candidates: list[Dict[str, Any]], cluster_value: float) -> Dict[str, Any]:
+    weights = [_level_weight(item["color"], cluster_value) for item in candidates]
+    return rng.choices(candidates, weights=weights, k=1)[0]
+
+
+def _choose_channels(rng: random.Random, available_channels: list[str]) -> list[str]:
+    if not available_channels:
+        return []
+    if len(available_channels) == 1:
+        return available_channels
+    if rng.random() < 0.7:
+        return available_channels
+    sample_size = rng.randint(1, len(available_channels))
+    return sorted(rng.sample(available_channels, sample_size))
+
+
+def _fault_key(item: Dict[str, Any]) -> tuple[str, str, str, str]:
+    return (
+        str(item.get("system") or "").strip(),
+        str(item.get("subsystem") or "").strip(),
+        str(item.get("unit") or "").strip(),
+        str(item.get("code") or "").strip(),
+    )
+
+
 def generate_logs(hours: float, seed_value: Optional[str]) -> Dict[str, Any]:
     seed_int = _seed_to_int(seed_value)
     rng = random.Random(seed_int)
@@ -168,24 +193,34 @@ def generate_logs(hours: float, seed_value: Optional[str]) -> Dict[str, Any]:
         nearest = min(abs(at_seconds - center) for center in cluster_centers)
         return max(0.0, 1.0 - (nearest / (span_seconds / 6)))
 
-    states = {item["id"]: False for item in FAULT_CATALOG}
+    all_channels = ["A", "B", "C", "D"]
+    open_channels_by_fault = {_fault_key(item): set() for item in FAULT_CATALOG}
     events = []
     time_offsets = sorted(rng.uniform(0, span_seconds) for _ in range(total_events))
 
     for idx, offset in enumerate(time_offsets):
         weight = cluster_weight(offset)
-        weights = [_level_weight(item["color"], weight) for item in FAULT_CATALOG]
-        choice = rng.choices(FAULT_CATALOG, weights=weights, k=1)[0]
-        is_set = states[choice["id"]]
-        set_clear = "clear" if is_set else "set"
-        states[choice["id"]] = not is_set
+        set_candidates = [
+            item for item in FAULT_CATALOG if len(open_channels_by_fault[_fault_key(item)]) < len(all_channels)
+        ]
+        clear_candidates = [item for item in FAULT_CATALOG if open_channels_by_fault[_fault_key(item)]]
+
+        should_clear = bool(clear_candidates) and (not set_candidates or rng.random() < 0.35)
+        choice = _choose_fault(rng, clear_candidates if should_clear else set_candidates, weight)
+        fault_open_channels = open_channels_by_fault[_fault_key(choice)]
+        if should_clear:
+            set_clear = "clear"
+            available_channels = sorted(fault_open_channels)
+            seen_channels = _choose_channels(rng, available_channels)
+            for channel in seen_channels:
+                fault_open_channels.discard(channel)
+        else:
+            set_clear = "set"
+            available_channels = [channel for channel in all_channels if channel not in fault_open_channels]
+            seen_channels = _choose_channels(rng, available_channels)
+            fault_open_channels.update(seen_channels)
 
         timestamp = start_time + timedelta(seconds=offset)
-        channels = ["A", "B", "C", "D"]
-        if rng.random() < 0.85:
-            seen_channels = channels
-        else:
-            seen_channels = rng.sample(channels, rng.randint(1, 3))
 
         def _channel_time(letter: str) -> Optional[int]:
             if letter not in seen_channels:

@@ -67,6 +67,17 @@ class LogMainViewElement extends LogAppComponentElement {
       });
     }
 
+    row.querySelectorAll(".match-link").forEach((button) => {
+      button.addEventListener("click", (eventClick) => {
+        eventClick.stopPropagation();
+        const linkedRowId = button.dataset.linkedRowId;
+        if (!linkedRowId || !bus || !this.state?.eventByRowId) return;
+        const linkedEvent = this.state.eventByRowId.get(String(linkedRowId)) || null;
+        if (linkedEvent) bus.emit("event:selected", linkedEvent);
+        bus.emit("log:jump", { rowId: linkedRowId });
+      });
+    });
+
     row.addEventListener("click", () => {
       if (bus) bus.emit("event:selected", event);
     });
@@ -230,6 +241,7 @@ class LogMainViewElement extends LogAppComponentElement {
     this.state = {
       events,
       filtered: events,
+      eventByRowId: new Map(events.map((event) => [String(event.row_id), event])),
       rowStride: rowHeight + (parseFloat(listStyle.rowGap || listStyle.gap || "0") || 0),
       overscan: 10,
       maxVisible: 180,
