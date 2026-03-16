@@ -4,7 +4,6 @@ import random
 from typing import Any, Optional, Dict
 from flask import (
     Flask,
-    Response,
     flash,
     g,
     jsonify,
@@ -212,12 +211,6 @@ def index():
         datasets=datasets,
         boots=boots_for_dataset,
     )
-
-
-@app.route("/app.js")
-def app_js():
-    return Response(render_template("app.js"), mimetype="application/javascript")
-
 
 @app.route("/upload", methods=["GET", "POST"])
 def upload_logs():

@@ -2,13 +2,13 @@
 
 {% block content %}
   <main class="flex-1 w-full p-3 min-h-0 flex">
-    <log-viewer-app>
+    <log-viewer-app data-authenticated="{{ 'true' if current_user else 'false' }}">
       <log-layout>
         <log-main-view>
           {% include 'components/shared/log_row_template.html' %}
         </log-main-view>
         <log-detail-panel></log-detail-panel>
-        <log-search-panel>
+        <log-search-panel search-help-url="{{ url_for('static', filename='search_syntax.html') }}">
           {% include 'components/shared/log_row_template.html' %}
         </log-search-panel>
       </log-layout>
@@ -18,5 +18,13 @@
 {% endblock %}
 
 {% block body_scripts %}
-  <script src="{{ url_for('app_js') }}"></script>
+  <script src="{{ url_for('static', filename='services/search.js') }}"></script>
+  <script src="{{ url_for('static', filename='shared/log-row-helper.js') }}"></script>
+  <script src="{{ url_for('static', filename='services/app-services.js') }}"></script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+  <script src="{{ url_for('static', filename='components/log-layout.js') }}"></script>
+  <script src="{{ url_for('static', filename='components/log-main-chart.js') }}"></script>
+  <script src="{{ url_for('static', filename='components/log-main-view.js') }}"></script>
+  <script src="{{ url_for('static', filename='components/log-detail-panel.js') }}"></script>
+  <script src="{{ url_for('static', filename='components/log-search-panel.js') }}"></script>
 {% endblock %}

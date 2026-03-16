@@ -1,5 +1,3 @@
-const IS_LOGGED_IN = {{ "true" if current_user else "false" }};
-
 const STORAGE_KEYS = {
   root: "loglayout.split.root",
   top: "loglayout.split.top",
@@ -76,12 +74,6 @@ const smoothScrollTo = (container, targetTop, durationMs = 200, onComplete = nul
   requestAnimationFrame(step);
 };
 
-{% include 'components/services/search.js' %}
-
-{% include 'components/shared/log_row_helper.js' %}
-
-{% include 'components/services/app_services.js' %}
-
 const attachServices = (root, services) => {
   root._services = services;
   return services;
@@ -120,7 +112,7 @@ class LogViewerAppElement extends HTMLElement {
   }
 
   isLoggedIn() {
-    return IS_LOGGED_IN;
+    return this.dataset.authenticated === "true";
   }
 
   set data(value) {
@@ -224,13 +216,3 @@ class LogAppComponentElement extends HTMLElement {
     return this.getAppRoot()?.isLoggedIn() || false;
   }
 }
-
-{% include 'components/layout/element.js' %}
-
-{% include 'components/main_view/chart.js' %}
-
-{% include 'components/main_view/element.js' %}
-
-{% include 'components/detail_panel/element.js' %}
-
-{% include 'components/search_panel/element.js' %}

@@ -511,6 +511,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
 
   renderShell() {
     const rowTemplate = this.getRowTemplate();
+    const searchHelpUrl = this.getAttribute("search-help-url") || "/static/search_syntax.html";
     this.innerHTML = `
       <div class="pane-header compact-header justify-between">
         <span id="search-header-text" class="text-xs uppercase tracking-wide text-base-content/60">Search</span>
@@ -557,7 +558,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
           <section id="search-results-pane" class="search-results">
             <div class="search-controls">
               <input id="search-query" class="input input-bordered input-sm w-full" placeholder="Search logs, faults, codes..." />
-              <a class="btn btn-ghost btn-sm search-help-button" href="{{ url_for('static', filename='search_syntax.html') }}" target="_blank" rel="noopener" aria-label="Search syntax help" title="Search syntax help">
+              <a class="btn btn-ghost btn-sm search-help-button" href="${searchHelpUrl}" target="_blank" rel="noopener" aria-label="Search syntax help" title="Search syntax help">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M9.5 9a2.5 2.5 0 1 1 4.2 1.8c-.8.6-1.2 1-1.2 2.2" />
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 17h.01" />
