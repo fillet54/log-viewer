@@ -5,10 +5,33 @@ LogMainViewChart.mount = (root, services) => {
   if (!logData) return null;
 
   const stackedCanvas = queryById(root, "stacked-chart");
-  if (!stackedCanvas) return null;
+  const severityTab = queryById(root, "tab-chart-severity");
+  const systemsTab = queryById(root, "tab-chart-systems");
+  const severityPanel = queryById(root, "chart-panel-severity");
+  const systemsPanel = queryById(root, "chart-panel-systems");
+  const tools = root.querySelector(".chart-tools");
+  const systemStatusBoard = queryById(root, "system-status-board");
+  if (!stackedCanvas || !severityTab || !systemsTab || !severityPanel || !systemsPanel || !systemStatusBoard) {
+    return null;
+  }
 
   const events = Array.isArray(logData?.events) ? logData.events : [];
   if (!events.length) return null;
+
+  const setChartTab = (tab) => {
+    const isSeverity = tab === "severity";
+    severityTab.classList.toggle("is-active", isSeverity);
+    systemsTab.classList.toggle("is-active", !isSeverity);
+    severityTab.setAttribute("aria-selected", String(isSeverity));
+    systemsTab.setAttribute("aria-selected", String(!isSeverity));
+    severityPanel.classList.toggle("is-active", isSeverity);
+    systemsPanel.classList.toggle("is-active", !isSeverity);
+    if (tools) tools.classList.toggle("hidden", !isSeverity);
+  };
+
+  severityTab.addEventListener("click", () => setChartTab("severity"));
+  systemsTab.addEventListener("click", () => setChartTab("systems"));
+  setChartTab("severity");
 
   const startTime = new Date(logData.start);
   const endTime = new Date(logData.end);
@@ -39,6 +62,107 @@ LogMainViewChart.mount = (root, services) => {
     });
     return buckets;
   };
+
+  const severityRank = {
+    Green: 0,
+    Yellow: 1,
+    Red: 2,
+    "Flashing Red": 3,
+  };
+  const systemStatusClass = {
+    Green: "status-green",
+    Yellow: "status-yellow",
+    Red: "status-red",
+    "Flashing Red": "status-flashing-red",
+  };
+  const systems = Array.from(
+    new Set(events.map((event) => String(event.system || "").trim()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b));
+
+  const buildStatusSnapshots = () => {
+    const ordered = events
+      .slice()
+      .sort(
+        (a, b) =>
+          (Number(a.norm_time) || 0) - (Number(b.norm_time) || 0) ||
+          (Number(a.row_id) || 0) - (Number(b.row_id) || 0)
+      );
+    const openByKey = new Map();
+    const countsBySystem = new Map(
+      systems.map((system) => [
+        system,
+        { Green: 0, Yellow: 0, Red: 0, "Flashing Red": 0 },
+      ])
+    );
+    const snapshots = new Map();
+
+    const getStatus = (system) => {
+      const counts = countsBySystem.get(system);
+      if (!counts) return "Green";
+      if (counts["Flashing Red"] > 0) return "Flashing Red";
+      if (counts.Red > 0) return "Red";
+      if (counts.Yellow > 0) return "Yellow";
+      return "Green";
+    };
+
+    ordered.forEach((event) => {
+      const action = String(event.set_clear || "").trim().toLowerCase();
+      const channels = Array.isArray(event.channels) ? event.channels : [];
+      channels.forEach((channel) => {
+        const key = [
+          String(event.system || "").trim(),
+          String(event.subsystem || "").trim(),
+          String(event.unit || "").trim(),
+          String(event.code || "").trim(),
+          String(channel || "").trim(),
+        ].join("|");
+        const system = String(event.system || "").trim();
+        const color = severityRank[event.color] != null ? event.color : "Green";
+        const systemCounts = countsBySystem.get(system);
+        if (!systemCounts) return;
+
+        if (action === "set") {
+          if (openByKey.has(key)) return;
+          openByKey.set(key, { system, color });
+          systemCounts[color] += 1;
+          return;
+        }
+
+        if (action !== "clear" || !openByKey.has(key)) return;
+        const open = openByKey.get(key);
+        openByKey.delete(key);
+        if (open?.color && systemCounts[open.color] > 0) {
+          systemCounts[open.color] -= 1;
+        }
+      });
+
+      snapshots.set(
+        String(event.row_id),
+        Object.fromEntries(systems.map((system) => [system, getStatus(system)]))
+      );
+    });
+
+    return snapshots;
+  };
+
+  const statusSnapshots = buildStatusSnapshots();
+  const renderSystemStatus = (rowId = events[0]?.row_id ?? null) => {
+    const snapshot =
+      (rowId != null ? statusSnapshots.get(String(rowId)) : null) ||
+      Object.fromEntries(systems.map((system) => [system, "Green"]));
+    systemStatusBoard.innerHTML = "";
+    const fragment = document.createDocumentFragment();
+    systems.forEach((system) => {
+      const state = snapshot[system] || "Green";
+      const item = document.createElement("div");
+      item.className = `system-status-card ${systemStatusClass[state] || "status-green"}`;
+      item.title = `${system}: ${state}`;
+      item.innerHTML = `<div class="system-status-name">${system}</div>`;
+      fragment.appendChild(item);
+    });
+    systemStatusBoard.appendChild(fragment);
+  };
+  renderSystemStatus(events[0]?.row_id ?? null);
 
   const modeSegments = Array.isArray(logData.modes) ? logData.modes : [];
   const modeColors = [
@@ -280,6 +404,7 @@ LogMainViewChart.mount = (root, services) => {
     bus.on("log:scroll", (payload) => {
       if (!payload || typeof payload.seconds !== "number") return;
       pendingScrollSeconds = payload.seconds;
+      renderSystemStatus(payload.rowId ?? null);
       if (scrollUpdateScheduled) return;
 
       const now = performance.now();
@@ -297,6 +422,9 @@ LogMainViewChart.mount = (root, services) => {
     });
     bus.on("bookmarks:changed", () => {
       stackedChart.update();
+    });
+    bus.on("event:selected", (event) => {
+      renderSystemStatus(event?.row_id ?? null);
     });
   }
 

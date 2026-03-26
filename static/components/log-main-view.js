@@ -17,21 +17,32 @@ class LogMainViewElement extends LogAppComponentElement {
     const rowTemplate = this.getRowTemplate();
     this.innerHTML = `
       <div class="chart-band">
-        <div class="chart-tools">
-          <button
-            id="toggle-tooltips"
-            class="btn btn-outline btn-xs chart-toggle"
-            aria-pressed="true"
-            title="Toggle value popup on hover"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="tool-icon">
-              <circle cx="12" cy="12" r="9" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8.25h.01M11.25 11.25h1.5v5.5" />
-            </svg>
-            <span class="sr-only">Toggle value popup</span>
-          </button>
+        <div class="chart-band-header">
+          <div class="chart-tabs" role="tablist" aria-label="Top chart tabs">
+            <button id="tab-chart-severity" class="btn btn-xs btn-ghost chart-tab is-active" role="tab" aria-selected="true">Severity</button>
+            <button id="tab-chart-systems" class="btn btn-xs btn-ghost chart-tab" role="tab" aria-selected="false">Subsystem Status</button>
+          </div>
+          <div class="chart-tools">
+            <button
+              id="toggle-tooltips"
+              class="btn btn-outline btn-xs chart-toggle"
+              aria-pressed="true"
+              title="Toggle value popup on hover"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="tool-icon">
+                <circle cx="12" cy="12" r="9" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8.25h.01M11.25 11.25h1.5v5.5" />
+              </svg>
+              <span class="sr-only">Toggle value popup</span>
+            </button>
+          </div>
         </div>
-        <canvas id="stacked-chart" height="120"></canvas>
+        <div id="chart-panel-severity" class="chart-panel is-active">
+          <canvas id="stacked-chart" height="120"></canvas>
+        </div>
+        <div id="chart-panel-systems" class="chart-panel chart-panel-systems">
+          <div id="system-status-board" class="system-status-board"></div>
+        </div>
       </div>
       <div class="pane-body log-body" id="log-body">
         <div id="log-spacer"></div>
