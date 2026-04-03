@@ -1,6 +1,7 @@
-from datetime import datetime, timedelta
 import os
 import random
+from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Optional, Dict
 from flask import (
     Flask,
@@ -14,8 +15,8 @@ from flask import (
     url_for,
 )
 
-from log_generator import generate_logs
-from storage import (
+from .log_generator import generate_logs
+from .storage import (
     close_db,
     consume_login_token,
     create_dataset,
@@ -47,11 +48,24 @@ from storage import (
 app = Flask(__name__)
 app.secret_key = os.environ.get("LOG_VIEWER_SECRET", "dev-secret-key-change-me")
 app.permanent_session_lifetime = timedelta(days=30)
+
+
+def _default_state_root() -> Path:
+    package_root = Path(__file__).resolve().parent
+    repo_root = package_root.parents[1]
+    if (repo_root / "pyproject.toml").exists() and (repo_root / "src" / "eventlog2") == package_root:
+        return repo_root
+    instance_root = Path(app.instance_path)
+    instance_root.mkdir(parents=True, exist_ok=True)
+    return instance_root
+
+
+state_root = _default_state_root()
 app.config["DATABASE"] = os.environ.get(
-    "LOG_VIEWER_DB", os.path.join(app.root_path, "log_viewer.db")
+    "LOG_VIEWER_DB", os.fspath(state_root / "log_viewer.db")
 )
 app.config["DATASET_ROOT"] = os.environ.get(
-    "LOG_VIEWER_DATASETS", os.path.join(app.root_path, "data", "datasets")
+    "LOG_VIEWER_DATASETS", os.fspath(state_root / "data" / "datasets")
 )
 
 
