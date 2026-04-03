@@ -1,2 +1,0 @@
-[console_scripts]
-eventlog2 = eventlog2.__main__:main

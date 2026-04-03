@@ -1,8 +1,0 @@
-Metadata-Version: 2.4
-Name: eventlog2
-Version: 0.1.0
-Summary: HTML log viewer
-Requires-Python: >=3.10
-Requires-Dist: flask
-Requires-Dist: waitress
-Requires-Dist: docutils

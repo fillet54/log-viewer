@@ -3,4 +3,5 @@ __pycache__/
 data/
 log_viewer.db
 build/
+*.egg-info/
 

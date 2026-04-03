@@ -1,4 +1,4 @@
 flask
 waitress
+docopt
 docutils
-
