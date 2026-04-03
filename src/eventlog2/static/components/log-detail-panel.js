@@ -23,12 +23,7 @@ class DetailPanelController {
       .replace(/'/g, "&#39;");
   }
 
-  formatUser(comment) {
-    return this.escapeHtml(comment.user_name || comment.user_email || "User");
-  }
-
   renderThread(threads, depth = 0) {
-    const { isLoggedIn } = this.services;
     if (!threads.length) return '<div class="support-text">No comments yet.</div>';
     return `
       <div class="comment-thread">
@@ -37,9 +32,8 @@ class DetailPanelController {
             (comment) => `
             <div class="comment-item" data-comment-id="${comment.id}" style="margin-left:${depth * 16}px">
               <div class="comment-meta">
-                <span class="comment-author">${this.formatUser(comment)}</span>
                 <span class="comment-time">${this.escapeHtml(comment.created_at)}</span>
-                ${isLoggedIn ? `<button class="button button-ghost button-xs comment-reply" data-comment-id="${comment.id}">Reply</button>` : ""}
+                <button class="button button-ghost button-xs comment-reply" data-comment-id="${comment.id}">Reply</button>
               </div>
               <div class="comment-body">${this.escapeHtml(comment.body)}</div>
               ${comment.replies?.length ? this.renderThread(comment.replies, depth + 1) : ""}
@@ -52,7 +46,7 @@ class DetailPanelController {
   }
 
   renderEvent(event) {
-    const { bus, bookmarks, comments, isLoggedIn } = this.services;
+    const { bus, bookmarks, comments } = this.services;
     this.currentEvent = event || null;
     if (!this.container) return;
     if (!event) {
@@ -105,18 +99,13 @@ class DetailPanelController {
         }
         <div class="comment-section">
           <div class="section-label">Comments</div>
+          <div class="support-text">Stored only in this browser.</div>
           ${this.activeReply ? `<div class="comment-replying">Replying to #${this.activeReply} <button class="button button-ghost button-xs" id="cancel-reply">Cancel</button></div>` : ""}
           <div class="comment-list">${this.renderThread(threads)}</div>
-          ${
-            isLoggedIn
-              ? `
-            <div class="comment-form">
-              <textarea id="comment-body" class="text-area" rows="3" placeholder="Add a comment..."></textarea>
-              <button class="button button-primary button-small comment-submit" id="submit-comment">Post</button>
-            </div>
-          `
-              : '<div class="support-text">Log in to comment.</div>'
-          }
+          <div class="comment-form">
+            <textarea id="comment-body" class="text-area" rows="3" placeholder="Add a comment..."></textarea>
+            <button class="button button-primary button-small comment-submit" id="submit-comment">Post</button>
+          </div>
         </div>
       </div>
     `;
@@ -195,7 +184,6 @@ class LogDetailPanelElement extends LogAppComponentElement {
       bus: this.getBus(),
       bookmarks: this.getBookmarks(),
       comments: this.getComments(),
-      isLoggedIn: this.isLoggedIn(),
     };
   }
 

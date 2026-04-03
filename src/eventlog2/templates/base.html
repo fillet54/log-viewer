@@ -14,7 +14,6 @@
         document.documentElement.dataset.theme = storedTheme || preferredTheme;
       })();
     </script>
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
     {% block head_extra %}{% endblock %}
@@ -24,38 +23,13 @@
       <header class="topbar">
         <div class="topbar-inner">
           <a href="{{ url_for('index') }}" class="brand">HTML Log Viewer</a>
-          <nav class="topbar-nav">
-            <a class="button button-ghost button-xs" href="{{ url_for('logs_index') }}">Logs</a>
-            <a class="button button-outline button-xs" href="{{ url_for('upload_logs') }}">Upload</a>
-          </nav>
-          <div class="topbar-actions">
-            <button type="button" id="theme-toggle" class="button button-ghost button-xs" aria-label="Toggle theme">
-              Theme
-            </button>
-            {% if current_user %}
-              <span class="user-state">
-                Signed in as {{ current_user.name or current_user.email }}
-              </span>
-              <a class="button button-ghost button-xs" href="{{ url_for('profile') }}">Profile</a>
-              <form method="post" action="{{ url_for('logout') }}">
-                <button class="button button-outline button-xs" type="submit">Logout</button>
-              </form>
-            {% else %}
-              <a class="button button-primary button-xs" href="{{ url_for('login') }}">Log in</a>
-            {% endif %}
-          </div>
+        <div class="topbar-actions">
+          <button type="button" id="theme-toggle" class="button button-ghost button-xs" aria-label="Toggle theme">
+            Theme
+          </button>
+          <span class="user-state">Development Page</span>
         </div>
-        {% with messages = get_flashed_messages() %}
-          {% if messages %}
-            <div class="flash-strip">
-              <div class="flash-list">
-                {% for message in messages %}
-                  <div class="flash-message">{{ message }}</div>
-                {% endfor %}
-              </div>
-            </div>
-          {% endif %}
-        {% endwith %}
+      </div>
       </header>
       <main class="app-content{% block main_class %}{% endblock %}">
         {% block content %}{% endblock %}

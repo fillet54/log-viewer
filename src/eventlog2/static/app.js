@@ -9,7 +9,7 @@ const STORAGE_KEYS = {
   searchFilters: "loglayout.search.filters",
   chartTooltips: "loglayout.chart.tooltips",
   bookmarks: "loglayout.bookmarks",
-  bookmarkNotes: "loglayout.bookmark.notes",
+  comments: "loglayout.comments",
 };
 
 const loadSizes = (key, fallback) => {
@@ -36,19 +36,8 @@ const queryById = (root, id) => {
   return null;
 };
 
-const parseJsonScript = (scriptElement) => {
-  if (!scriptElement) return null;
-  try {
-    return JSON.parse(scriptElement.textContent || "{}");
-  } catch (err) {
-    return null;
-  }
-};
-
 const loadInitialData = (root) => {
-  if (!root || typeof root.querySelector !== "function") return null;
-  const scopedPayload = root.querySelector('script[data-role="initial-data"]');
-  return parseJsonScript(scopedPayload);
+  return window.EVENTLOG2_INITIAL_DATA || null;
 };
 
 const smoothScrollTo = (container, targetTop, durationMs = 200, onComplete = null) => {
@@ -111,10 +100,6 @@ class LogViewerAppElement extends HTMLElement {
     return Boolean(this._services);
   }
 
-  isLoggedIn() {
-    return this.dataset.authenticated === "true";
-  }
-
   set data(value) {
     if (this._initialized) return;
     this._data = value;
@@ -158,7 +143,6 @@ class LogViewerAppElement extends HTMLElement {
       this,
       LogServices.createRootServices({
         logData,
-        isLoggedIn: this.isLoggedIn(),
       })
     );
     this.dispatchEvent(new CustomEvent("logapp:ready", { bubbles: true, composed: true }));
@@ -210,9 +194,5 @@ class LogAppComponentElement extends HTMLElement {
 
   getComments() {
     return this.getAppRoot()?.getComments() || null;
-  }
-
-  isLoggedIn() {
-    return this.getAppRoot()?.isLoggedIn() || false;
   }
 }

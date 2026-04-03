@@ -61,7 +61,6 @@ class LogSearchPanelElement extends LogAppComponentElement {
             (comment) => `
             <div class="comment-item" style="margin-left:${depth * 16}px">
               <div class="comment-meta">
-                <span class="comment-author">${this.escapeHtml(comment.user_name || comment.user_email || "User")}</span>
                 <span class="comment-time">${this.escapeHtml(comment.created_at)}</span>
               </div>
               <div class="comment-body">${this.escapeHtml(comment.body)}</div>

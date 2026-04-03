@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from .app import app
 
 USAGE = """eventlog2
 
 Usage:
-  eventlog2 [--host HOST] [--port PORT] [--debug] [--db PATH] [--datasets PATH] [--waitress]
+  eventlog2 [--host HOST] [--port PORT] [--debug] [--waitress]
   eventlog2 (-h | --help)
   eventlog2 --version
 
@@ -15,8 +13,6 @@ Options:
   --host HOST       Bind host. [default: 127.0.0.1]
   --port PORT       Bind port. [default: 8080]
   --debug           Run the Flask development server with debug enabled.
-  --db PATH         Override the application database path.
-  --datasets PATH   Override the dataset root path.
   --waitress        Run with Waitress instead of Flask's development server.
   -h --help         Show this screen.
   --version         Show version.
@@ -34,14 +30,6 @@ def _apply_runtime_overrides(args: dict[str, object]) -> tuple[str, int, bool, b
 
     debug = bool(args["--debug"])
     use_waitress = bool(args["--waitress"]) and not debug
-
-    db_path = args["--db"]
-    if db_path:
-        app.config["DATABASE"] = str(Path(str(db_path)).expanduser().resolve())
-
-    datasets_path = args["--datasets"]
-    if datasets_path:
-        app.config["DATASET_ROOT"] = str(Path(str(datasets_path)).expanduser().resolve())
 
     return host, port, debug, use_waitress
 

@@ -3,9 +3,13 @@
 {% block body_class %} app-body-viewer{% endblock %}
 {% block main_class %} app-content-viewer{% endblock %}
 
+{% block head_extra %}
+  <script src="{{ url_for('static', filename='dev-data.js') }}"></script>
+{% endblock %}
+
 {% block content %}
   <div class="viewer-page">
-    <log-viewer-app data-authenticated="{{ 'true' if current_user else 'false' }}">
+    <log-viewer-app>
       <log-layout>
         <log-main-view>
           {% include 'components/shared/log_row_template.html' %}
@@ -15,7 +19,6 @@
           {% include 'components/shared/log_row_template.html' %}
         </log-search-panel>
       </log-layout>
-      <script type="application/json" data-role="initial-data">{{ log_data | tojson }}</script>
     </log-viewer-app>
   </div>
 {% endblock %}

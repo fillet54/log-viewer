@@ -162,107 +162,61 @@ LogServices.createEventBus = () => {
   };
 };
 
-LogServices.createBookmarkService = ({ logData, bus, isLoggedIn }) => {
+LogServices.createBookmarkService = ({ logData, bus }) => {
   const events = Array.isArray(logData?.events) ? logData.events : [];
   const validIds = new Set(events.map((event) => String(event.row_id)));
-  const datasetId = logData?.dataset_id;
-  const bootId = logData?.boot_id;
-  const canPersist = Boolean(isLoggedIn && datasetId && bootId);
-  let lastLoginNotice = 0;
   let bookmarks = {};
 
   const notify = () => {
     if (bus) bus.emit("bookmarks:changed", getAllWithColors());
   };
 
-  const load = async () => {
-    if (!canPersist) return;
+  const load = () => {
     try {
-      const response = await fetch(
-        `/api/bookmarks?dataset_id=${encodeURIComponent(datasetId)}&boot_id=${encodeURIComponent(bootId)}`
-      );
-      if (!response.ok) return;
-      const payload = await response.json();
-      const incoming = payload?.bookmarks || {};
+      const payload = JSON.parse(localStorage.getItem(STORAGE_KEYS.bookmarks) || "{}");
       bookmarks = {};
-      Object.entries(incoming).forEach(([key, value]) => {
+      Object.entries(payload).forEach(([key, value]) => {
         if (!validIds.has(String(key))) return;
         const index = Math.max(0, Math.min(5, Number(value) || 0));
         if (index > 0) bookmarks[String(key)] = index;
       });
       notify();
     } catch (err) {
-      return;
+      bookmarks = {};
     }
   };
   load();
 
-  const notifyLoginRequired = () => {
-    const now = Date.now();
-    if (now - lastLoginNotice < 2000) return;
-    lastLoginNotice = now;
-    window.alert("Please log in to create bookmarks.");
-  };
-
-  const persist = async (rowId, colorIndex, previous) => {
-    if (!canPersist) return;
-    try {
-      const response = await fetch("/api/bookmarks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dataset_id: datasetId,
-          boot_id: bootId,
-          row_id: rowId,
-          color_index: colorIndex,
-        }),
-      });
-      if (!response.ok) throw new Error("bookmark save failed");
-    } catch (err) {
-      if (previous === 0) {
-        delete bookmarks[String(rowId)];
-      } else {
-        bookmarks[String(rowId)] = previous;
-      }
-      notify();
-    }
+  const persist = () => {
+    localStorage.setItem(STORAGE_KEYS.bookmarks, JSON.stringify(bookmarks));
   };
 
   const cycle = (rowId) => {
     const key = String(rowId);
     if (!validIds.has(key)) return 0;
     const current = Number(bookmarks[key]) || 0;
-    if (!canPersist) {
-      if (!isLoggedIn) notifyLoginRequired();
-      return current;
-    }
     const next = (current + 1) % 6;
     if (next === 0) {
       delete bookmarks[key];
     } else {
       bookmarks[key] = next;
     }
+    persist();
     notify();
-    persist(rowId, next, current);
     return next;
   };
 
   const setColor = (rowId, colorIndex) => {
     const key = String(rowId);
     if (!validIds.has(key)) return 0;
-    const current = Number(bookmarks[key]) || 0;
-    if (!canPersist) {
-      if (!isLoggedIn) notifyLoginRequired();
-      return current;
-    }
     const next = Math.max(0, Math.min(5, Number(colorIndex) || 0));
     if (next === 0) {
       delete bookmarks[key];
     } else {
       bookmarks[key] = next;
     }
+    persist();
     notify();
-    persist(rowId, next, current);
     return next;
   };
 
@@ -274,69 +228,54 @@ LogServices.createBookmarkService = ({ logData, bus, isLoggedIn }) => {
   return { cycle, setColor, getColor, isBookmarked, getAll, getAllWithColors };
 };
 
-LogServices.createCommentService = ({ logData, bus, isLoggedIn }) => {
+LogServices.createCommentService = ({ logData, bus }) => {
   const events = Array.isArray(logData?.events) ? logData.events : [];
-  const datasetId = logData?.dataset_id;
-  const bootId = logData?.boot_id;
-  const canPersist = Boolean(isLoggedIn && datasetId && bootId);
-  let lastLoginNotice = 0;
+  const validIds = new Set(events.map((event) => String(event.row_id)));
   let comments = [];
 
   const notify = () => {
     if (bus) bus.emit("comments:changed", getByRowId());
   };
 
-  const notifyLoginRequired = () => {
-    const now = Date.now();
-    if (now - lastLoginNotice < 2000) return;
-    lastLoginNotice = now;
-    window.alert("Please log in to comment.");
-  };
-
-  const load = async () => {
-    if (!datasetId || !bootId) return;
+  const load = () => {
     try {
-      const response = await fetch(
-        `/api/comments?dataset_id=${encodeURIComponent(datasetId)}&boot_id=${encodeURIComponent(bootId)}`
-      );
-      if (!response.ok) return;
-      const payload = await response.json();
-      comments = Array.isArray(payload?.comments) ? payload.comments : [];
+      const payload = JSON.parse(localStorage.getItem(STORAGE_KEYS.comments) || "[]");
+      comments = Array.isArray(payload)
+        ? payload
+            .filter((item) => item && validIds.has(String(item.row_id)) && typeof item.body === "string")
+            .map((item) => ({
+              id: item.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              row_id: Number(item.row_id),
+              parent_id: item.parent_id ?? null,
+              body: item.body,
+              created_at: item.created_at || new Date().toISOString(),
+            }))
+        : [];
       notify();
     } catch (err) {
-      return;
+      comments = [];
     }
   };
   load();
 
+  const persist = () => {
+    localStorage.setItem(STORAGE_KEYS.comments, JSON.stringify(comments));
+  };
+
   const addComment = async (rowId, body, parentId = null) => {
-    if (!canPersist) {
-      if (!isLoggedIn) notifyLoginRequired();
-      return null;
-    }
-    try {
-      const response = await fetch("/api/comments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dataset_id: datasetId,
-          boot_id: bootId,
-          row_id: rowId,
-          parent_id: parentId,
-          body,
-        }),
-      });
-      if (!response.ok) throw new Error("comment save failed");
-      const payload = await response.json();
-      if (payload?.comment) {
-        comments = [...comments, payload.comment];
-        notify();
-        return payload.comment;
-      }
-    } catch (err) {
-      return null;
-    }
-    return null;
+    const normalizedRowId = String(rowId);
+    if (!validIds.has(normalizedRowId)) return null;
+    const comment = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      row_id: Number(rowId),
+      parent_id: parentId,
+      body,
+      created_at: new Date().toISOString(),
+    };
+    comments = [...comments, comment];
+    persist();
+    notify();
+    return comment;
   };
 
   const getByRowId = () => {
@@ -365,16 +304,10 @@ LogServices.createCommentService = ({ logData, bus, isLoggedIn }) => {
     return roots;
   };
 
-  const getActivityRows = () => {
-    const map = getByRowId();
-    const withComments = events.filter((event) => map.has(String(event.row_id)));
-    return withComments.sort((a, b) => (a.norm_time || 0) - (b.norm_time || 0));
-  };
-
-  return { addComment, getByRowId, buildThreads, getActivityRows, reload: load };
+  return { addComment, getByRowId, buildThreads };
 };
 
-LogServices.createRootServices = ({ logData, isLoggedIn }) => {
+LogServices.createRootServices = ({ logData }) => {
   const bus = LogServices.createEventBus();
   const events = LogServices.enrichEvents(logData?.events || []);
   const enrichedLogData = {
@@ -385,7 +318,7 @@ LogServices.createRootServices = ({ logData, isLoggedIn }) => {
     bus,
     logData: enrichedLogData,
     searchWorker: LogSearch.createWorker(events),
-    bookmarks: LogServices.createBookmarkService({ logData: enrichedLogData, bus, isLoggedIn }),
-    comments: LogServices.createCommentService({ logData: enrichedLogData, bus, isLoggedIn }),
+    bookmarks: LogServices.createBookmarkService({ logData: enrichedLogData, bus }),
+    comments: LogServices.createCommentService({ logData: enrichedLogData, bus }),
   };
 };
