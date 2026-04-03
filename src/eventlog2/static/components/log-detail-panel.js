@@ -29,7 +29,7 @@ class DetailPanelController {
 
   renderThread(threads, depth = 0) {
     const { isLoggedIn } = this.services;
-    if (!threads.length) return '<div class="text-xs text-base-content/50">No comments yet.</div>';
+    if (!threads.length) return '<div class="support-text">No comments yet.</div>';
     return `
       <div class="comment-thread">
         ${threads
@@ -39,7 +39,7 @@ class DetailPanelController {
               <div class="comment-meta">
                 <span class="comment-author">${this.formatUser(comment)}</span>
                 <span class="comment-time">${this.escapeHtml(comment.created_at)}</span>
-                ${isLoggedIn ? `<button class="btn btn-ghost btn-xs comment-reply" data-comment-id="${comment.id}">Reply</button>` : ""}
+                ${isLoggedIn ? `<button class="button button-ghost button-xs comment-reply" data-comment-id="${comment.id}">Reply</button>` : ""}
               </div>
               <div class="comment-body">${this.escapeHtml(comment.body)}</div>
               ${comment.replies?.length ? this.renderThread(comment.replies, depth + 1) : ""}
@@ -56,7 +56,7 @@ class DetailPanelController {
     this.currentEvent = event || null;
     if (!this.container) return;
     if (!event) {
-      this.container.innerHTML = '<div class="text-sm text-base-content/60">Select a log event to view details.</div>';
+      this.container.innerHTML = '<div class="empty-panel-message">Select a log event to view details.</div>';
       return;
     }
 
@@ -66,11 +66,11 @@ class DetailPanelController {
     const rows = event.data ? this.renderRows(event.data) : [];
 
     this.container.innerHTML = `
-      <div class="space-y-3">
-        <div class="text-sm font-semibold">${event.name}</div>
-        <div class="text-xs text-base-content/60">${event.utctime} • ${event.set_clear}</div>
-        <div class="text-xs text-base-content/70">${event.description}</div>
-        <div class="text-xs text-base-content/50">${event.system}/${event.subsystem}/${event.unit}/${event.code}</div>
+      <div class="detail-stack">
+        <div class="detail-title">${event.name}</div>
+        <div class="detail-meta">${event.utctime} • ${event.set_clear}</div>
+        <div class="detail-summary">${event.description}</div>
+        <div class="detail-path">${event.system}/${event.subsystem}/${event.unit}/${event.code}</div>
         ${
           rows.length
             ? `<div class="event-data">${rows
@@ -78,18 +78,18 @@ class DetailPanelController {
                   (row) => `
                     <div class="data-row">
                       <div class="data-key">${row.key}</div>
-                      <div class="data-value">${row.value}</div>
-                    </div>
-                  `
+                    <div class="data-value">${row.value}</div>
+                  </div>
+                `
                 )
                 .join("")}</div>`
-            : '<div class="text-xs text-base-content/50">No event data available.</div>'
+            : '<div class="support-text">No event data available.</div>'
         }
         ${
           isBookmarked
             ? `
           <div class="bookmark-notes">
-            <div class="text-xs uppercase tracking-wide text-base-content/60">Bookmark Color</div>
+            <div class="section-label">Bookmark Color</div>
             <div class="bookmark-colors" data-row-id="${event.row_id}">
               ${[1, 2, 3, 4, 5]
                 .map(
@@ -104,18 +104,18 @@ class DetailPanelController {
             : ""
         }
         <div class="comment-section">
-          <div class="text-xs uppercase tracking-wide text-base-content/60">Comments</div>
-          ${this.activeReply ? `<div class="comment-replying text-xs">Replying to #${this.activeReply} <button class="btn btn-ghost btn-xs" id="cancel-reply">Cancel</button></div>` : ""}
+          <div class="section-label">Comments</div>
+          ${this.activeReply ? `<div class="comment-replying">Replying to #${this.activeReply} <button class="button button-ghost button-xs" id="cancel-reply">Cancel</button></div>` : ""}
           <div class="comment-list">${this.renderThread(threads)}</div>
           ${
             isLoggedIn
               ? `
             <div class="comment-form">
-              <textarea id="comment-body" class="textarea textarea-bordered textarea-sm w-full" rows="3" placeholder="Add a comment..."></textarea>
-              <button class="btn btn-primary btn-sm mt-2" id="submit-comment">Post</button>
+              <textarea id="comment-body" class="text-area" rows="3" placeholder="Add a comment..."></textarea>
+              <button class="button button-primary button-small comment-submit" id="submit-comment">Post</button>
             </div>
           `
-              : '<div class="text-xs text-base-content/50">Log in to comment.</div>'
+              : '<div class="support-text">Log in to comment.</div>'
           }
         </div>
       </div>
@@ -185,7 +185,7 @@ class LogDetailPanelElement extends LogAppComponentElement {
         Insights
       </div>
       <div class="pane-body" id="event-detail">
-        <div class="text-sm text-base-content/60">Select a log event to view details.</div>
+        <div class="empty-panel-message">Select a log event to view details.</div>
       </div>
     `;
   }

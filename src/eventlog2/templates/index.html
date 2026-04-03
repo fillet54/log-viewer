@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 
+{% block body_class %} app-body-viewer{% endblock %}
+{% block main_class %} app-content-viewer{% endblock %}
+
 {% block content %}
-  <main class="flex-1 w-full p-3 min-h-0 flex">
+  <div class="viewer-page">
     <log-viewer-app data-authenticated="{{ 'true' if current_user else 'false' }}">
       <log-layout>
         <log-main-view>
@@ -14,7 +17,7 @@
       </log-layout>
       <script type="application/json" data-role="initial-data">{{ log_data | tojson }}</script>
     </log-viewer-app>
-  </main>
+  </div>
 {% endblock %}
 
 {% block body_scripts %}

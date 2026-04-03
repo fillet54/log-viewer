@@ -12,6 +12,67 @@ class LayoutController {
     return queryById(this.element, id);
   }
 
+  observeContainerSize(container, callback) {
+    if (!container || typeof callback !== "function") return;
+    if (!container._resizeObservers) container._resizeObservers = [];
+
+    let rafId = 0;
+    const schedule = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        callback();
+      });
+    };
+
+    schedule();
+    requestAnimationFrame(schedule);
+
+    if (typeof ResizeObserver === "function") {
+      const observer = new ResizeObserver(() => schedule());
+      observer.observe(container);
+      container._resizeObservers.push(observer);
+      return;
+    }
+
+    window.addEventListener("resize", schedule);
+  }
+
+  resolveMinHeight(element, fallback) {
+    if (!element) return fallback;
+    const computed = Number.parseFloat(getComputedStyle(element).minHeight || "");
+    return Number.isFinite(computed) && computed > 0 ? computed : fallback;
+  }
+
+  resolveMinWidth(element, fallback) {
+    if (!element) return fallback;
+    const computed = Number.parseFloat(getComputedStyle(element).minWidth || "");
+    return Number.isFinite(computed) && computed > 0 ? computed : fallback;
+  }
+
+  applyRootSplitFromStorage() {
+    const splitRoot = this.getById("split-root");
+    const topPane = this.getById("pane-top");
+    const bottomPane = this.getById("pane-bottom");
+    if (!splitRoot || !topPane || !bottomPane) return;
+
+    const saved = loadSizes(this.storageKeys.root, [70, 30]);
+    const height = splitRoot.clientHeight;
+    const gutterSize = 10;
+    if (height <= 0) return;
+
+    const minTop = this.resolveMinHeight(topPane, 240);
+    const minBottom = this.resolveMinHeight(bottomPane, 120);
+    const available = Math.max(1, height - gutterSize);
+    const maxTop = Math.max(minTop, available - minBottom);
+    const preferredTop = Math.max(minTop, (saved[0] / 100) * available);
+    const topPx = Math.min(maxTop, preferredTop);
+    const bottomPx = Math.max(minBottom, height - topPx - gutterSize);
+
+    topPane.style.flex = `0 0 ${topPx}px`;
+    bottomPane.style.flex = `1 1 ${bottomPx}px`;
+  }
+
   initialize() {
     this.initializePrimaryLayout();
     this.initializeSearchLayout();
@@ -109,8 +170,8 @@ class LayoutController {
     const savedExpanded = loadSizes(this.storageKeys.rootExpanded, [70, 30]);
     const safeSizes =
       rootSizes[1] > 6 ? rootSizes : savedExpanded[1] > 6 ? savedExpanded : [70, 30];
-    topPane.style.flex = `0 0 ${safeSizes[0]}%`;
-    bottomPane.style.flex = `0 0 ${safeSizes[1]}%`;
+    saveSizes(this.storageKeys.root, safeSizes);
+    this.applyRootSplitFromStorage();
     button.setAttribute("aria-label", "Collapse search pane");
     button.classList.remove("is-collapsed");
     if (headerText) headerText.classList.add("hidden");
@@ -131,18 +192,21 @@ class LayoutController {
     if (!container || !left || !right) return;
 
     const applySizes = (leftPx, width) => {
+      const resolvedMinRight = this.resolveMinWidth(right, minRight);
       left.style.flex = `0 0 ${leftPx}px`;
-      right.style.flex = `1 1 ${Math.max(minRight, width - leftPx - gutterSize)}px`;
+      right.style.flex = `1 1 ${Math.max(resolvedMinRight, width - leftPx - gutterSize)}px`;
     };
 
     const setFromPercent = () => {
       const saved = loadSizes(storageKey, [70, 30]);
       const width = container.clientWidth;
+      if (width <= 0) return;
+      const resolvedMinLeft = this.resolveMinWidth(left, minLeft);
+      const resolvedMinRight = this.resolveMinWidth(right, minRight);
       const available = Math.max(1, width - gutterSize);
-      const leftPx = Math.min(
-        available - minRight,
-        Math.max(minLeft, (saved[0] / 100) * available)
-      );
+      const maxLeft = Math.max(resolvedMinLeft, available - resolvedMinRight);
+      const preferredLeft = Math.max(resolvedMinLeft, (saved[0] / 100) * available);
+      const leftPx = Math.min(maxLeft, preferredLeft);
       applySizes(leftPx, width);
     };
 
@@ -188,8 +252,7 @@ class LayoutController {
     };
 
     gutter.addEventListener("mousedown", onMouseDown);
-    setFromPercent();
-    window.addEventListener("resize", setFromPercent);
+    this.observeContainerSize(container, setFromPercent);
   }
 
   initGhostVertical(options) {
@@ -206,18 +269,21 @@ class LayoutController {
     if (!container || !top || !bottom) return;
 
     const applySizes = (topPx, height) => {
+      const resolvedMinBottom = this.resolveMinHeight(bottom, minBottom);
       top.style.flex = `0 0 ${topPx}px`;
-      bottom.style.flex = `1 1 ${Math.max(minBottom, height - topPx - gutterSize)}px`;
+      bottom.style.flex = `1 1 ${Math.max(resolvedMinBottom, height - topPx - gutterSize)}px`;
     };
 
     const setFromPercent = () => {
       const saved = loadSizes(storageKey, [70, 30]);
       const height = container.clientHeight;
+      if (height <= 0) return;
+      const resolvedMinTop = this.resolveMinHeight(top, minTop);
+      const resolvedMinBottom = this.resolveMinHeight(bottom, minBottom);
       const available = Math.max(1, height - gutterSize);
-      const topPx = Math.min(
-        available - minBottom,
-        Math.max(minTop, (saved[0] / 100) * available)
-      );
+      const maxTop = Math.max(resolvedMinTop, available - resolvedMinBottom);
+      const preferredTop = Math.max(resolvedMinTop, (saved[0] / 100) * available);
+      const topPx = Math.min(maxTop, preferredTop);
       applySizes(topPx, height);
     };
 
@@ -265,8 +331,7 @@ class LayoutController {
     };
 
     gutter.addEventListener("mousedown", onMouseDown);
-    setFromPercent();
-    window.addEventListener("resize", setFromPercent);
+    this.observeContainerSize(container, setFromPercent);
   }
 }
 
@@ -282,9 +347,9 @@ class LogLayoutElement extends LogAppComponentElement {
     const searchPanel = this.getDirectChild("log-search-panel");
 
     this.innerHTML = `
-      <div id="split-root" class="flex-1 h-full w-full rounded-2xl bg-base-100 shadow-xl ghost-split">
-        <section id="pane-top" class="flex">
-          <div id="split-top" class="flex h-full w-full ghost-split"></div>
+      <div id="split-root" class="layout-shell ghost-split">
+        <section id="pane-top" class="layout-top">
+          <div id="split-top" class="layout-top-inner ghost-split"></div>
         </section>
       </div>
     `;

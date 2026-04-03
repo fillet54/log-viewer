@@ -19,13 +19,13 @@ class LogMainViewElement extends LogAppComponentElement {
       <div class="chart-band">
         <div class="chart-band-header">
           <div class="chart-tabs" role="tablist" aria-label="Top chart tabs">
-            <button id="tab-chart-severity" class="btn btn-xs btn-ghost chart-tab is-active" role="tab" aria-selected="true">Severity</button>
-            <button id="tab-chart-systems" class="btn btn-xs btn-ghost chart-tab" role="tab" aria-selected="false">Subsystem Status</button>
+            <button id="tab-chart-severity" class="button button-ghost button-xs chart-tab is-active" role="tab" aria-selected="true">Severity</button>
+            <button id="tab-chart-systems" class="button button-ghost button-xs chart-tab" role="tab" aria-selected="false">Subsystem Status</button>
           </div>
           <div class="chart-tools">
             <button
               id="toggle-tooltips"
-              class="btn btn-outline btn-xs chart-toggle"
+              class="button button-outline button-xs chart-toggle"
               aria-pressed="true"
               title="Toggle value popup on hover"
             >
@@ -46,7 +46,7 @@ class LogMainViewElement extends LogAppComponentElement {
       </div>
       <div class="pane-body log-body" id="log-body">
         <div id="log-spacer"></div>
-        <div class="font-mono text-sm" id="log-list"></div>
+        <div class="mono-block" id="log-list"></div>
       </div>
     `;
     if (rowTemplate) this.appendChild(rowTemplate);

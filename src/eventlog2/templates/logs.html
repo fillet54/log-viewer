@@ -1,84 +1,84 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <div class="max-w-screen-2xl mx-auto w-full px-4 py-8">
-    <div class="grid md:grid-cols-[18rem,1fr] gap-4">
-      <aside class="bg-base-100 shadow rounded-xl p-4">
-        <div class="flex items-center justify-between mb-3">
-          <h1 class="text-lg font-semibold">Datasets</h1>
-          <a class="btn btn-xs btn-outline" href="{{ url_for('upload_logs') }}">Upload</a>
+  <section class="page-shell page-shell-wide">
+    <div class="logs-layout">
+      <aside class="card sidebar-card">
+        <div class="section-header">
+          <h1 class="section-title">Datasets</h1>
+          <a class="button button-outline button-xs" href="{{ url_for('upload_logs') }}">Upload</a>
         </div>
-        <div class="space-y-2">
+        <div class="dataset-list">
           {% for dataset in datasets %}
             <a
-              class="block rounded-lg border px-3 py-2 text-sm {% if dataset.id == selected_dataset_id %}border-primary bg-primary/10{% else %}border-base-300 hover:border-base-content/30{% endif %}"
+              class="dataset-link {% if dataset.id == selected_dataset_id %}is-active{% endif %}"
               href="{{ url_for('logs_index', dataset_id=dataset.id) }}"
             >
-              <div class="font-medium">{{ dataset.name }}</div>
-              <div class="text-xs text-base-content/60">
+              <div class="dataset-name">{{ dataset.name }}</div>
+              <div class="dataset-caption">
                 {% if dataset.owner_user_id %}Personal{% else %}Global{% endif %}
               </div>
             </a>
           {% else %}
-            <div class="text-sm text-base-content/70">No datasets available.</div>
+            <div class="empty-state">No datasets available.</div>
           {% endfor %}
         </div>
       </aside>
 
-      <section class="bg-base-100 shadow rounded-xl p-5">
-        <h2 class="text-xl font-semibold mb-1">Logs</h2>
-        <p class="text-sm text-base-content/70 mb-4">Grouped by event name. Expand to view each boot.</p>
-        <div class="grid md:grid-cols-[1fr,1fr,10rem,auto,auto] gap-2 mb-4 items-end">
-          <label class="form-control">
-            <span class="label-text text-xs">Event Name (Live Fuzzy)</span>
+      <section class="card content-card">
+        <h2 class="page-title">Logs</h2>
+        <p class="page-subtitle">Grouped by event name. Expand to view each boot.</p>
+        <div class="logs-filter-grid">
+          <label class="field">
+            <span class="field-label field-label-small">Event Name (Live Fuzzy)</span>
             <input
               id="event-name-search"
               type="text"
-              class="input input-bordered input-sm"
+              class="text-input text-input-small"
               placeholder="Type to fuzzy match event names..."
               autocomplete="off"
             />
           </label>
-          <form method="get" class="contents">
+          <form method="get" class="filter-form">
           {% if selected_dataset_id %}
             <input type="hidden" name="dataset_id" value="{{ selected_dataset_id }}" />
           {% endif %}
-          <label class="form-control">
-            <span class="label-text text-xs">System</span>
-            <select name="system" class="select select-bordered select-sm">
+          <label class="field">
+            <span class="field-label field-label-small">System</span>
+            <select name="system" class="select-input select-input-small">
               <option value="">All systems</option>
               {% for system_name in system_options %}
                 <option value="{{ system_name }}" {% if filter_system == system_name %}selected{% endif %}>{{ system_name }}</option>
               {% endfor %}
             </select>
           </label>
-          <label class="form-control">
-            <span class="label-text text-xs">Mode</span>
-            <select name="mode" class="select select-bordered select-sm">
+          <label class="field">
+            <span class="field-label field-label-small">Mode</span>
+            <select name="mode" class="select-input select-input-small">
               <option value="" {% if not filter_mode %}selected{% endif %}>All modes</option>
               <option value="production" {% if filter_mode == "production" %}selected{% endif %}>Production</option>
               <option value="test" {% if filter_mode == "test" %}selected{% endif %}>Test</option>
             </select>
           </label>
-          <button class="btn btn-sm btn-primary" type="submit">Filter</button>
-          <a class="btn btn-sm btn-ghost" href="{{ url_for('logs_index', dataset_id=selected_dataset_id) if selected_dataset_id else url_for('logs_index') }}">Reset</a>
+          <button class="button button-primary button-small" type="submit">Filter</button>
+          <a class="button button-ghost button-small" href="{{ url_for('logs_index', dataset_id=selected_dataset_id) if selected_dataset_id else url_for('logs_index') }}">Reset</a>
           </form>
         </div>
-        <div id="event-name-search-status" class="text-xs text-base-content/60 mb-3"></div>
+        <div id="event-name-search-status" class="dataset-caption search-status"></div>
 
         {% if grouped_boots %}
-          <div id="event-groups" class="space-y-3">
+          <div id="event-groups" class="event-groups">
             {% for group in grouped_boots %}
-              <details class="collapse collapse-arrow border border-base-300 bg-base-100" data-event-name="{{ group.event_name|lower }}">
-                <summary class="collapse-title pr-2">
-                  <div class="flex items-center justify-between gap-3">
+              <details class="event-group" data-event-name="{{ group.event_name|lower }}">
+                <summary class="event-group-summary">
+                  <div class="event-group-header">
                     <div>
-                      <div class="font-semibold">{{ group.event_name }}</div>
-                      <div class="text-xs text-base-content/60">{{ group.boots|length }} boot(s)</div>
+                      <div class="dataset-name">{{ group.event_name }}</div>
+                      <div class="dataset-caption">{{ group.boots|length }} boot(s)</div>
                     </div>
                     {% if group.latest_production_boot %}
                       <a
-                        class="btn btn-xs btn-primary"
+                        class="button button-primary button-xs"
                         href="{{ url_for('index', dataset=group.latest_production_boot.dataset_id, boot=group.latest_production_boot.boot_id) }}"
                         onclick="event.stopPropagation();"
                       >
@@ -87,9 +87,9 @@
                     {% endif %}
                   </div>
                 </summary>
-                <div class="collapse-content pt-0">
-                  <div class="overflow-x-auto">
-                    <table class="table table-sm">
+                <div class="event-group-body">
+                  <div class="table-wrap">
+                    <table class="data-table">
                       <thead>
                         <tr>
                           <th>Boot ID</th>
@@ -104,20 +104,20 @@
                         {% for boot in group.boots %}
                           {% set meta = boot_meta_map.get(boot.meta_key) %}
                           <tr>
-                            <td class="font-mono">{{ boot.boot_id }}</td>
+                            <td class="mono-text">{{ boot.boot_id }}</td>
                             <td>
                               {% if meta.mode == "production" %}
-                                <span class="badge badge-success badge-outline">production</span>
+                                <span class="pill pill-production">production</span>
                               {% else %}
-                                <span class="badge badge-warning badge-outline">test</span>
+                                <span class="pill pill-test">test</span>
                               {% endif %}
                             </td>
                             <td>{{ meta.system }}</td>
                             <td>{{ meta.tags }}</td>
                             <td>{{ boot.event_count }}</td>
-                            <td class="flex gap-2">
-                              <a class="btn btn-xs btn-outline" href="{{ url_for('index', dataset=boot.dataset_id, boot=boot.boot_id) }}">Open</a>
-                              <a class="btn btn-xs btn-ghost" href="{{ url_for('edit_boot', dataset_id=boot.dataset_id, boot_id=boot.boot_id) }}">Edit</a>
+                            <td class="table-actions">
+                              <a class="button button-outline button-xs" href="{{ url_for('index', dataset=boot.dataset_id, boot=boot.boot_id) }}">Open</a>
+                              <a class="button button-ghost button-xs" href="{{ url_for('edit_boot', dataset_id=boot.dataset_id, boot_id=boot.boot_id) }}">Edit</a>
                             </td>
                           </tr>
                         {% endfor %}
@@ -129,11 +129,11 @@
             {% endfor %}
           </div>
         {% else %}
-          <div class="text-base-content/70">No logs found for this dataset.</div>
+          <div class="empty-state">No logs found for this dataset.</div>
         {% endif %}
       </section>
     </div>
-  </div>
+  </section>
 {% endblock %}
 
 {% block body_scripts %}

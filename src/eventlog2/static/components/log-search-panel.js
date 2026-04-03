@@ -522,14 +522,14 @@ class LogSearchPanelElement extends LogAppComponentElement {
     const rowTemplate = this.getRowTemplate();
     const searchHelpUrl = this.getAttribute("search-help-url") || "/static/search_syntax.html";
     this.innerHTML = `
-      <div class="pane-header compact-header justify-between">
-        <span id="search-header-text" class="text-xs uppercase tracking-wide text-base-content/60">Search</span>
+      <div class="pane-header compact-header pane-header-spread">
+        <span id="search-header-text" class="section-label">Search</span>
         <div id="search-header-tabs" class="search-tabs hidden">
-          <button id="tab-history" class="btn btn-xs btn-ghost search-tab is-active">Search History</button>
-          <button id="tab-filters" class="btn btn-xs btn-ghost search-tab">Filters</button>
-          <button id="tab-bookmarks" class="btn btn-xs btn-ghost search-tab">Bookmarks</button>
+          <button id="tab-history" class="button button-ghost button-xs search-tab is-active">Search History</button>
+          <button id="tab-filters" class="button button-ghost button-xs search-tab">Filters</button>
+          <button id="tab-bookmarks" class="button button-ghost button-xs search-tab">Bookmarks</button>
         </div>
-        <button id="toggle-bottom" class="btn btn-ghost btn-xs" title="Toggle search pane">
+        <button id="toggle-bottom" class="button button-ghost button-xs" title="Toggle search pane">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tool-icon">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 10l6 6 6-6" />
           </svg>
@@ -546,7 +546,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
               <div class="search-section">
                 <div class="search-section-title history-header">
                   <span>History</span>
-                  <button id="clear-history" class="btn btn-ghost btn-xs">Clear</button>
+                  <button id="clear-history" class="button button-ghost button-xs">Clear</button>
                 </div>
                 <div id="search-history" class="search-list search-list-compact"></div>
               </div>
@@ -566,19 +566,19 @@ class LogSearchPanelElement extends LogAppComponentElement {
           </aside>
           <section id="search-results-pane" class="search-results">
             <div class="search-controls">
-              <input id="search-query" class="input input-bordered input-sm w-full" placeholder="Search logs, faults, codes..." />
-              <a class="btn btn-ghost btn-sm search-help-button" href="${searchHelpUrl}" target="_blank" rel="noopener" aria-label="Search syntax help" title="Search syntax help">
+              <input id="search-query" class="text-input text-input-small search-input" placeholder="Search logs, faults, codes..." />
+              <a class="button button-ghost button-small search-help-button" href="${searchHelpUrl}" target="_blank" rel="noopener" aria-label="Search syntax help" title="Search syntax help">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M9.5 9a2.5 2.5 0 1 1 4.2 1.8c-.8.6-1.2 1-1.2 2.2" />
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 17h.01" />
                   <circle cx="12" cy="12" r="9" />
                 </svg>
               </a>
-              <button id="run-search" class="btn btn-primary btn-sm">Search</button>
+              <button id="run-search" class="button button-primary button-small">Search</button>
             </div>
             <div id="search-results" class="search-list search-results-list">
               <div id="search-results-spacer"></div>
-              <div id="search-results-list" class="font-mono text-sm"></div>
+              <div id="search-results-list" class="mono-block"></div>
             </div>
           </section>
         </div>

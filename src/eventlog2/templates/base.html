@@ -1,61 +1,85 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}HTML Log Viewer{% endblock %}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link
-      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css"
-      rel="stylesheet"
-      type="text/css"
-    />
+    <script>
+      (function () {
+        const storageKey = "eventlog2-theme";
+        const storedTheme = localStorage.getItem(storageKey);
+        const preferredTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light";
+        document.documentElement.dataset.theme = storedTheme || preferredTheme;
+      })();
+    </script>
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
     {% block head_extra %}{% endblock %}
   </head>
-  <body class="bg-base-200 text-base-content min-h-screen flex flex-col h-screen">
-    <div class="min-h-screen flex flex-col">
-      <header class="bg-base-100 border-b border-base-300 shadow-sm">
-        <div class="max-w-screen-2xl mx-auto flex items-center justify-between px-4 py-3 gap-4">
-          <a href="{{ url_for('index') }}" class="font-semibold tracking-tight text-lg">
-            HTML Log Viewer
-          </a>
-          <div class="flex items-center gap-3">
-            <a class="btn btn-xs btn-ghost" href="{{ url_for('logs_index') }}">Logs</a>
-            <a class="btn btn-xs btn-outline" href="{{ url_for('upload_logs') }}">Upload</a>
-          </div>
-          <div class="flex items-center gap-2">
+  <body class="app-body{% block body_class %}{% endblock %}">
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="topbar-inner">
+          <a href="{{ url_for('index') }}" class="brand">HTML Log Viewer</a>
+          <nav class="topbar-nav">
+            <a class="button button-ghost button-xs" href="{{ url_for('logs_index') }}">Logs</a>
+            <a class="button button-outline button-xs" href="{{ url_for('upload_logs') }}">Upload</a>
+          </nav>
+          <div class="topbar-actions">
+            <button type="button" id="theme-toggle" class="button button-ghost button-xs" aria-label="Toggle theme">
+              Theme
+            </button>
             {% if current_user %}
-              <span class="text-sm text-base-content/70">
+              <span class="user-state">
                 Signed in as {{ current_user.name or current_user.email }}
               </span>
-              <a class="btn btn-xs btn-ghost" href="{{ url_for('profile') }}">Profile</a>
+              <a class="button button-ghost button-xs" href="{{ url_for('profile') }}">Profile</a>
               <form method="post" action="{{ url_for('logout') }}">
-                <button class="btn btn-xs btn-outline" type="submit">Logout</button>
+                <button class="button button-outline button-xs" type="submit">Logout</button>
               </form>
             {% else %}
-              <a class="btn btn-xs btn-primary" href="{{ url_for('login') }}">Log in</a>
+              <a class="button button-primary button-xs" href="{{ url_for('login') }}">Log in</a>
             {% endif %}
           </div>
         </div>
         {% with messages = get_flashed_messages() %}
           {% if messages %}
-            <div class="bg-warning/20 text-warning">
-              <div class="max-w-screen-2xl mx-auto px-4 py-2 flex flex-col gap-1">
+            <div class="flash-strip">
+              <div class="flash-list">
                 {% for message in messages %}
-                  <div class="text-sm">{{ message }}</div>
+                  <div class="flash-message">{{ message }}</div>
                 {% endfor %}
               </div>
             </div>
           {% endif %}
         {% endwith %}
       </header>
-      <main class="flex-1 w-full flex flex-col min-h-0">
+      <main class="app-content{% block main_class %}{% endblock %}">
         {% block content %}{% endblock %}
       </main>
     </div>
+    <script>
+      (function () {
+        const storageKey = "eventlog2-theme";
+        const button = document.getElementById("theme-toggle");
+        if (!button) return;
+        const root = document.documentElement;
+        const syncLabel = () => {
+          const theme = root.dataset.theme === "dark" ? "Dark" : "Light";
+          button.textContent = theme;
+          button.setAttribute("aria-label", `Switch theme. Current theme: ${theme}`);
+        };
+        button.addEventListener("click", () => {
+          root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+          localStorage.setItem(storageKey, root.dataset.theme);
+          syncLabel();
+        });
+        syncLabel();
+      })();
+    </script>
     {% block body_scripts %}{% endblock %}
   </body>
 </html>
