@@ -7,6 +7,7 @@ class LogMainViewElement extends LogAppComponentElement {
     this.chartSplit = loadSizes(STORAGE_KEYS.mainViewSplit, [36, 64]);
     this.chartInstance = null;
     this.resizeObserver = null;
+    this.viewSplit = null;
   }
 
   getById(id) {
@@ -59,7 +60,6 @@ class LogMainViewElement extends LogAppComponentElement {
               </div>
             </div>
           </section>
-          <div class="main-view-divider" id="main-view-divider" role="separator" aria-orientation="horizontal" aria-label="Resize chart and log panes"></div>
           <section class="main-view-region main-view-log-region" id="log-region">
             <div class="pane-body log-body" id="log-body">
               <div id="log-spacer"></div>
@@ -83,8 +83,7 @@ class LogMainViewElement extends LogAppComponentElement {
     const stack = this.getById("main-view-stack");
     const chartRegion = this.getById("chart-region");
     const logRegion = this.getById("log-region");
-    const divider = this.getById("main-view-divider");
-    if (!stack || !chartRegion || !logRegion || !divider) return;
+    if (!stack || !chartRegion || !logRegion) return;
 
     stack.dataset.mode = this.viewMode;
     const buttons = {
@@ -99,16 +98,45 @@ class LogMainViewElement extends LogAppComponentElement {
       button.setAttribute("aria-selected", String(active));
     });
 
-    if (this.viewMode === "chart") {
-      chartRegion.style.flex = "1 1 auto";
-      logRegion.style.flex = "0 0 0";
-    } else if (this.viewMode === "list") {
-      chartRegion.style.flex = "0 0 0";
-      logRegion.style.flex = "1 1 auto";
+    if (this.viewMode === "split") {
+      chartRegion.style.flex = "";
+      logRegion.style.flex = "";
+      if (!this.viewSplit && typeof Split === "function") {
+        this.viewSplit = Split([chartRegion, logRegion], {
+          direction: "vertical",
+          sizes: this.chartSplit,
+          minSize: [170, 220],
+          gutterSize: 10,
+          elementStyle: (dimension, size, gutterSizeValue) => ({
+            "flex-basis": `calc(${size}% - ${gutterSizeValue}px)`,
+          }),
+          gutterStyle: (dimension, gutterSizeValue) => ({
+            "flex-basis": `${gutterSizeValue}px`,
+          }),
+          onDragEnd: (sizes) => {
+            this.chartSplit = sizes;
+            saveSizes(STORAGE_KEYS.mainViewSplit, sizes);
+            if (this.chartInstance?.resize) this.chartInstance.resize();
+            if (this.state) {
+              this.state.lastRange = [0, 0];
+              this.updateVirtual();
+            }
+          },
+        });
+      } else if (this.viewSplit?.setSizes) {
+        this.viewSplit.setSizes(this.chartSplit);
+      }
     } else {
-      const [chartPercent, logPercent] = this.chartSplit;
-      chartRegion.style.flex = `0 0 ${chartPercent}%`;
-      logRegion.style.flex = `1 1 ${logPercent}%`;
+      if (this.viewSplit?.destroy) {
+        this.viewSplit.destroy();
+        this.viewSplit = null;
+      }
+      chartRegion.style.height = "";
+      logRegion.style.height = "";
+      chartRegion.style.width = "";
+      logRegion.style.width = "";
+      chartRegion.style.flex = this.viewMode === "chart" ? "1 1 auto" : "0 0 0";
+      logRegion.style.flex = this.viewMode === "list" ? "1 1 auto" : "0 0 0";
     }
 
     requestAnimationFrame(() => {
@@ -124,64 +152,11 @@ class LogMainViewElement extends LogAppComponentElement {
     const splitButton = this.getById("view-mode-split");
     const chartButton = this.getById("view-mode-chart");
     const listButton = this.getById("view-mode-list");
-    const divider = this.getById("main-view-divider");
-    const stack = this.getById("main-view-stack");
-    const chartRegion = this.getById("chart-region");
-    const logRegion = this.getById("log-region");
-    if (!splitButton || !chartButton || !listButton || !divider || !stack || !chartRegion || !logRegion) return;
+    if (!splitButton || !chartButton || !listButton) return;
 
     splitButton.addEventListener("click", () => this.setViewMode("split"));
     chartButton.addEventListener("click", () => this.setViewMode("chart"));
     listButton.addEventListener("click", () => this.setViewMode("list"));
-
-    const minChartPx = 170;
-    const minLogPx = 220;
-    divider.addEventListener("mousedown", (event) => {
-      if (this.viewMode !== "split") return;
-      event.preventDefault();
-      const rect = stack.getBoundingClientRect();
-      const totalHeight = rect.height;
-      const gutterSize = divider.offsetHeight || 10;
-      const available = Math.max(1, totalHeight - gutterSize);
-      const minY = rect.top + minChartPx;
-      const maxY = rect.bottom - minLogPx - gutterSize;
-      let currentY = Math.min(maxY, Math.max(minY, event.clientY));
-
-      const ghost = document.createElement("div");
-      ghost.className = "main-view-divider-ghost";
-      ghost.style.top = `${currentY - rect.top}px`;
-      stack.appendChild(ghost);
-      document.body.style.cursor = "row-resize";
-
-      const onMove = (moveEvent) => {
-        currentY = Math.min(maxY, Math.max(minY, moveEvent.clientY));
-        ghost.style.top = `${currentY - rect.top}px`;
-      };
-
-      const onUp = () => {
-        document.removeEventListener("mousemove", onMove);
-        document.removeEventListener("mouseup", onUp);
-        document.body.style.cursor = "";
-        ghost.remove();
-
-        const chartPx = currentY - rect.top;
-        const chartPercent = Math.max(0, Math.min(100, (chartPx / available) * 100));
-        this.chartSplit = [chartPercent, 100 - chartPercent];
-        saveSizes(STORAGE_KEYS.mainViewSplit, this.chartSplit);
-        chartRegion.style.flex = `0 0 ${chartPercent}%`;
-        logRegion.style.flex = `1 1 ${100 - chartPercent}%`;
-        requestAnimationFrame(() => {
-          if (this.chartInstance?.resize) this.chartInstance.resize();
-          if (this.state) {
-            this.state.lastRange = [0, 0];
-            this.updateVirtual();
-          }
-        });
-      };
-
-      document.addEventListener("mousemove", onMove);
-      document.addEventListener("mouseup", onUp);
-    });
 
     this.applyViewLayout();
   }

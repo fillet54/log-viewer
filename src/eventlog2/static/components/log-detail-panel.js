@@ -176,7 +176,7 @@ class LogDetailPanelElement extends LogAppComponentElement {
         </div>
         <button id="toggle-detail" class="button button-ghost button-xs" title="Hide info pane" aria-label="Hide info pane">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="tool-icon">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 6l-6 6 6 6" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6" />
           </svg>
         </button>
       </div>

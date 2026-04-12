@@ -10,6 +10,7 @@ from .plugin_manager import build_page_data_from_path
 
 SCRIPT_PATHS = [
     "static/vendor/chart.umd.min.js",
+    "static/vendor/split.min.js",
     "static/services/search.js",
     "static/shared/log-row-helper.js",
     "static/services/app-services.js",

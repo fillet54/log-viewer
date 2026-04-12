@@ -26,6 +26,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6l-12 12" />
       </svg>
     `;
+    this.searchSplitInstance = null;
   }
 
   getById(id) {
@@ -153,6 +154,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
     if (this.events.length) this.measureResultRow();
     this.renderResults(this.events.slice(0, 200));
     this.applyFilters();
+    this.initializeSearchSplit();
 
     if (bus) {
       bus.on("bookmarks:changed", () => this.renderBookmarks());
@@ -180,6 +182,24 @@ class LogSearchPanelElement extends LogAppComponentElement {
         }
       });
     }
+  }
+
+  initializeSearchSplit() {
+    const left = this.getById("search-history-pane");
+    const right = this.getById("search-results-pane");
+    if (!this.searchSplit || !left || !right || this.searchSplitInstance || typeof Split !== "function") return;
+    this.searchSplitInstance = Split([left, right], {
+      sizes: loadSizes(STORAGE_KEYS.search, [28, 72]),
+      minSize: [160, 320],
+      gutterSize: 8,
+      elementStyle: (dimension, size, gutterSizeValue) => ({
+        "flex-basis": `calc(${size}% - ${gutterSizeValue}px)`,
+      }),
+      gutterStyle: (dimension, gutterSizeValue) => ({
+        "flex-basis": `${gutterSizeValue}px`,
+      }),
+      onDragEnd: (sizes) => saveSizes(STORAGE_KEYS.search, sizes),
+    });
   }
 
   persist() {
@@ -535,7 +555,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
         </button>
       </div>
       <div class="pane-body search-pane">
-        <div id="search-split" class="search-split ghost-split">
+        <div id="search-split" class="search-split">
           <aside id="search-history-pane" class="search-history">
             <div id="search-history-view" class="search-view">
               <div class="search-section">
