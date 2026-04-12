@@ -714,14 +714,101 @@ log-layout {
   flex: 0 0 70%;
   display: flex;
   min-height: 0;
+  position: relative;
 }
 
 .layout-top-inner {
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
-  width: 100%;
+  min-width: 0;
   overflow: hidden;
+}
+
+.layout-top-inner.detail-collapsed {
+  display: flex;
+}
+
+.layout-top-inner.detail-collapsed .ghost-gutter {
+  display: none;
+}
+
+.layout-top-inner.detail-collapsed #pane-right {
+  display: none;
+}
+
+.layout-top-inner.detail-collapsed #pane-center {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.top-pane-toggle {
+  position: static;
+  z-index: 0;
+  width: 0;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+  border-left: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex: 0 0 0;
+}
+
+.top-pane-toggle-rail-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.top-pane-toggle-rail-chevron svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.top-pane-toggle-rail {
+  display: none;
+}
+
+.top-pane-toggle.is-collapsed {
+  display: inline-flex;
+  width: 1.9rem;
+  min-width: 1.9rem;
+  min-height: auto;
+  flex: 0 0 1.9rem;
+  align-self: stretch;
+  border-left: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-soft) 98%, transparent);
+}
+
+.top-pane-toggle.is-collapsed .top-pane-toggle-rail {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 100%;
+}
+
+.top-pane-toggle-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.pane-header-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
 }
 
 #pane-bottom {

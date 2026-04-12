@@ -5,7 +5,9 @@ class LayoutController {
     this.rootLayoutInitialized = false;
     this.topLayoutInitialized = false;
     this.searchLayoutInitialized = false;
+    this.detailToggleInitialized = false;
     this.bottomToggleInitialized = false;
+    this.detailClickBound = false;
   }
 
   getById(id) {
@@ -104,6 +106,22 @@ class LayoutController {
       });
       this.topLayoutInitialized = true;
     }
+
+    if (!this.detailToggleInitialized) {
+      if (!this.detailClickBound) {
+        this.element.addEventListener("click", (event) => {
+          const button = event.target.closest("#toggle-detail, #toggle-detail-restore");
+          if (!button) return;
+          const next = !(localStorage.getItem(this.storageKeys.detailCollapsed) === "true");
+          localStorage.setItem(this.storageKeys.detailCollapsed, String(next));
+          this.setDetailCollapsed(next);
+        });
+        this.detailClickBound = true;
+      }
+      this.detailToggleInitialized = true;
+    }
+
+    this.setDetailCollapsed(localStorage.getItem(this.storageKeys.detailCollapsed) === "true");
   }
 
   initializeSearchLayout() {
@@ -138,6 +156,66 @@ class LayoutController {
     }
 
     this.setBottomCollapsed(localStorage.getItem(this.storageKeys.bottomCollapsed) === "true");
+  }
+
+  applyTopSplitFromStorage() {
+    const splitTop = this.getById("split-top");
+    const centerPane = this.getById("pane-center");
+    const rightPane = this.getById("pane-right");
+    if (!splitTop || !centerPane || !rightPane) return;
+
+    const saved = loadSizes(this.storageKeys.top, [70, 30]);
+    const width = splitTop.clientWidth;
+    const gutterSize = 10;
+    if (width <= 0) return;
+
+    const minLeft = this.resolveMinWidth(centerPane, 420);
+    const minRight = this.resolveMinWidth(rightPane, 240);
+    const available = Math.max(1, width - gutterSize);
+    const maxLeft = Math.max(minLeft, available - minRight);
+    const preferredLeft = Math.max(minLeft, (saved[0] / 100) * available);
+    const leftPx = Math.min(maxLeft, preferredLeft);
+    const rightPx = Math.max(minRight, width - leftPx - gutterSize);
+
+    centerPane.style.flex = `0 0 ${leftPx}px`;
+    rightPane.style.flex = `1 1 ${rightPx}px`;
+  }
+
+  setDetailCollapsed(collapsed) {
+    const splitTop = this.getById("split-top");
+    const centerPane = this.getById("pane-center");
+    const rightPane = this.getById("pane-right");
+    const button = this.getById("toggle-detail");
+    const restoreButton = this.getById("toggle-detail-restore");
+    if (!splitTop || !centerPane || !rightPane) return;
+
+    if (collapsed) {
+      splitTop.classList.add("detail-collapsed");
+      centerPane.style.flex = "1 1 auto";
+      rightPane.style.flex = "0 0 0";
+      if (button) {
+        button.setAttribute("aria-label", "Show info pane");
+        button.setAttribute("title", "Show info pane");
+      }
+      if (restoreButton) {
+        restoreButton.setAttribute("aria-label", "Show info pane");
+        restoreButton.setAttribute("title", "Show info pane");
+        restoreButton.classList.add("is-collapsed");
+      }
+      return;
+    }
+
+    splitTop.classList.remove("detail-collapsed");
+    this.applyTopSplitFromStorage();
+    if (button) {
+      button.setAttribute("aria-label", "Hide info pane");
+      button.setAttribute("title", "Hide info pane");
+    }
+    if (restoreButton) {
+      restoreButton.setAttribute("aria-label", "Hide info pane");
+      restoreButton.setAttribute("title", "Hide info pane");
+      restoreButton.classList.remove("is-collapsed");
+    }
   }
 
   setBottomCollapsed(collapsed) {
@@ -350,6 +428,16 @@ class LogLayoutElement extends LogAppComponentElement {
       <div id="split-root" class="layout-shell ghost-split">
         <section id="pane-top" class="layout-top">
           <div id="split-top" class="layout-top-inner ghost-split"></div>
+          <button id="toggle-detail-restore" class="button button-ghost button-xs top-pane-toggle" title="Show info pane" aria-label="Show info pane">
+            <span class="top-pane-toggle-rail" aria-hidden="true">
+              <span class="top-pane-toggle-rail-chevron">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6" />
+                </svg>
+              </span>
+              <span class="top-pane-toggle-label">INFO</span>
+            </span>
+          </button>
         </section>
       </div>
     `;

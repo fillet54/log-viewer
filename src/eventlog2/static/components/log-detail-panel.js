@@ -165,13 +165,20 @@ class DetailPanelController {
 class LogDetailPanelElement extends LogAppComponentElement {
   renderShell() {
     this.innerHTML = `
-      <div class="pane-header">
-        <span class="icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 12h6l3-3 6 6" />
+      <div class="pane-header pane-header-spread">
+        <div class="pane-header-title">
+          <span class="icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 12h6l3-3 6 6" />
+            </svg>
+          </span>
+          Insights
+        </div>
+        <button id="toggle-detail" class="button button-ghost button-xs" title="Hide info pane" aria-label="Hide info pane">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="tool-icon">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 6l-6 6 6 6" />
           </svg>
-        </span>
-        Insights
+        </button>
       </div>
       <div class="pane-body" id="event-detail">
         <div class="empty-panel-message">Select a log event to view details.</div>

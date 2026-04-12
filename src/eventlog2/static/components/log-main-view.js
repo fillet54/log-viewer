@@ -6,6 +6,7 @@ class LogMainViewElement extends LogAppComponentElement {
     this.viewMode = localStorage.getItem(STORAGE_KEYS.mainViewMode) || "split";
     this.chartSplit = loadSizes(STORAGE_KEYS.mainViewSplit, [36, 64]);
     this.chartInstance = null;
+    this.resizeObserver = null;
   }
 
   getById(id) {
@@ -183,6 +184,22 @@ class LogMainViewElement extends LogAppComponentElement {
     });
 
     this.applyViewLayout();
+  }
+
+  initializeResizeHandling() {
+    if (this.resizeObserver || typeof ResizeObserver !== "function") return;
+    const logBody = this.getById("log-body");
+    const schedule = () => {
+      requestAnimationFrame(() => {
+        if (!this.state) return;
+        this.state.lastRange = [0, 0];
+        this.updateVirtual();
+      });
+    };
+
+    this.resizeObserver = new ResizeObserver(() => schedule());
+    this.resizeObserver.observe(this);
+    if (logBody) this.resizeObserver.observe(logBody);
   }
 
   getServices() {
@@ -457,6 +474,7 @@ class LogMainViewElement extends LogAppComponentElement {
       bookmarks,
     });
     this.initializeViewModeControls();
+    this.initializeResizeHandling();
   }
 
   connectedCallback() {

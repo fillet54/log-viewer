@@ -1,6 +1,7 @@
 const STORAGE_KEYS = {
   root: "loglayout.split.root",
   top: "loglayout.split.top",
+  detailCollapsed: "loglayout.split.detail.collapsed",
   bottomCollapsed: "loglayout.split.bottom.collapsed",
   search: "loglayout.split.search",
   rootExpanded: "loglayout.split.root.expanded",
