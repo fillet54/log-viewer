@@ -17,6 +17,9 @@ dependencies = [
 [project.scripts]
 eventlog2 = "eventlog2.__main__:main"
 
+[project.entry-points."eventlog2.plugins"]
+core-event = "eventlog2.plugins:CoreEventPlugin"
+
 [tool.setuptools]
 include-package-data = true
 
@@ -30,4 +33,7 @@ eventlog2 = [
     "static/**/*.js",
     "static/**/*.css",
     "static/**/*.html",
+    "plugins/**/*.json",
+    "plugins/**/*.html",
+    "plugins/**/*.js",
 ]

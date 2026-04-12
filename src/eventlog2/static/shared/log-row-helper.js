@@ -16,32 +16,35 @@ const hasEventData = (value) => {
   return true;
 };
 
-const COLOR_PREFIX = {
-  green: "G",
-  yellow: "Y",
-  red: "R",
-  "dark-red": "R",
-  "flashing-red": "F",
-};
-
-const buildFaultPrefix = (event, colorClass) => {
-  const rawCode = String(event.code || "").trim();
-  if (!rawCode) return "";
-
-  const parts = rawCode.split("-").filter(Boolean);
-  const severity = COLOR_PREFIX[colorClass] || "G";
-
-  if (parts.length >= 2) {
-    return `${parts[0]}-${severity}-${parts.slice(1).join("-")}`;
+const resolveRowDisplay = (event) => {
+  const provided = event?.rowDisplay;
+  if (provided && typeof provided === "object") {
+    return {
+      utctime: String(provided.utctime ?? ""),
+      actionLabel: String(provided.actionLabel ?? event?.set_clear ?? ""),
+      name: String(provided.name ?? event?.name ?? ""),
+      prefix: String(provided.prefix ?? ""),
+      offset: String(provided.offset ?? ""),
+      description: String(provided.description ?? event?.description ?? ""),
+      location: String(provided.location ?? ""),
+      hasData: provided.hasData ?? hasEventData(event?.data),
+      dataLabel: String(provided.dataLabel ?? ""),
+    };
   }
 
-  const systemPrefix = String(event.system || "")
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "")
-    .slice(0, 3);
-
-  return systemPrefix ? `${systemPrefix}-${severity}-${rawCode}` : `${severity}-${rawCode}`;
+  const offsetValue = Number(event?.norm_time);
+  const fallbackHasData = hasEventData(event?.data);
+  return {
+    utctime: String(event?.utctime ?? ""),
+    actionLabel: String(event?.set_clear ?? ""),
+    name: String(event?.name ?? ""),
+    prefix: "",
+    offset: Number.isFinite(offsetValue) ? `${offsetValue.toFixed(3)}s` : "",
+    description: String(event?.description ?? ""),
+    location: "",
+    hasData: fallbackHasData,
+    dataLabel: fallbackHasData ? "Event has data" : "No event data",
+  };
 };
 
 LogRowHelper.buildRow = (event, templateEl, options = {}) => {
@@ -52,6 +55,7 @@ LogRowHelper.buildRow = (event, templateEl, options = {}) => {
   const colorClass = String(colorLabel).toLowerCase().replace(/\s+/g, "-");
   const colorIndex = bookmarks?.getColor(event.row_id) || 0;
   const extra = Array.isArray(extraClasses) ? extraClasses.filter(Boolean) : [];
+  const display = resolveRowDisplay(event);
   row.className = [`log-line log-${colorClass}${colorIndex ? " is-bookmarked" : ""}`, ...extra].join(
     " "
   );
@@ -63,16 +67,13 @@ LogRowHelper.buildRow = (event, templateEl, options = {}) => {
     const el = row.querySelector(selector);
     if (el) el.textContent = value ?? "";
   };
-  setText('[data-field="utctime"]', event.utctime);
-  setText('[data-field="action-label"]', event.set_clear);
-  setText('[data-field="name"]', event.name);
-  const prefixValue = buildFaultPrefix(event, colorClass);
-  setText('[data-field="fault-prefix"]', prefixValue ? `[${prefixValue}]` : "");
-  const offsetValue = Number(event.norm_time);
-  setText('[data-field="offset"]', Number.isFinite(offsetValue) ? `${offsetValue.toFixed(3)}s` : "");
-  setText('[data-field="description"]', event.description);
-  const location = [event.system, event.subsystem, event.unit].filter(Boolean).join("/");
-  setText('[data-field="location"]', location ? `(${location})` : "");
+  setText('[data-field="utctime"]', display.utctime);
+  setText('[data-field="action-label"]', display.actionLabel);
+  setText('[data-field="name"]', display.name);
+  setText('[data-field="fault-prefix"]', display.prefix);
+  setText('[data-field="offset"]', display.offset);
+  setText('[data-field="description"]', display.description);
+  setText('[data-field="location"]', display.location);
 
   const actionEl = row.querySelector('[data-field="action"]');
   if (actionEl) {
@@ -81,18 +82,17 @@ LogRowHelper.buildRow = (event, templateEl, options = {}) => {
   }
   const matchContainer = row.querySelector('[data-field="match-links"]');
 
-  const hasData = hasEventData(event.data);
   const dataIndicatorEl = row.querySelector('[data-field="data-indicator"]');
   if (dataIndicatorEl) {
-    dataIndicatorEl.dataset.hasData = hasData ? "true" : "false";
-    const label = hasData ? "Event has data" : "No event data";
+    dataIndicatorEl.dataset.hasData = display.hasData ? "true" : "false";
+    const label = display.dataLabel || (display.hasData ? "Event has data" : "No event data");
     dataIndicatorEl.title = label;
     dataIndicatorEl.setAttribute("aria-label", label);
   }
 
   const prefixEl = row.querySelector('[data-field="fault-prefix"]');
   if (prefixEl) {
-    prefixEl.classList.toggle("is-hidden", !prefixValue);
+    prefixEl.classList.toggle("is-hidden", !display.prefix);
   }
 
   if (matchContainer) {
@@ -148,10 +148,10 @@ LogRowHelper.buildRow = (event, templateEl, options = {}) => {
     }
   }
 
-  const channels = new Set(event.channels || []);
-  ["A", "B", "C", "D"].forEach((channelId) => {
-    const el = row.querySelector(`[data-channel="${channelId}"]`);
-    if (el) el.classList.toggle("is-on", channels.has(channelId));
+  const channels = new Set((event.channels || []).map((channel) => String(channel)));
+  row.querySelectorAll("[data-channel]").forEach((el) => {
+    const channelId = String(el.dataset.channel || "");
+    el.classList.toggle("is-on", channels.has(channelId));
   });
 
   return row;

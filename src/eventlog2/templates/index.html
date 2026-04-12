@@ -4,7 +4,9 @@
 {% block main_class %} app-content-viewer{% endblock %}
 
 {% block head_extra %}
-  <script src="{{ url_for('static', filename='dev-data.js') }}"></script>
+  {% if page_data_script %}
+    <script>{{ page_data_script|safe }}</script>
+  {% endif %}
 {% endblock %}
 
 {% block content %}

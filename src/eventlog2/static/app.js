@@ -36,8 +36,38 @@ const queryById = (root, id) => {
   return null;
 };
 
-const loadInitialData = (root) => {
-  return window.EVENTLOG2_INITIAL_DATA || null;
+const loadPageData = () => {
+  return window.EVENTLOG2_PAGE_DATA || null;
+};
+
+const cloneTemplateNode = (html) => {
+  if (typeof html !== "string" || !html.trim()) return null;
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = html.trim();
+  const template = wrapper.querySelector('template[data-role="row-template"]');
+  return template ? template.cloneNode(true) : null;
+};
+
+const applyPageView = (root, pageData) => {
+  const rowTemplateHtml = pageData?.view?.rowTemplate;
+  const template = cloneTemplateNode(rowTemplateHtml);
+  if (!template || !root) return;
+  root.querySelectorAll('template[data-role="row-template"]').forEach((node) => {
+    node.replaceWith(template.cloneNode(true));
+  });
+};
+
+const loadPageScripts = (root, pageData) => {
+  if (!root) return;
+  root.querySelectorAll('script[data-role="plugin-view-script"]').forEach((node) => node.remove());
+  const scripts = Array.isArray(pageData?.view?.scripts) ? pageData.view.scripts : [];
+  scripts.forEach((source) => {
+    if (typeof source !== "string" || !source.trim()) return;
+    const script = document.createElement("script");
+    script.dataset.role = "plugin-view-script";
+    script.textContent = source;
+    root.appendChild(script);
+  });
 };
 
 const smoothScrollTo = (container, targetTop, durationMs = 200, onComplete = null) => {
@@ -130,22 +160,36 @@ class LogViewerAppElement extends HTMLElement {
     return this._services?.comments || null;
   }
 
+  getPlugin() {
+    return this._services?.plugin || null;
+  }
+
+  getView() {
+    return this._services?.view || null;
+  }
+
+  renderStartupError(message) {
+    this.innerHTML = `<div class="empty-panel-message">${String(message || "Unable to load event log viewer.")}</div>`;
+  }
+
   initializeIfReady() {
     if (this._initialized) return;
     if (!this.isConnected) return;
 
-    const logData = this._data ?? loadInitialData(this);
-    if (!logData) return;
+    const pageData = this._data ?? loadPageData();
+    if (!pageData) return;
 
-    this._data = logData;
-    this._initialized = true;
-    attachServices(
-      this,
-      LogServices.createRootServices({
-        logData,
-      })
-    );
-    this.dispatchEvent(new CustomEvent("logapp:ready", { bubbles: true, composed: true }));
+    try {
+      applyPageView(this, pageData);
+      loadPageScripts(this, pageData);
+      this._data = pageData;
+      this._initialized = true;
+      attachServices(this, LogServices.createRootServices({ pageData }));
+      this.dispatchEvent(new CustomEvent("logapp:ready", { bubbles: true, composed: true }));
+    } catch (error) {
+      console.error(error);
+      this.renderStartupError(error?.message || "Unable to load event log viewer.");
+    }
   }
 
   connectedCallback() {
@@ -153,7 +197,7 @@ class LogViewerAppElement extends HTMLElement {
     this._connected = true;
 
     if (this._data == null) {
-      this._data = loadInitialData(this);
+      this._data = loadPageData();
     }
     this.initializeIfReady();
   }
@@ -194,5 +238,13 @@ class LogAppComponentElement extends HTMLElement {
 
   getComments() {
     return this.getAppRoot()?.getComments() || null;
+  }
+
+  getPlugin() {
+    return this.getAppRoot()?.getPlugin() || null;
+  }
+
+  getView() {
+    return this.getAppRoot()?.getView() || null;
   }
 }

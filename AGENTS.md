@@ -12,9 +12,6 @@ easier.
 * htmx
 * splitjs
 * chartjs
-* tailwindcss
-* daisyui
-* heroicons
 
 
 

@@ -4,4 +4,5 @@ data/
 log_viewer.db
 build/
 *.egg-info/
+.pytest_cache/
 

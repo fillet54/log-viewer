@@ -1,151 +1,5 @@
 window.LogServices = window.LogServices || {};
 
-const MATCH_CHANNELS = ["A", "B", "C", "D"];
-
-const normalizeAction = (value) => String(value || "").trim().toLowerCase();
-
-const eventChannelList = (event) => {
-  const incoming = Array.isArray(event?.channels) ? event.channels : [];
-  const unique = new Set(
-    incoming
-      .map((channel) => String(channel || "").trim().toUpperCase())
-      .filter((channel) => MATCH_CHANNELS.includes(channel))
-  );
-  return MATCH_CHANNELS.filter((channel) => unique.has(channel));
-};
-
-const formatDurationLabel = (seconds) => {
-  const value = Number(seconds);
-  if (!Number.isFinite(value) || value < 0) return "";
-  return `${Math.round(value)}s`;
-};
-
-const buildPairKey = (event, channel) =>
-  [
-    String(event?.system || "").trim(),
-    String(event?.subsystem || "").trim(),
-    String(event?.unit || "").trim(),
-    String(event?.code || "").trim(),
-    channel,
-  ].join("|");
-
-const summarizeMatches = (event, channelMatches) => {
-  const channels = eventChannelList(event);
-  if (!channels.length) return { items: [], collapsed: false };
-
-  const matches = channels
-    .map((channel) => channelMatches[channel])
-    .filter((item) => item && item.linkedRowId != null && item.durationSeconds != null);
-
-  if (!matches.length) return { items: [], collapsed: false };
-
-  const reference = matches[0];
-  const allChannelsMatched =
-    matches.length === channels.length &&
-    matches.every(
-      (item) =>
-        item.linkedRowId === reference.linkedRowId &&
-        item.direction === reference.direction &&
-        item.label === reference.label
-    );
-
-  if (allChannelsMatched && channels.length > 1) {
-    return {
-      collapsed: true,
-      items: [
-        {
-          channelLabel: "ALL",
-          label: reference.label,
-          linkedRowId: reference.linkedRowId,
-          direction: reference.direction,
-          title: reference.title,
-          durationSeconds: reference.durationSeconds,
-        },
-      ],
-    };
-  }
-
-  return {
-    collapsed: false,
-    items: channels
-      .map((channel) => {
-        const item = channelMatches[channel];
-        if (!item || item.linkedRowId == null || item.durationSeconds == null) return null;
-        return {
-          channelLabel: channel,
-          label: item.label,
-          linkedRowId: item.linkedRowId,
-          direction: item.direction,
-          title: item.title,
-          durationSeconds: item.durationSeconds,
-        };
-      })
-      .filter(Boolean),
-  };
-};
-
-LogServices.enrichEvents = (events) => {
-  const list = Array.isArray(events) ? events : [];
-  const enriched = list.map((event) => ({
-    ...event,
-    channels: eventChannelList(event),
-    pairedChannels: {},
-    matchSummary: { items: [], collapsed: false },
-  }));
-
-  const ordered = enriched
-    .slice()
-    .sort((a, b) => (Number(a.norm_time) || 0) - (Number(b.norm_time) || 0) || (Number(a.row_id) || 0) - (Number(b.row_id) || 0));
-
-  const openSets = new Map();
-
-  ordered.forEach((event) => {
-    const action = normalizeAction(event.set_clear);
-    event.channels.forEach((channel) => {
-      const key = buildPairKey(event, channel);
-      if (!openSets.has(key)) openSets.set(key, []);
-      const queue = openSets.get(key);
-
-      if (action === "set") {
-        queue.push(event);
-        return;
-      }
-
-      if (action !== "clear" || !queue.length) return;
-
-      const setEvent = queue.shift();
-      const durationSeconds = Math.max(0, (Number(event.norm_time) || 0) - (Number(setEvent.norm_time) || 0));
-      const label = formatDurationLabel(durationSeconds);
-
-      setEvent.pairedChannels[channel] = {
-        channel,
-        linkedRowId: event.row_id,
-        linkedSeconds: event.norm_time,
-        durationSeconds,
-        direction: "forward",
-        label,
-        title: `Jump to clear event for channel ${channel}`,
-      };
-
-      event.pairedChannels[channel] = {
-        channel,
-        linkedRowId: setEvent.row_id,
-        linkedSeconds: setEvent.norm_time,
-        durationSeconds,
-        direction: "back",
-        label,
-        title: `Jump to set event for channel ${channel}`,
-      };
-    });
-  });
-
-  enriched.forEach((event) => {
-    event.matchSummary = summarizeMatches(event, event.pairedChannels);
-  });
-
-  return enriched;
-};
-
 LogServices.createEventBus = () => {
   const listeners = new Map();
   return {
@@ -307,18 +161,33 @@ LogServices.createCommentService = ({ logData, bus }) => {
   return { addComment, getByRowId, buildThreads };
 };
 
-LogServices.createRootServices = ({ logData }) => {
+LogServices.createRootServices = ({ pageData }) => {
   const bus = LogServices.createEventBus();
-  const events = LogServices.enrichEvents(logData?.events || []);
-  const enrichedLogData = {
-    ...(logData || {}),
-    events,
-  };
+  const pluginValue = pageData && typeof pageData === "object" ? pageData.plugin : null;
+  const plugin =
+    pluginValue && typeof pluginValue === "object"
+      ? pluginValue
+      : typeof pluginValue === "string"
+        ? { id: pluginValue, name: pluginValue }
+        : null;
+  const logData = (() => {
+    if (!pageData || typeof pageData !== "object") return null;
+    if (pageData.logData && typeof pageData.logData === "object") return pageData.logData;
+    if (pageData.payload && typeof pageData.payload === "object") return pageData.payload;
+    return null;
+  })();
+  const view =
+    pageData && typeof pageData === "object" && pageData.view && typeof pageData.view === "object"
+      ? pageData.view
+      : {};
+  const events = Array.isArray(logData?.events) ? logData.events : [];
   return {
+    plugin,
+    view,
     bus,
-    logData: enrichedLogData,
+    logData,
     searchWorker: LogSearch.createWorker(events),
-    bookmarks: LogServices.createBookmarkService({ logData: enrichedLogData, bus }),
-    comments: LogServices.createCommentService({ logData: enrichedLogData, bus }),
+    bookmarks: LogServices.createBookmarkService({ logData, bus }),
+    comments: LogServices.createCommentService({ logData, bus }),
   };
 };
