@@ -5,13 +5,14 @@ LogMainViewChart.mount = (root, services) => {
   if (!logData) return null;
 
   const stackedCanvas = queryById(root, "stacked-chart");
+  const chartRegion = queryById(root, "chart-region");
   const severityTab = queryById(root, "tab-chart-severity");
   const systemsTab = queryById(root, "tab-chart-systems");
   const severityPanel = queryById(root, "chart-panel-severity");
   const systemsPanel = queryById(root, "chart-panel-systems");
   const tools = root.querySelector(".chart-tools");
   const systemStatusBoard = queryById(root, "system-status-board");
-  if (!stackedCanvas || !severityTab || !systemsTab || !severityPanel || !systemsPanel || !systemStatusBoard) {
+  if (!stackedCanvas || !chartRegion || !severityTab || !systemsTab || !severityPanel || !systemsPanel || !systemStatusBoard) {
     return null;
   }
 
@@ -330,6 +331,28 @@ LogMainViewChart.mount = (root, services) => {
     },
     plugins: [modeBandPlugin, bookmarkPlugin, hoverLinePlugin, scrollIndicatorPlugin],
   });
+
+  let resizeRaf = 0;
+  const scheduleResize = () => {
+    if (resizeRaf) cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(() => {
+      resizeRaf = 0;
+      stackedChart.resize();
+      stackedChart.update("none");
+    });
+  };
+
+  scheduleResize();
+  if (typeof ResizeObserver === "function") {
+    const resizeObserver = new ResizeObserver(() => scheduleResize());
+    resizeObserver.observe(chartRegion);
+    resizeObserver.observe(severityPanel);
+    resizeObserver.observe(systemsPanel);
+    stackedChart.$resizeObserver = resizeObserver;
+  } else {
+    window.addEventListener("resize", scheduleResize);
+    stackedChart.$resizeFallback = scheduleResize;
+  }
 
   const updateHover = (event) => {
     const pos = Chart.helpers.getRelativePosition(event, stackedChart);

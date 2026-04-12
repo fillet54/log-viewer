@@ -3,6 +3,9 @@ class LogMainViewElement extends LogAppComponentElement {
     super();
     this.state = null;
     this.pendingFilter = 0;
+    this.viewMode = localStorage.getItem(STORAGE_KEYS.mainViewMode) || "split";
+    this.chartSplit = loadSizes(STORAGE_KEYS.mainViewSplit, [36, 64]);
+    this.chartInstance = null;
   }
 
   getById(id) {
@@ -16,40 +19,170 @@ class LogMainViewElement extends LogAppComponentElement {
   renderShell() {
     const rowTemplate = this.getRowTemplate();
     this.innerHTML = `
-      <div class="chart-band">
-        <div class="chart-band-header">
-          <div class="chart-tabs" role="tablist" aria-label="Top chart tabs">
-            <button id="tab-chart-severity" class="button button-ghost button-xs chart-tab is-active" role="tab" aria-selected="true">Severity</button>
-            <button id="tab-chart-systems" class="button button-ghost button-xs chart-tab" role="tab" aria-selected="false">Subsystem Status</button>
-          </div>
-          <div class="chart-tools">
-            <button
-              id="toggle-tooltips"
-              class="button button-outline button-xs chart-toggle"
-              aria-pressed="true"
-              title="Toggle value popup on hover"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="tool-icon">
-                <circle cx="12" cy="12" r="9" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8.25h.01M11.25 11.25h1.5v5.5" />
-              </svg>
-              <span class="sr-only">Toggle value popup</span>
-            </button>
+      <div class="main-view-shell">
+        <div class="main-view-toolbar">
+          <div class="view-mode-toggle" role="tablist" aria-label="Main view layout">
+            <button id="view-mode-split" class="button button-ghost button-xs view-mode-button" role="tab" aria-selected="false">Chart + Log</button>
+            <button id="view-mode-chart" class="button button-ghost button-xs view-mode-button" role="tab" aria-selected="false">Chart</button>
+            <button id="view-mode-list" class="button button-ghost button-xs view-mode-button" role="tab" aria-selected="false">Log</button>
           </div>
         </div>
-        <div id="chart-panel-severity" class="chart-panel is-active">
-          <canvas id="stacked-chart" height="120"></canvas>
+        <div class="main-view-stack" id="main-view-stack">
+          <section class="main-view-region main-view-chart-region" id="chart-region">
+            <div class="chart-band">
+              <div class="chart-band-header">
+                <div class="chart-tabs" role="tablist" aria-label="Top chart tabs">
+                  <button id="tab-chart-severity" class="button button-ghost button-xs chart-tab is-active" role="tab" aria-selected="true">Severity</button>
+                  <button id="tab-chart-systems" class="button button-ghost button-xs chart-tab" role="tab" aria-selected="false">Subsystem Status</button>
+                </div>
+                <div class="chart-tools">
+                  <button
+                    id="toggle-tooltips"
+                    class="button button-outline button-xs chart-toggle"
+                    aria-pressed="true"
+                    title="Toggle value popup on hover"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="tool-icon">
+                      <circle cx="12" cy="12" r="9" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8.25h.01M11.25 11.25h1.5v5.5" />
+                    </svg>
+                    <span class="sr-only">Toggle value popup</span>
+                  </button>
+                </div>
+              </div>
+              <div id="chart-panel-severity" class="chart-panel is-active">
+                <canvas id="stacked-chart"></canvas>
+              </div>
+              <div id="chart-panel-systems" class="chart-panel chart-panel-systems">
+                <div id="system-status-board" class="system-status-board"></div>
+              </div>
+            </div>
+          </section>
+          <div class="main-view-divider" id="main-view-divider" role="separator" aria-orientation="horizontal" aria-label="Resize chart and log panes"></div>
+          <section class="main-view-region main-view-log-region" id="log-region">
+            <div class="pane-body log-body" id="log-body">
+              <div id="log-spacer"></div>
+              <div class="mono-block" id="log-list"></div>
+            </div>
+          </section>
         </div>
-        <div id="chart-panel-systems" class="chart-panel chart-panel-systems">
-          <div id="system-status-board" class="system-status-board"></div>
-        </div>
-      </div>
-      <div class="pane-body log-body" id="log-body">
-        <div id="log-spacer"></div>
-        <div class="mono-block" id="log-list"></div>
       </div>
     `;
     if (rowTemplate) this.appendChild(rowTemplate);
+  }
+
+  setViewMode(mode) {
+    const allowed = new Set(["split", "chart", "list"]);
+    this.viewMode = allowed.has(mode) ? mode : "split";
+    localStorage.setItem(STORAGE_KEYS.mainViewMode, this.viewMode);
+    this.applyViewLayout();
+  }
+
+  applyViewLayout() {
+    const stack = this.getById("main-view-stack");
+    const chartRegion = this.getById("chart-region");
+    const logRegion = this.getById("log-region");
+    const divider = this.getById("main-view-divider");
+    if (!stack || !chartRegion || !logRegion || !divider) return;
+
+    stack.dataset.mode = this.viewMode;
+    const buttons = {
+      split: this.getById("view-mode-split"),
+      chart: this.getById("view-mode-chart"),
+      list: this.getById("view-mode-list"),
+    };
+    Object.entries(buttons).forEach(([mode, button]) => {
+      if (!button) return;
+      const active = mode === this.viewMode;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
+
+    if (this.viewMode === "chart") {
+      chartRegion.style.flex = "1 1 auto";
+      logRegion.style.flex = "0 0 0";
+    } else if (this.viewMode === "list") {
+      chartRegion.style.flex = "0 0 0";
+      logRegion.style.flex = "1 1 auto";
+    } else {
+      const [chartPercent, logPercent] = this.chartSplit;
+      chartRegion.style.flex = `0 0 ${chartPercent}%`;
+      logRegion.style.flex = `1 1 ${logPercent}%`;
+    }
+
+    requestAnimationFrame(() => {
+      if (this.chartInstance?.resize) this.chartInstance.resize();
+      if (this.state) {
+        this.state.lastRange = [0, 0];
+        this.updateVirtual();
+      }
+    });
+  }
+
+  initializeViewModeControls() {
+    const splitButton = this.getById("view-mode-split");
+    const chartButton = this.getById("view-mode-chart");
+    const listButton = this.getById("view-mode-list");
+    const divider = this.getById("main-view-divider");
+    const stack = this.getById("main-view-stack");
+    const chartRegion = this.getById("chart-region");
+    const logRegion = this.getById("log-region");
+    if (!splitButton || !chartButton || !listButton || !divider || !stack || !chartRegion || !logRegion) return;
+
+    splitButton.addEventListener("click", () => this.setViewMode("split"));
+    chartButton.addEventListener("click", () => this.setViewMode("chart"));
+    listButton.addEventListener("click", () => this.setViewMode("list"));
+
+    const minChartPx = 170;
+    const minLogPx = 220;
+    divider.addEventListener("mousedown", (event) => {
+      if (this.viewMode !== "split") return;
+      event.preventDefault();
+      const rect = stack.getBoundingClientRect();
+      const totalHeight = rect.height;
+      const gutterSize = divider.offsetHeight || 10;
+      const available = Math.max(1, totalHeight - gutterSize);
+      const minY = rect.top + minChartPx;
+      const maxY = rect.bottom - minLogPx - gutterSize;
+      let currentY = Math.min(maxY, Math.max(minY, event.clientY));
+
+      const ghost = document.createElement("div");
+      ghost.className = "main-view-divider-ghost";
+      ghost.style.top = `${currentY - rect.top}px`;
+      stack.appendChild(ghost);
+      document.body.style.cursor = "row-resize";
+
+      const onMove = (moveEvent) => {
+        currentY = Math.min(maxY, Math.max(minY, moveEvent.clientY));
+        ghost.style.top = `${currentY - rect.top}px`;
+      };
+
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        document.body.style.cursor = "";
+        ghost.remove();
+
+        const chartPx = currentY - rect.top;
+        const chartPercent = Math.max(0, Math.min(100, (chartPx / available) * 100));
+        this.chartSplit = [chartPercent, 100 - chartPercent];
+        saveSizes(STORAGE_KEYS.mainViewSplit, this.chartSplit);
+        chartRegion.style.flex = `0 0 ${chartPercent}%`;
+        logRegion.style.flex = `1 1 ${100 - chartPercent}%`;
+        requestAnimationFrame(() => {
+          if (this.chartInstance?.resize) this.chartInstance.resize();
+          if (this.state) {
+            this.state.lastRange = [0, 0];
+            this.updateVirtual();
+          }
+        });
+      };
+
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    });
+
+    this.applyViewLayout();
   }
 
   getServices() {
@@ -318,11 +451,12 @@ class LogMainViewElement extends LogAppComponentElement {
       });
     }
 
-    LogMainViewChart.mount(this, {
+    this.chartInstance = LogMainViewChart.mount(this, {
       bus,
       logData,
       bookmarks,
     });
+    this.initializeViewModeControls();
   }
 
   connectedCallback() {
