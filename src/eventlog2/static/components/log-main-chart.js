@@ -1,455 +1,453 @@
 window.LogMainViewChart = window.LogMainViewChart || {};
+LogMainViewChart.registry = LogMainViewChart.registry || new Map();
+
+LogMainViewChart.buildRegistryKey = (pluginId, chartId) => {
+  const pluginPart = pluginId == null ? "global" : String(pluginId).trim() || "global";
+  return `${pluginPart}::${String(chartId).trim()}`;
+};
+
+LogMainViewChart.registerType = (definition) => {
+  const id = String(definition?.id || "").trim();
+  if (!id) throw new Error("Chart types must define an id.");
+  const pluginId = definition?.pluginId == null ? null : String(definition.pluginId).trim() || null;
+  LogMainViewChart.registry.set(LogMainViewChart.buildRegistryKey(pluginId, id), {
+    ...definition,
+    id,
+    pluginId,
+    label: String(definition.label || id),
+  });
+};
+
+LogMainViewChart.registerPluginType = (pluginId, definition) => {
+  const normalizedPluginId = String(pluginId || "").trim();
+  if (!normalizedPluginId) {
+    throw new Error("Plugin chart types must define a plugin id.");
+  }
+  LogMainViewChart.registerType({ ...definition, pluginId: normalizedPluginId });
+};
+
+if (window.EventLog2?._pendingChartRegistrations?.length) {
+  const pending = window.EventLog2._pendingChartRegistrations.splice(0);
+  pending.forEach(({ pluginId, definition }) => {
+    if (pluginId == null) {
+      LogMainViewChart.registerType(definition);
+      return;
+    }
+    LogMainViewChart.registerPluginType(pluginId, definition);
+  });
+}
 
 LogMainViewChart.mount = (root, services) => {
-  const { logData, bus, bookmarks } = services;
+  const { logData, bus, bookmarks, comments, plugin } = services;
   if (!logData) return null;
 
-  const stackedCanvas = queryById(root, "stacked-chart");
   const chartRegion = queryById(root, "chart-region");
-  const severityTab = queryById(root, "tab-chart-severity");
-  const systemsTab = queryById(root, "tab-chart-systems");
-  const severityPanel = queryById(root, "chart-panel-severity");
-  const systemsPanel = queryById(root, "chart-panel-systems");
-  const tools = root.querySelector(".chart-tools");
-  const systemStatusBoard = queryById(root, "system-status-board");
-  if (!stackedCanvas || !chartRegion || !severityTab || !systemsTab || !severityPanel || !systemsPanel || !systemStatusBoard) {
+  const chartPanelHost = queryById(root, "chart-panel-host");
+  const chartTypeSelect = queryById(root, "chart-type-select");
+  const commandBar = queryById(root, "chart-command-bar");
+  if (!chartRegion || !chartPanelHost || !chartTypeSelect || !commandBar) {
     return null;
   }
 
-  const events = Array.isArray(logData?.events) ? logData.events : [];
-  if (!events.length) return null;
+  const activePluginId = String(plugin?.id || logData?.pluginId || "").trim() || null;
+  const mountedPanels = new Map();
+  let activeType = null;
+  let activePanel = null;
+  let cleanupCommands = null;
 
-  const setChartTab = (tab) => {
-    const isSeverity = tab === "severity";
-    severityTab.classList.toggle("is-active", isSeverity);
-    systemsTab.classList.toggle("is-active", !isSeverity);
-    severityTab.setAttribute("aria-selected", String(isSeverity));
-    systemsTab.setAttribute("aria-selected", String(!isSeverity));
-    severityPanel.classList.toggle("is-active", isSeverity);
-    systemsPanel.classList.toggle("is-active", !isSeverity);
-    if (tools) tools.classList.toggle("hidden", !isSeverity);
-  };
+  const listTypes = () =>
+    Array.from(LogMainViewChart.registry.values()).filter((type) => !type.pluginId || type.pluginId === activePluginId);
 
-  severityTab.addEventListener("click", () => setChartTab("severity"));
-  systemsTab.addEventListener("click", () => setChartTab("systems"));
-  setChartTab("severity");
-
-  const startTime = new Date(logData.start);
-  const endTime = new Date(logData.end);
-  const spanMs = Math.max(1, endTime - startTime);
-  const bucketMs = 5 * 60 * 1000;
-  const bucketCount = Math.max(1, Math.ceil(spanMs / bucketMs));
-
-  const labels = [];
-  for (let i = 0; i < bucketCount; i += 1) {
-    const t = new Date(startTime.getTime() + i * bucketMs);
-    labels.push(t.toISOString().slice(11, 16));
-  }
-
-  const buildBuckets = (sourceEvents) => {
-    const buckets = {
-      Green: new Array(bucketCount).fill(0),
-      Yellow: new Array(bucketCount).fill(0),
-      Red: new Array(bucketCount).fill(0),
-      "Flashing Red": new Array(bucketCount).fill(0),
-    };
-    sourceEvents.forEach((event) => {
-      const timestamp = new Date(event.utctime);
-      const index = Math.min(
-        bucketCount - 1,
-        Math.max(0, Math.floor((timestamp - startTime) / bucketMs))
-      );
-      if (buckets[event.color]) buckets[event.color][index] += 1;
-    });
-    return buckets;
-  };
-
-  const severityRank = {
-    Green: 0,
-    Yellow: 1,
-    Red: 2,
-    "Flashing Red": 3,
-  };
-  const systemStatusClass = {
-    Green: "status-green",
-    Yellow: "status-yellow",
-    Red: "status-red",
-    "Flashing Red": "status-flashing-red",
-  };
-  const systems = Array.from(
-    new Set(events.map((event) => String(event.system || "").trim()).filter(Boolean))
-  ).sort((a, b) => a.localeCompare(b));
-
-  const buildStatusSnapshots = () => {
-    const ordered = events
-      .slice()
-      .sort(
-        (a, b) =>
-          (Number(a.norm_time) || 0) - (Number(b.norm_time) || 0) ||
-          (Number(a.row_id) || 0) - (Number(b.row_id) || 0)
-      );
-    const openByKey = new Map();
-    const countsBySystem = new Map(
-      systems.map((system) => [
-        system,
-        { Green: 0, Yellow: 0, Red: 0, "Flashing Red": 0 },
-      ])
-    );
-    const snapshots = new Map();
-
-    const getStatus = (system) => {
-      const counts = countsBySystem.get(system);
-      if (!counts) return "Green";
-      if (counts["Flashing Red"] > 0) return "Flashing Red";
-      if (counts.Red > 0) return "Red";
-      if (counts.Yellow > 0) return "Yellow";
-      return "Green";
-    };
-
-    ordered.forEach((event) => {
-      const action = String(event.set_clear || "").trim().toLowerCase();
-      const channels = Array.isArray(event.channels) ? event.channels : [];
-      channels.forEach((channel) => {
-        const key = [
-          String(event.system || "").trim(),
-          String(event.subsystem || "").trim(),
-          String(event.unit || "").trim(),
-          String(event.code || "").trim(),
-          String(channel || "").trim(),
-        ].join("|");
-        const system = String(event.system || "").trim();
-        const color = severityRank[event.color] != null ? event.color : "Green";
-        const systemCounts = countsBySystem.get(system);
-        if (!systemCounts) return;
-
-        if (action === "set") {
-          if (openByKey.has(key)) return;
-          openByKey.set(key, { system, color });
-          systemCounts[color] += 1;
-          return;
-        }
-
-        if (action !== "clear" || !openByKey.has(key)) return;
-        const open = openByKey.get(key);
-        openByKey.delete(key);
-        if (open?.color && systemCounts[open.color] > 0) {
-          systemCounts[open.color] -= 1;
-        }
-      });
-
-      snapshots.set(
-        String(event.row_id),
-        Object.fromEntries(systems.map((system) => [system, getStatus(system)]))
-      );
-    });
-
-    return snapshots;
-  };
-
-  const statusSnapshots = buildStatusSnapshots();
-  const renderSystemStatus = (rowId = events[0]?.row_id ?? null) => {
-    const snapshot =
-      (rowId != null ? statusSnapshots.get(String(rowId)) : null) ||
-      Object.fromEntries(systems.map((system) => [system, "Green"]));
-    systemStatusBoard.innerHTML = "";
-    const fragment = document.createDocumentFragment();
-    systems.forEach((system) => {
-      const state = snapshot[system] || "Green";
-      const item = document.createElement("div");
-      item.className = `system-status-card ${systemStatusClass[state] || "status-green"}`;
-      item.title = `${system}: ${state}`;
-      item.innerHTML = `<div class="system-status-name">${system}</div>`;
-      fragment.appendChild(item);
-    });
-    systemStatusBoard.appendChild(fragment);
-  };
-  renderSystemStatus(events[0]?.row_id ?? null);
-
-  const modeSegments = Array.isArray(logData.modes) ? logData.modes : [];
-  const modeColors = [
-    "rgba(59, 130, 246, 0.08)",
-    "rgba(14, 165, 233, 0.08)",
-    "rgba(16, 185, 129, 0.08)",
-    "rgba(249, 115, 22, 0.08)",
-  ];
-
-  const hoverLinePlugin = {
-    id: "hoverLine",
-    afterDatasetsDraw(chart) {
-      const { ctx, chartArea } = chart;
-      const x = chart.$hoverX;
-      if (typeof x !== "number") return;
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(x, chartArea.top);
-      ctx.lineTo(x, chartArea.bottom);
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = "rgba(100, 116, 139, 0.6)";
-      ctx.stroke();
-      const tooltipEnabled = chart.options.plugins?.tooltip?.enabled !== false;
-      if (!tooltipEnabled && chart.$hoverTime) {
-        const label = chart.$hoverTime.toISOString().slice(11, 19);
-        const padding = 4;
-        ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
-        const textWidth = ctx.measureText(label).width;
-        const boxWidth = textWidth + padding * 2;
-        const boxHeight = 18;
-        const boxX = Math.min(
-          chartArea.right - boxWidth,
-          Math.max(chartArea.left, x - boxWidth / 2)
-        );
-        const boxY = chartArea.top + 6;
-        ctx.fillStyle = "rgba(15, 23, 42, 0.75)";
-        ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
-        ctx.fillStyle = "#f8fafc";
-        ctx.textBaseline = "middle";
-        ctx.fillText(label, boxX + padding, boxY + boxHeight / 2);
-      }
-      ctx.restore();
-    },
-  };
-
-  const scrollIndicatorPlugin = {
-    id: "scrollIndicator",
-    afterDatasetsDraw(chart) {
-      const { ctx, chartArea } = chart;
-      const ratio = chart.$scrollRatio;
-      if (typeof ratio !== "number") return;
-      const x = chartArea.left + ratio * chartArea.width;
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(x, chartArea.top);
-      ctx.lineTo(x, chartArea.bottom);
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = "rgba(30, 64, 175, 0.65)";
-      ctx.setLineDash([4, 4]);
-      ctx.stroke();
-      ctx.restore();
-    },
-  };
-
-  const modeBandPlugin = {
-    id: "modeBands",
-    beforeDatasetsDraw(chart) {
-      const { ctx, chartArea } = chart;
-      if (!modeSegments.length) return;
-      ctx.save();
-      modeSegments.forEach((mode, idx) => {
-        const start = new Date(mode.start).getTime();
-        const end = new Date(mode.end).getTime();
-        const startRatio = Math.max(0, Math.min(1, (start - startTime.getTime()) / spanMs));
-        const endRatio = Math.max(0, Math.min(1, (end - startTime.getTime()) / spanMs));
-        const x0 = chartArea.left + startRatio * chartArea.width;
-        const x1 = chartArea.left + endRatio * chartArea.width;
-        ctx.fillStyle = modeColors[idx % modeColors.length];
-        ctx.fillRect(x0, chartArea.top, Math.max(0, x1 - x0), chartArea.height);
-        ctx.fillStyle = "rgba(15, 23, 42, 0.5)";
-        ctx.font = "11px ui-sans-serif, system-ui, -apple-system, sans-serif";
-        ctx.textBaseline = "top";
-        ctx.fillText(mode.name, x0 + 4, chartArea.top + 4);
-      });
-      ctx.restore();
-    },
-  };
-
-  const bookmarkPlugin = {
-    id: "bookmarkDots",
-    afterDatasetsDraw(chart) {
-      const { ctx, chartArea, scales } = chart;
-      const ids = bookmarks?.getAll() || [];
-      const dots = [];
-      const xScale = scales?.x;
-      const yBase = xScale ? xScale.bottom : chartArea.bottom;
-      const dotY = Math.min(chartArea.bottom + 5, yBase + 2);
-      ctx.save();
-      ids.forEach((id) => {
-        const event = events.find((entry) => String(entry.row_id) === String(id));
-        if (!event) return;
-        const colorIndex = bookmarks?.getColor(event.row_id) || 1;
-        const timestamp = new Date(event.utctime).getTime();
-        const ratio = Math.max(0, Math.min(1, (timestamp - startTime.getTime()) / spanMs));
-        const x = chartArea.left + ratio * chartArea.width;
-        ctx.beginPath();
-        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue(
-          `--bookmark-color-${colorIndex}`
-        ) || "rgba(14, 116, 144, 0.9)";
-        ctx.arc(x, dotY, 3, 0, Math.PI * 2);
-        ctx.fill();
-        dots.push({ x, y: dotY, rowId: event.row_id });
-      });
-      chart.$bookmarkDots = dots;
-      ctx.restore();
-    },
-  };
-
-  const initialBuckets = buildBuckets(events);
-  const stackedChart = new Chart(stackedCanvas.getContext("2d"), {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [
-        { label: "Green", data: initialBuckets.Green, backgroundColor: "rgba(34, 197, 94, 0.75)", borderColor: "rgba(22, 163, 74, 1)", borderWidth: 1 },
-        { label: "Yellow", data: initialBuckets.Yellow, backgroundColor: "rgba(250, 204, 21, 0.8)", borderColor: "rgba(234, 179, 8, 1)", borderWidth: 1 },
-        { label: "Red", data: initialBuckets.Red, backgroundColor: "rgba(239, 68, 68, 0.8)", borderColor: "rgba(220, 38, 38, 1)", borderWidth: 1 },
-        { label: "Flashing Red", data: initialBuckets["Flashing Red"], backgroundColor: "rgba(127, 29, 29, 0.85)", borderColor: "rgba(88, 28, 28, 1)", borderWidth: 1 },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { mode: "index", intersect: false, enabled: true },
-      },
-      scales: {
-        x: { stacked: true },
-        y: { stacked: true, beginAtZero: true },
-      },
-      onClick: (event) => {
-        const pos = Chart.helpers.getRelativePosition(event, stackedChart);
-        const { chartArea, scales } = stackedChart;
-        const dots = stackedChart.$bookmarkDots || [];
-        for (const dot of dots) {
-          const dx = pos.x - dot.x;
-          const dy = pos.y - dot.y;
-          if (Math.sqrt(dx * dx + dy * dy) <= 10) {
-            const hit = events.find((entry) => String(entry.row_id) === String(dot.rowId));
-            if (bus && hit) bus.emit("event:selected", hit);
-            if (bus) bus.emit("log:jump", { rowId: dot.rowId });
-            return;
-          }
-        }
-        const xScale = scales?.x;
-        const dotHitBottom = xScale ? xScale.bottom + 12 : chartArea.bottom + 12;
-        if (pos.x < chartArea.left || pos.x > chartArea.right) return;
-        if (pos.y < chartArea.top || pos.y > dotHitBottom) return;
-        if (bus) {
-          const ratio = (pos.x - chartArea.left) / chartArea.width;
-          bus.emit("log:jump", { seconds: Math.floor((ratio * spanMs) / 1000) });
-        }
-      },
-    },
-    plugins: [modeBandPlugin, bookmarkPlugin, hoverLinePlugin, scrollIndicatorPlugin],
+  const buildContext = (extra = {}) => ({
+    root,
+    plugin,
+    bus,
+    logData,
+    bookmarks,
+    comments,
+    chartRegion,
+    chartPanelHost,
+    controller,
+    ...extra,
   });
 
-  let resizeRaf = 0;
-  const scheduleResize = () => {
-    if (resizeRaf) cancelAnimationFrame(resizeRaf);
-    resizeRaf = requestAnimationFrame(() => {
-      resizeRaf = 0;
-      stackedChart.resize();
-      stackedChart.update("none");
-    });
-  };
+  const ensurePanel = (type) => {
+    if (!type) return null;
+    if (mountedPanels.has(type.id)) return mountedPanels.get(type.id);
 
-  scheduleResize();
-  if (typeof ResizeObserver === "function") {
-    const resizeObserver = new ResizeObserver(() => scheduleResize());
-    resizeObserver.observe(chartRegion);
-    resizeObserver.observe(severityPanel);
-    resizeObserver.observe(systemsPanel);
-    stackedChart.$resizeObserver = resizeObserver;
-  } else {
-    window.addEventListener("resize", scheduleResize);
-    stackedChart.$resizeFallback = scheduleResize;
-  }
+    const panel = document.createElement("div");
+    panel.className = "chart-panel";
+    panel.dataset.chartType = type.id;
+    chartPanelHost.appendChild(panel);
 
-  const updateHover = (event) => {
-    const pos = Chart.helpers.getRelativePosition(event, stackedChart);
-    const { chartArea } = stackedChart;
-    if (
-      pos.x < chartArea.left ||
-      pos.x > chartArea.right ||
-      pos.y < chartArea.top ||
-      pos.y > chartArea.bottom
-    ) {
-      stackedChart.$hoverX = null;
-      stackedChart.$hoverTime = null;
-      stackedChart.draw();
-      return;
+    if (typeof type.panelHtml === "string" && type.panelHtml.trim()) {
+      panel.innerHTML = type.panelHtml;
     }
-    const ratio = (pos.x - chartArea.left) / chartArea.width;
-    stackedChart.$hoverX = pos.x;
-    stackedChart.$hoverTime = new Date(startTime.getTime() + ratio * spanMs);
-    stackedChart.draw();
+
+    let panelController = {};
+    if (typeof type.renderPanel === "function") {
+      panelController = type.renderPanel(panel, buildContext({ type, panel })) || {};
+    } else if (typeof type.mountPanel === "function") {
+      panelController = type.mountPanel(buildContext({ type, panel })) || {};
+    }
+
+    const record = { panel, type, controller: panelController || {} };
+    mountedPanels.set(type.id, record);
+    return record;
   };
 
-  stackedCanvas.addEventListener("mousemove", updateHover);
-  stackedCanvas.addEventListener("mouseleave", () => {
-    stackedChart.$hoverX = null;
-    stackedChart.$hoverTime = null;
-    stackedChart.draw();
-  });
+  const controller = {
+    currentType: null,
+    chart: null,
+    listTypes,
+    getActivePanel() {
+      return activePanel;
+    },
+    getActivePanelController() {
+      return activePanel?.controller || null;
+    },
+    setType(typeId) {
+      const availableTypes = controller.listTypes();
+      const fallbackType = availableTypes[0] || null;
+      const type =
+        availableTypes.find((entry) => entry.id === typeId) ||
+        availableTypes.find((entry) => entry.id === controller.currentType) ||
+        fallbackType;
+      if (!type) return;
 
-  const toggleTooltips = queryById(root, "toggle-tooltips");
-  if (toggleTooltips) {
-    const stored = localStorage.getItem(STORAGE_KEYS.chartTooltips);
-    const initialEnabled = stored === null ? false : stored === "true";
-    stackedChart.options.plugins.tooltip.enabled = initialEnabled;
-    const setToggleState = (enabled) => {
-      toggleTooltips.setAttribute("aria-pressed", String(enabled));
-      toggleTooltips.classList.toggle("tooltip-disabled", !enabled);
-      toggleTooltips.classList.toggle("is-enabled", enabled);
-    };
-    setToggleState(initialEnabled);
-    toggleTooltips.addEventListener("click", () => {
-      const current = stackedChart.options.plugins.tooltip.enabled !== false;
-      stackedChart.options.plugins.tooltip.enabled = !current;
-      setToggleState(!current);
-      localStorage.setItem(STORAGE_KEYS.chartTooltips, String(!current));
-      stackedChart.update();
-    });
-  }
+      if (cleanupCommands) {
+        cleanupCommands();
+        cleanupCommands = null;
+      }
 
-  if (bus) {
-    let pendingScrollSeconds = null;
-    let scrollUpdateScheduled = false;
-    let lastScrollPaintAt = 0;
-    const minScrollPaintIntervalMs = 80;
+      if (activePanel?.controller && typeof activePanel.controller.deactivate === "function") {
+        activePanel.controller.deactivate(buildContext({ type: activeType, panel: activePanel.panel }));
+      }
+      if (activeType && typeof activeType.deactivate === "function") {
+        activeType.deactivate(buildContext({ type: activeType, panel: activePanel?.panel, panelController: activePanel?.controller || null }));
+      }
 
-    const paintScrollIndicator = (timestamp = performance.now()) => {
-      scrollUpdateScheduled = false;
-      if (typeof pendingScrollSeconds !== "number") return;
-      stackedChart.$scrollRatio = Math.max(0, Math.min(1, pendingScrollSeconds / (spanMs / 1000)));
-      pendingScrollSeconds = null;
-      lastScrollPaintAt = timestamp;
-      stackedChart.update("none");
-    };
+      const panelRecord = ensurePanel(type);
+      if (!panelRecord) return;
 
-    bus.on("log:filtered", (filtered) => {
-      const buckets = buildBuckets(filtered || []);
-      stackedChart.data.datasets[0].data = buckets.Green;
-      stackedChart.data.datasets[1].data = buckets.Yellow;
-      stackedChart.data.datasets[2].data = buckets.Red;
-      stackedChart.data.datasets[3].data = buckets["Flashing Red"];
-      stackedChart.update();
-    });
-    bus.on("log:scroll", (payload) => {
-      if (!payload || typeof payload.seconds !== "number") return;
-      pendingScrollSeconds = payload.seconds;
-      renderSystemStatus(payload.rowId ?? null);
-      if (scrollUpdateScheduled) return;
+      controller.currentType = type.id;
+      activeType = type;
+      activePanel = panelRecord;
+      controller.chart = panelRecord.controller?.chart || null;
 
-      const now = performance.now();
-      const elapsed = now - lastScrollPaintAt;
-      scrollUpdateScheduled = true;
+      mountedPanels.forEach(({ panel }, panelId) => {
+        panel.classList.toggle("is-active", panelId === type.id);
+      });
 
-      if (elapsed >= minScrollPaintIntervalMs) {
-        requestAnimationFrame((timestamp) => paintScrollIndicator(timestamp));
+      chartTypeSelect.value = type.id;
+      commandBar.innerHTML = "";
+
+      const context = buildContext({
+        type,
+        panel: panelRecord.panel,
+        panelController: panelRecord.controller || null,
+      });
+
+      if (typeof type.activate === "function") {
+        type.activate(context);
+      }
+      if (panelRecord.controller && typeof panelRecord.controller.activate === "function") {
+        panelRecord.controller.activate(context);
+      }
+
+      const buildCommands = type.buildCommands || type.renderControls;
+      if (typeof buildCommands === "function") {
+        cleanupCommands = buildCommands(commandBar, context) || null;
+      }
+
+      controller.resize();
+    },
+    bindToolbar() {
+      const types = controller.listTypes();
+      if (!types.length) {
+        chartTypeSelect.innerHTML = "";
+        chartTypeSelect.disabled = true;
+        commandBar.innerHTML = '<div class="chart-command-hint">No charts registered for this plugin.</div>';
         return;
       }
+      chartTypeSelect.disabled = false;
+      chartTypeSelect.innerHTML = types.map((type) => `<option value="${type.id}">${type.label}</option>`).join("");
+      chartTypeSelect.addEventListener("change", () => controller.setType(chartTypeSelect.value));
+      controller.setType(types.some((type) => type.id === controller.currentType) ? controller.currentType : types[0].id);
+    },
+    resize() {
+      if (activePanel?.controller && typeof activePanel.controller.resize === "function") {
+        activePanel.controller.resize(buildContext({
+          type: activeType,
+          panel: activePanel.panel,
+          panelController: activePanel.controller,
+        }));
+      }
+    },
+    destroy() {
+      if (cleanupCommands) cleanupCommands();
+      mountedPanels.forEach(({ controller: panelController, panel, type }) => {
+        const context = buildContext({ type, panel, panelController });
+        if (panelController && typeof panelController.destroy === "function") {
+          panelController.destroy(context);
+        }
+      });
+      mountedPanels.clear();
+      chartPanelHost.innerHTML = "";
+      controller.chart = null;
+      activePanel = null;
+      activeType = null;
+    },
+  };
 
-      window.setTimeout(() => {
-        requestAnimationFrame((timestamp) => paintScrollIndicator(timestamp));
-      }, Math.max(0, minScrollPaintIntervalMs - elapsed));
-    });
-    bus.on("bookmarks:changed", () => {
-      stackedChart.update();
-    });
-    bus.on("event:selected", (event) => {
-      renderSystemStatus(event?.row_id ?? null);
-    });
-  }
-
-  return stackedChart;
+  return controller;
 };
+
+LogMainViewChart.registerType({
+  id: "timeline",
+  label: "Timeline",
+  renderPanel(panel, context) {
+    const events = Array.isArray(context.logData?.events) ? context.logData.events : [];
+    panel.innerHTML = '<canvas class="timeline-strip-canvas"></canvas>';
+    const canvas = panel.querySelector("canvas");
+    let resizeObserver = null;
+    let selectedRowId = null;
+
+    const getBounds = () => {
+      const start = new Date(context.logData?.start).getTime();
+      const end = new Date(context.logData?.end).getTime();
+      const fallbackStart = Number(events[0]?.norm_time || 0) * 1000;
+      const fallbackEnd = Number(events[events.length - 1]?.norm_time || 1) * 1000;
+      const startMs = Number.isFinite(start) ? start : fallbackStart;
+      const endMs = Number.isFinite(end) ? end : fallbackEnd;
+      return { startMs, spanMs: Math.max(1, endMs - startMs) };
+    };
+
+    const getEventMs = (event) => {
+      const utc = new Date(event?.utctime).getTime();
+      if (Number.isFinite(utc)) return utc;
+      return Number(event?.norm_time || 0) * 1000;
+    };
+
+    const { startMs, spanMs } = getBounds();
+    const bucketCount = Math.max(24, Math.min(160, Math.ceil(panel.getBoundingClientRect().width / 8) || 72));
+    const bucketMs = Math.max(1, Math.ceil(spanMs / bucketCount));
+    const labels = Array.from({ length: bucketCount }, (_, index) =>
+      new Date(startMs + index * bucketMs).toISOString().slice(11, 19)
+    );
+    const buildBuckets = () => {
+      const bins = new Array(bucketCount).fill(0);
+      events.forEach((entry) => {
+        const ratio = Math.max(0, Math.min(1, (getEventMs(entry) - startMs) / spanMs));
+        const index = Math.min(bucketCount - 1, Math.max(0, Math.floor(ratio * (bucketCount - 1))));
+        bins[index] += 1;
+      });
+      return bins;
+    };
+
+    const markerPlugin = {
+      id: "timelineMarkers",
+      afterDatasetsDraw(chart) {
+        const { ctx, chartArea } = chart;
+        const bookmarkIds = context.bookmarks?.getAll() || [];
+        const commentMap = context.comments?.getByRowId() || new Map();
+        const commentIds = Array.from(commentMap.keys());
+        const markers = [];
+        const markerRadius = 4;
+        const bookmarkY = chartArea.top + 8;
+        const commentY = chartArea.bottom - 8;
+
+        const drawMarker = (rowId, y, fillStyle, kind) => {
+          const event = events.find((entry) => String(entry.row_id) === String(rowId));
+          if (!event) return;
+          const ratio = Math.max(0, Math.min(1, (getEventMs(event) - startMs) / spanMs));
+          const x = chartArea.left + ratio * chartArea.width;
+          ctx.save();
+          ctx.beginPath();
+          ctx.fillStyle = fillStyle;
+          ctx.arc(x, y, markerRadius, 0, Math.PI * 2);
+          ctx.fill();
+          if (String(selectedRowId) === String(rowId)) {
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = "rgba(15, 23, 42, 0.9)";
+            ctx.stroke();
+          }
+          ctx.restore();
+          markers.push({ x, y, rowId, kind });
+        };
+
+        bookmarkIds.forEach((rowId) => {
+          const colorIndex = context.bookmarks?.getColor(rowId) || 1;
+          const fill =
+            getComputedStyle(document.documentElement).getPropertyValue(`--bookmark-color-${colorIndex}`) ||
+            "rgba(59, 130, 246, 0.95)";
+          drawMarker(rowId, bookmarkY, fill.trim(), "bookmark");
+        });
+        commentIds.forEach((rowId) => drawMarker(rowId, commentY, "rgba(71, 85, 105, 0.9)", "comment"));
+        chart.$timelineMarkers = markers;
+      },
+      afterDraw(chart) {
+        const active = chart.tooltip?.getActiveElements?.() || [];
+        if (!active.length) return;
+        const { ctx, chartArea } = chart;
+        const element = active[0]?.element;
+        if (!element) return;
+        const x = element.x;
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(x, chartArea.top);
+        ctx.lineTo(x, chartArea.bottom);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "rgba(100, 116, 139, 0.55)";
+        ctx.stroke();
+        ctx.restore();
+      },
+    };
+
+    const timelineChart = new Chart(canvas.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Events",
+            data: buildBuckets(),
+            backgroundColor: "rgba(59, 130, 246, 0.28)",
+            borderColor: "rgba(37, 99, 235, 0.5)",
+            borderWidth: 1,
+            borderRadius: 2,
+            categoryPercentage: 1,
+            barPercentage: 1,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            mode: "index",
+            intersect: false,
+            displayColors: false,
+            callbacks: {
+              title(items) {
+                const index = items[0]?.dataIndex ?? 0;
+                return labels[index] || "";
+              },
+              label(item) {
+                const value = Number(item.raw) || 0;
+                return value === 1 ? "1 event" : `${value} events`;
+              },
+            },
+          },
+        },
+        interaction: {
+          mode: "index",
+          intersect: false,
+        },
+        layout: {
+          padding: { top: 10, bottom: 12 },
+        },
+        scales: {
+          x: {
+            grid: { display: false, drawBorder: false },
+            ticks: {
+              maxTicksLimit: 5,
+              color: "rgba(71, 85, 105, 0.9)",
+              font: {
+                family: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                size: 11,
+              },
+            },
+          },
+          y: {
+            display: false,
+            beginAtZero: true,
+            grid: { display: false, drawBorder: false },
+          },
+        },
+        onClick(event) {
+          if (!context.bus) return;
+          const pos = Chart.helpers.getRelativePosition(event, timelineChart);
+          const markers = timelineChart.$timelineMarkers || [];
+          const hit = markers.find((marker) => {
+            const dx = pos.x - marker.x;
+            const dy = pos.y - marker.y;
+            return Math.sqrt(dx * dx + dy * dy) <= 8;
+          });
+          if (hit) {
+            const selected = events.find((entry) => String(entry.row_id) === String(hit.rowId));
+            if (selected) context.bus.emit("event:selected", selected);
+            context.bus.emit("log:jump", { rowId: hit.rowId });
+            return;
+          }
+          const ratio = Math.max(0, Math.min(1, (pos.x - timelineChart.chartArea.left) / timelineChart.chartArea.width));
+          context.bus.emit("log:jump", { seconds: Math.floor((ratio * spanMs) / 1000) });
+        },
+      },
+      plugins: [markerPlugin],
+    });
+
+    const refresh = () => {
+      timelineChart.data.datasets[0].data = buildBuckets();
+      timelineChart.update("none");
+    };
+
+    const off = [];
+    if (context.bus) {
+      off.push(context.bus.on("log:filtered", (filtered) => {
+        const source = Array.isArray(filtered) ? filtered : events;
+        const bins = new Array(bucketCount).fill(0);
+        source.forEach((entry) => {
+          const ratio = Math.max(0, Math.min(1, (getEventMs(entry) - startMs) / spanMs));
+          const index = Math.min(bucketCount - 1, Math.max(0, Math.floor(ratio * (bucketCount - 1))));
+          bins[index] += 1;
+        });
+        timelineChart.data.datasets[0].data = bins;
+        timelineChart.update("none");
+      }));
+      off.push(context.bus.on("bookmarks:changed", refresh));
+      off.push(context.bus.on("comments:changed", refresh));
+      off.push(
+        context.bus.on("event:selected", (event) => {
+          selectedRowId = event?.row_id ?? null;
+          timelineChart.update("none");
+        })
+      );
+    }
+
+    if (typeof ResizeObserver === "function") {
+      resizeObserver = new ResizeObserver(() => timelineChart.resize());
+      resizeObserver.observe(context.chartRegion);
+      resizeObserver.observe(panel);
+    } else {
+      window.addEventListener("resize", refresh);
+    }
+
+    return {
+      chart: timelineChart,
+      resize() {
+        timelineChart.resize();
+        timelineChart.update("none");
+      },
+      activate() {
+        timelineChart.resize();
+        timelineChart.update("none");
+      },
+      destroy() {
+        off.forEach((unsubscribe) => unsubscribe && unsubscribe());
+        if (resizeObserver) resizeObserver.disconnect();
+        else window.removeEventListener("resize", refresh);
+        timelineChart.destroy();
+      },
+    };
+  },
+  buildCommands(container) {
+    const hint = document.createElement("div");
+    hint.className = "chart-command-hint";
+    hint.textContent = "Bookmarks and comments across the log timeline.";
+    container.appendChild(hint);
+  },
+});

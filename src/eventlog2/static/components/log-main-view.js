@@ -23,41 +23,40 @@ class LogMainViewElement extends LogAppComponentElement {
     this.innerHTML = `
       <div class="main-view-shell">
         <div class="main-view-toolbar">
+          <div class="chart-type-picker">
+            <select id="chart-type-select" class="text-input text-input-small chart-type-select" aria-label="Chart type"></select>
+          </div>
+          <div id="chart-command-bar" class="chart-command-bar"></div>
           <div class="view-mode-toggle" role="tablist" aria-label="Main view layout">
-            <button id="view-mode-split" class="button button-ghost button-xs view-mode-button" role="tab" aria-selected="false">Chart + Log</button>
-            <button id="view-mode-chart" class="button button-ghost button-xs view-mode-button" role="tab" aria-selected="false">Chart</button>
-            <button id="view-mode-list" class="button button-ghost button-xs view-mode-button" role="tab" aria-selected="false">Log</button>
+            <button id="view-mode-split" class="button button-ghost button-xs view-mode-button" role="tab" aria-selected="false" title="Show chart and log">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="tool-icon" aria-hidden="true">
+                <rect x="4" y="5" width="16" height="6" rx="1.5" />
+                <rect x="4" y="13" width="16" height="6" rx="1.5" />
+              </svg>
+              <span class="sr-only">Chart and log</span>
+            </button>
+            <button id="view-mode-chart" class="button button-ghost button-xs view-mode-button" role="tab" aria-selected="false" title="Show chart only">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="tool-icon" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V9m5 7V5m5 11v-4" />
+              </svg>
+              <span class="sr-only">Chart only</span>
+            </button>
+            <button id="view-mode-list" class="button button-ghost button-xs view-mode-button" role="tab" aria-selected="false" title="Show log only">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="tool-icon" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h13M7 12h13M7 17h13" />
+                <circle cx="4" cy="7" r="1" fill="currentColor" stroke="none" />
+                <circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" />
+                <circle cx="4" cy="17" r="1" fill="currentColor" stroke="none" />
+              </svg>
+              <span class="sr-only">Log only</span>
+            </button>
           </div>
         </div>
         <div class="main-view-stack" id="main-view-stack">
           <section class="main-view-region main-view-chart-region" id="chart-region">
             <div class="chart-band">
-              <div class="chart-band-header">
-                <div class="chart-tabs" role="tablist" aria-label="Top chart tabs">
-                  <button id="tab-chart-severity" class="button button-ghost button-xs chart-tab is-active" role="tab" aria-selected="true">Severity</button>
-                  <button id="tab-chart-systems" class="button button-ghost button-xs chart-tab" role="tab" aria-selected="false">Subsystem Status</button>
-                </div>
-                <div class="chart-tools">
-                  <button
-                    id="toggle-tooltips"
-                    class="button button-outline button-xs chart-toggle"
-                    aria-pressed="true"
-                    title="Toggle value popup on hover"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="tool-icon">
-                      <circle cx="12" cy="12" r="9" />
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8.25h.01M11.25 11.25h1.5v5.5" />
-                    </svg>
-                    <span class="sr-only">Toggle value popup</span>
-                  </button>
-                </div>
-              </div>
-              <div id="chart-panel-severity" class="chart-panel is-active">
-                <canvas id="stacked-chart"></canvas>
-              </div>
-              <div id="chart-panel-systems" class="chart-panel chart-panel-systems">
-                <div id="system-status-board" class="system-status-board"></div>
-              </div>
+              <div id="chart-panel-host" class="chart-panel-host"></div>
             </div>
           </section>
           <section class="main-view-region main-view-log-region" id="log-region">
@@ -184,6 +183,7 @@ class LogMainViewElement extends LogAppComponentElement {
       rowTemplate: this.getRowTemplate(),
       searchWorker: this.getSearchWorker(),
       bookmarks: this.getBookmarks(),
+      comments: this.getComments(),
     };
   }
 
@@ -352,7 +352,7 @@ class LogMainViewElement extends LogAppComponentElement {
   }
 
   initializeMainView() {
-    const { logData, bus, bookmarks } = this.getServices();
+    const { logData, bus, bookmarks, comments } = this.getServices();
     const logBody = this.getById("log-body");
     const logList = this.getById("log-list");
     const logSpacer = this.getById("log-spacer");
@@ -447,7 +447,9 @@ class LogMainViewElement extends LogAppComponentElement {
       bus,
       logData,
       bookmarks,
+      comments,
     });
+    if (this.chartInstance?.bindToolbar) this.chartInstance.bindToolbar();
     this.initializeViewModeControls();
     this.initializeResizeHandling();
   }

@@ -39,6 +39,23 @@ const queryById = (root, id) => {
   return null;
 };
 
+window.EventLog2 = window.EventLog2 || {};
+window.EventLog2._pendingChartRegistrations = window.EventLog2._pendingChartRegistrations || [];
+window.EventLog2.registerChartType = (definition) => {
+  if (!window.LogMainViewChart?.registerType) {
+    window.EventLog2._pendingChartRegistrations.push({ pluginId: null, definition });
+    return;
+  }
+  return window.LogMainViewChart.registerType(definition);
+};
+window.EventLog2.registerPluginChartType = (pluginId, definition) => {
+  if (!window.LogMainViewChart?.registerPluginType) {
+    window.EventLog2._pendingChartRegistrations.push({ pluginId, definition });
+    return;
+  }
+  return window.LogMainViewChart.registerPluginType(pluginId, definition);
+};
+
 const loadPageData = () => {
   return window.EVENTLOG2_PAGE_DATA || null;
 };

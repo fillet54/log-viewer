@@ -59,6 +59,8 @@ def test_core_event_plugin_builds_normalized_page_data() -> None:
     assert page_data["logData"]["events"][0]["rowDisplay"]["hasData"] is False
     assert page_data["view"]["rowSettings"]["channels"] == ["A", "B", "C", "D"]
     assert "<template" in page_data["view"]["rowTemplate"]
+    assert len(page_data["view"]["scripts"]) == 2
+    assert "registerPluginChartType" in page_data["view"]["scripts"][1]
 
 
 def test_page_data_script_emits_json_assignment() -> None:

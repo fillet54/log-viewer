@@ -314,7 +314,7 @@ class CoreEventPlugin(EventLogPlugin):
     plugin_id = "core-event"
     plugin_name = "Core Event"
     row_template_path = "templates/log_row.html"
-    script_paths = ("static/row.js",)
+    script_paths = ("static/row.js", "static/charts.js")
     row_settings = {
         "channels": CORE_EVENT_CHANNELS,
     }

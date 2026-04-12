@@ -867,16 +867,45 @@ log-layout {
 .main-view-toolbar {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 0.5rem;
   padding: 0.65rem 0.8rem 0;
   background: linear-gradient(180deg, color-mix(in srgb, var(--color-bg-soft) 72%, transparent), transparent);
 }
 
+.chart-type-picker,
+.chart-command-bar,
 .view-mode-toggle {
+  min-width: 0;
+}
+
+.chart-type-picker {
+  flex: 0 0 240px;
+}
+
+.chart-type-select {
+  width: 100%;
+}
+
+.chart-command-bar {
+  flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.chart-command-hint {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.view-mode-toggle {
+  flex: 0 0 auto;
   padding: 0.2rem;
   border: 1px solid var(--color-border);
   border-radius: 999px;
@@ -921,6 +950,12 @@ log-layout {
   display: none;
 }
 
+.main-view-shell:has(.main-view-stack[data-mode="list"]) .chart-type-picker,
+.main-view-shell:has(.main-view-stack[data-mode="list"]) .chart-command-bar {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .section-label {
   font-size: 0.72rem;
   text-transform: uppercase;
@@ -956,27 +991,22 @@ log-layout {
   background: linear-gradient(180deg, color-mix(in srgb, var(--color-bg-soft) 92%, transparent), transparent);
 }
 
-.chart-band-header {
+.chart-panel-host {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.45rem;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-.chart-tabs,
 .search-tabs {
   display: flex;
   align-items: center;
   gap: 0.35rem;
 }
 
-.chart-tab,
 .search-tab {
   min-width: auto;
 }
 
-.chart-tab.is-active,
 .search-tab.is-active {
   background: var(--color-accent-soft);
   border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
@@ -987,6 +1017,7 @@ log-layout {
   display: none;
   flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
 }
 
 .chart-panel.is-active {
@@ -1003,6 +1034,12 @@ log-layout {
   width: 100%;
   height: 100%;
   min-height: 160px;
+}
+
+.timeline-strip-canvas {
+  width: 100%;
+  height: 64px;
+  min-height: 64px;
 }
 
 .system-status-board {
