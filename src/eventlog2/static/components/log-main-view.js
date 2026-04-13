@@ -189,7 +189,7 @@ class LogMainViewElement extends LogAppComponentElement {
 
   buildLogRow(event) {
     const { bus, bookmarks, rowTemplate } = this.getServices();
-    const row = LogRowHelper.buildRow(event, rowTemplate, { bookmarks });
+    const row = this.buildRow(event, rowTemplate, { bookmarks });
     if (!row) return null;
 
     const bookmarkButton = row.querySelector(".bookmark-toggle");

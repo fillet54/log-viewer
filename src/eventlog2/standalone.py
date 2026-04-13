@@ -13,7 +13,6 @@ SCRIPT_PATHS = [
     "static/vendor/chart.umd.min.js",
     "static/vendor/split.min.js",
     "static/services/search.js",
-    "static/shared/log-row-helper.js",
     "static/services/app-services.js",
     "static/app.js",
     "static/components/log-layout.js",

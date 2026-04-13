@@ -41,6 +41,26 @@ const queryById = (root, id) => {
 
 window.EventLog2 = window.EventLog2 || {};
 window.EventLog2._pendingViewRegistrations = window.EventLog2._pendingViewRegistrations || [];
+window.EventLog2._rowRenderers = window.EventLog2._rowRenderers || new Map();
+window.EventLog2.registerRowRenderer = (renderer) => {
+  if (typeof renderer !== "function") throw new Error("Row renderer must be a function.");
+  window.EventLog2._rowRenderers.set("global", renderer);
+  return renderer;
+};
+window.EventLog2.registerPluginRowRenderer = (pluginId, renderer) => {
+  const normalizedPluginId = String(pluginId || "").trim();
+  if (!normalizedPluginId) throw new Error("Plugin row renderers must define a plugin id.");
+  if (typeof renderer !== "function") throw new Error("Row renderer must be a function.");
+  window.EventLog2._rowRenderers.set(normalizedPluginId, renderer);
+  return renderer;
+};
+window.EventLog2.resolveRowRenderer = (plugin) => {
+  const pluginId =
+    typeof plugin === "string"
+      ? String(plugin).trim()
+      : String(plugin?.id || plugin?.pluginId || "").trim();
+  return window.EventLog2._rowRenderers.get(pluginId) || window.EventLog2._rowRenderers.get("global") || null;
+};
 window.EventLog2.registerChartType = (definition) => {
   if (!window.LogMainViewChart?.registerType) {
     window.EventLog2._pendingViewRegistrations.push({ kind: "chart", pluginId: null, definition });
@@ -280,5 +300,15 @@ class LogAppComponentElement extends HTMLElement {
 
   getView() {
     return this.getAppRoot()?.getView() || null;
+  }
+
+  getRowRenderer() {
+    return window.EventLog2.resolveRowRenderer(this.getPlugin());
+  }
+
+  buildRow(event, templateEl, options = {}) {
+    const renderRow = this.getRowRenderer();
+    if (typeof renderRow !== "function") return null;
+    return renderRow(event, templateEl, options);
   }
 }

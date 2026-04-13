@@ -470,7 +470,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
     this.getBookmarkEvents().forEach((event) => {
       const wrapper = document.createElement("div");
       wrapper.className = "activity-item";
-      const row = LogRowHelper.buildRow(event, this.rowTemplate, {
+      const row = this.buildRow(event, this.rowTemplate, {
         extraClasses: ["search-result-row"],
         bookmarks: this.bookmarks,
       });
@@ -489,7 +489,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
   }
 
   renderResultRow(event) {
-    const row = LogRowHelper.buildRow(event, this.rowTemplate, {
+    const row = this.buildRow(event, this.rowTemplate, {
       extraClasses: ["search-result-row"],
       bookmarks: this.bookmarks,
     });
