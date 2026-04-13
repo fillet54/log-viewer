@@ -1657,35 +1657,101 @@ log-layout {
 
 .event-data {
   display: grid;
-  gap: 0.1rem;
+  gap: 0.35rem;
   padding: 0.35rem;
   border-radius: 0.75rem;
   border: 1px solid var(--color-border);
   background: var(--color-bg-soft);
 }
 
-.data-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.6rem;
-  padding: 0.3rem 0.4rem;
-  border-radius: 0.4rem;
+.event-data-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 
-.data-row:nth-child(odd) {
+.event-data-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.data-tree {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.data-tree-node {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.data-tree-children {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.data-tree-node.is-collapsed > .data-tree-children {
+  display: none;
+}
+
+.data-tree-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.45rem;
+  padding: 0.18rem 0.36rem 0.18rem calc(0.36rem + var(--tree-depth, 0) * 0.6rem);
+  border-radius: 0.4rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.data-tree-row:nth-child(odd) {
   background: color-mix(in srgb, var(--color-bg-muted) 90%, transparent);
 }
 
-.data-row:hover {
+.data-tree-row:hover {
   background: var(--color-accent-soft);
 }
 
-.data-key {
-  color: var(--color-text-muted);
+.data-tree-toggle {
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: inherit;
 }
 
-.data-value {
+.data-tree-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.data-tree-chevron {
+  width: 0.7rem;
+  height: 0.7rem;
+  flex: 0 0 auto;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-1px);
+  opacity: 0.75;
+}
+
+.data-tree-node.is-collapsed > .data-tree-toggle .data-tree-chevron {
+  transform: rotate(-45deg) translateY(1px);
+}
+
+.data-tree-value {
   text-align: right;
+  justify-self: end;
+  white-space: nowrap;
+  color: var(--color-text);
 }
 
 .bookmark-colors {

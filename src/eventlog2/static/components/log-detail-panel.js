@@ -7,11 +7,55 @@ class DetailPanelController {
     this.activeReply = null;
   }
 
-  renderRows(value, prefix = []) {
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      return Object.entries(value).flatMap(([key, val]) => this.renderRows(val, [...prefix, key]));
+  buildDataTree(value, key = "root", depth = 0) {
+    const isArray = Array.isArray(value);
+    const isObject = value && typeof value === "object" && !isArray;
+    if (!isArray && !isObject) {
+      return {
+        key,
+        depth,
+        kind: "value",
+        value: value == null ? "null" : String(value),
+      };
     }
-    return [{ key: prefix.join("."), value: String(value) }];
+
+    const entries = isArray
+      ? value.map((item, index) => [String(index), item])
+      : Object.entries(value);
+    return {
+      key,
+      depth,
+      kind: isArray ? "array" : "object",
+      count: entries.length,
+      children: entries.map(([childKey, childValue]) => this.buildDataTree(childValue, childKey, depth + 1)),
+    };
+  }
+
+  renderDataTree(node) {
+    if (!node) return "";
+    if (node.kind === "value") {
+      return `
+        <div class="data-tree-row data-tree-leaf" style="--tree-depth:${node.depth}">
+          <div class="data-tree-key">${this.escapeHtml(node.key)}</div>
+          <div class="data-tree-value">${this.escapeHtml(node.value)}</div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="data-tree-node" data-tree-kind="${node.kind}">
+        <button type="button" class="data-tree-row data-tree-toggle" data-tree-toggle="true" aria-expanded="true" style="--tree-depth:${node.depth}">
+          <div class="data-tree-key">
+            <span class="data-tree-chevron" aria-hidden="true"></span>
+            <span>${this.escapeHtml(node.key)}</span>
+          </div>
+          <div class="data-tree-value"></div>
+        </button>
+        <div class="data-tree-children">
+          ${node.children.map((child) => this.renderDataTree(child)).join("")}
+        </div>
+      </div>
+    `;
   }
 
   escapeHtml(value) {
@@ -57,7 +101,7 @@ class DetailPanelController {
     const threads = comments?.buildThreads(event.row_id) || [];
     const colorIndex = bookmarks?.getColor(event.row_id) || 0;
     const isBookmarked = bookmarks?.isBookmarked(event.row_id);
-    const rows = event.data ? this.renderRows(event.data) : [];
+    const dataTree = event.data && typeof event.data === "object" ? this.buildDataTree(event.data) : null;
 
     this.container.innerHTML = `
       <div class="detail-stack">
@@ -66,17 +110,19 @@ class DetailPanelController {
         <div class="detail-summary">${event.description}</div>
         <div class="detail-path">${event.system}/${event.subsystem}/${event.unit}/${event.code}</div>
         ${
-          rows.length
-            ? `<div class="event-data">${rows
-                .map(
-                  (row) => `
-                    <div class="data-row">
-                      <div class="data-key">${row.key}</div>
-                    <div class="data-value">${row.value}</div>
+          dataTree
+            ? `<div class="event-data">
+                <div class="event-data-header">
+                  <div class="section-label">Log Data</div>
+                  <div class="event-data-actions">
+                    <button type="button" class="button button-ghost button-xs" id="collapse-all-data">Collapse All</button>
+                    <button type="button" class="button button-ghost button-xs" id="expand-all-data">Expand All</button>
                   </div>
-                `
-                )
-                .join("")}</div>`
+                </div>
+                <div class="data-tree">
+                  ${this.renderDataTree(dataTree)}
+                </div>
+              </div>`
             : '<div class="support-text">No event data available.</div>'
         }
         ${
@@ -118,6 +164,36 @@ class DetailPanelController {
         bookmarks?.setColor(event.row_id, Number(button.dataset.color) || 1);
         if (bus) bus.emit("bookmarks:changed", bookmarks?.getAllWithColors() || {});
         this.renderEvent(event);
+      });
+    }
+
+    this.container.querySelectorAll("[data-tree-toggle]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const node = button.closest(".data-tree-node");
+        if (!node) return;
+        const expanded = button.getAttribute("aria-expanded") !== "false";
+        button.setAttribute("aria-expanded", String(!expanded));
+        node.classList.toggle("is-collapsed", expanded);
+      });
+    });
+
+    const collapseAllButton = this.container.querySelector("#collapse-all-data");
+    if (collapseAllButton) {
+      collapseAllButton.addEventListener("click", () => {
+        this.container.querySelectorAll(".data-tree-node").forEach((node) => node.classList.add("is-collapsed"));
+        this.container
+          .querySelectorAll("[data-tree-toggle]")
+          .forEach((button) => button.setAttribute("aria-expanded", "false"));
+      });
+    }
+
+    const expandAllButton = this.container.querySelector("#expand-all-data");
+    if (expandAllButton) {
+      expandAllButton.addEventListener("click", () => {
+        this.container.querySelectorAll(".data-tree-node").forEach((node) => node.classList.remove("is-collapsed"));
+        this.container
+          .querySelectorAll("[data-tree-toggle]")
+          .forEach((button) => button.setAttribute("aria-expanded", "true"));
       });
     }
 
