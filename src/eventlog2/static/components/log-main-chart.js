@@ -610,6 +610,14 @@ const createTimelineChartController = (panel, context) => {
     chart.options.plugins.legend.display = datasets.length > 1;
     chart.options.scales.y.stacked = Boolean(view.stacked);
     chart.options.scales.x.stacked = Boolean(view.stacked);
+    chart.options.scales.x.min = 0;
+    chart.options.scales.x.max = helpers.spanMs / 1000;
+    chart.options.scales.y.min = undefined;
+    chart.options.scales.y.max = undefined;
+    chart.options.scales.y.suggestedMin = undefined;
+    chart.options.scales.y.suggestedMax = undefined;
+    chart.options.scales.y.beginAtZero = true;
+    chart.options.scales.y.grace = "20%";
 
     while (chart.config.plugins.length > 2) chart.config.plugins.pop();
     activeViewPlugins = typeof view.buildPlugins === "function" ? view.buildPlugins(timelineContext) || [] : [];
