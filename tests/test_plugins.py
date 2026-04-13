@@ -57,6 +57,9 @@ def test_core_event_plugin_builds_normalized_page_data() -> None:
     assert page_data["logData"]["events"][0]["rowDisplay"]["prefix"] == "[PWR-Y-214]"
     assert page_data["logData"]["events"][0]["rowDisplay"]["location"] == "(Power/Distribution/PDU-1)"
     assert page_data["logData"]["events"][0]["rowDisplay"]["hasData"] is False
+    assert page_data["logData"]["events"][0]["system_search"] == ["Power"]
+    assert page_data["logData"]["events"][0]["subsystem_search"] == ["Distribution"]
+    assert page_data["logData"]["events"][0]["unit_search"] == ["PDU-1"]
     assert page_data["logData"]["channels"] == ["A", "B"]
     assert page_data["logData"]["channelCount"] == 2
     assert page_data["view"]["rowSettings"]["channels"] == ["A", "B"]
@@ -110,6 +113,37 @@ def test_core_event_plugin_can_use_channel_count_header() -> None:
     assert page_data["logData"]["channelCount"] == 6
     assert page_data["view"]["rowSettings"]["channels"] == ["A", "B", "C", "D", "E", "F"]
     assert page_data["logData"]["events"][0]["channels"] == ["B", "E"]
+
+
+def test_core_event_plugin_adds_virtual_search_columns() -> None:
+    page_data = build_page_data(
+        "core-event",
+        {
+            "events": [
+                {
+                    "row_id": 1,
+                    "norm_time": 0,
+                    "name": "Alias Example",
+                    "set_clear": "set",
+                    "system": {"id": 12, "name": "Power"},
+                    "subsystem_id": "7",
+                    "subsystem_name": "Distribution",
+                    "unit": "PDU-1",
+                    "unit_id": "44",
+                }
+            ],
+        },
+    )
+
+    event = page_data["logData"]["events"][0]
+    assert event["system"] == "Power"
+    assert event["system_id"] == "12"
+    assert event["system_name"] == "Power"
+    assert event["system_search"] == ["Power", "12"]
+    assert event["subsystem"] == "Distribution"
+    assert event["subsystem_search"] == ["Distribution", "7"]
+    assert event["unit"] == "PDU-1"
+    assert event["unit_search"] == ["PDU-1", "44"]
 
 
 def test_page_data_script_emits_json_assignment() -> None:

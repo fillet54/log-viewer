@@ -62,6 +62,51 @@ def _build_default_channel_labels(count: int) -> list[str]:
     return [str(index + 1) for index in range(count)]
 
 
+def _coerce_string(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _unique_non_empty(values: list[Any]) -> list[str]:
+    result: list[str] = []
+    for value in values:
+        text = _coerce_string(value)
+        if text and text not in result:
+            result.append(text)
+    return result
+
+
+def _normalize_entity_fields(raw_event: dict[str, Any], key: str) -> dict[str, Any]:
+    raw_value = raw_event.get(key)
+    raw_id = raw_event.get(f"{key}_id")
+    raw_name = raw_event.get(f"{key}_name")
+
+    value_id = ""
+    value_name = ""
+
+    if isinstance(raw_value, dict):
+        value_id = _coerce_string(raw_value.get("id"))
+        value_name = _coerce_string(raw_value.get("name") or raw_value.get("label"))
+    elif raw_value is not None:
+        if raw_name or raw_id:
+            candidate = _coerce_string(raw_value)
+            if candidate and candidate != _coerce_string(raw_id) and candidate != _coerce_string(raw_name):
+                value_name = candidate
+        else:
+            value_name = _coerce_string(raw_value)
+
+    value_id = _coerce_string(raw_id) or value_id
+    value_name = _coerce_string(raw_name) or value_name
+    display = value_name or value_id
+    search_values = _unique_non_empty([display, value_id, value_name])
+
+    return {
+        key: display,
+        f"{key}_id": value_id,
+        f"{key}_name": value_name,
+        f"{key}_search": search_values,
+    }
+
+
 def _infer_event_channels(event: dict[str, Any]) -> list[str]:
     inferred: list[str] = []
     for key, value in event.items():
@@ -279,6 +324,9 @@ def _normalize_event(
     normalized_color = color if color in CORE_EVENT_SEVERITY else "Green"
     raw_id = raw_event.get("id") or raw_event.get("name") or f"event-{index + 1}"
     raw_name = raw_event.get("name") or raw_event.get("id") or f"Event {index + 1}"
+    system_fields = _normalize_entity_fields(raw_event, "system")
+    subsystem_fields = _normalize_entity_fields(raw_event, "subsystem")
+    unit_fields = _normalize_entity_fields(raw_event, "unit")
 
     return {
         **raw_event,
@@ -289,9 +337,9 @@ def _normalize_event(
         "name": str(raw_name),
         "description": str(raw_event.get("description") or ""),
         "color": normalized_color,
-        "system": str(raw_event.get("system") or ""),
-        "subsystem": str(raw_event.get("subsystem") or ""),
-        "unit": str(raw_event.get("unit") or ""),
+        **system_fields,
+        **subsystem_fields,
+        **unit_fields,
         "code": str(raw_event.get("code") or ""),
         "set_clear": _normalize_action(raw_event.get("set_clear")),
         "channels": _normalize_channel_list(raw_event, available_channels),

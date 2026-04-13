@@ -25,7 +25,10 @@ LogSearch.buildParser = () => {
     }
     const deepIndex = path.indexOf("$.");
     if (deepIndex === -1) {
-      return [getFieldValue(event, path)];
+      const directValue = getFieldValue(event, path);
+      const aliasValue = path.includes(".") ? null : getFieldValue(event, `${path}_search`);
+      if (aliasValue == null) return [directValue];
+      return [directValue, aliasValue];
     }
     const basePath = path.slice(0, deepIndex);
     const subPath = path.slice(deepIndex + 2);
