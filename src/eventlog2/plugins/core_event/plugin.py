@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from ..base import EventLogPlugin
+from ..base import EventLogSourcePlugin
 
 DEFAULT_CORE_EVENT_CHANNELS = ["A", "B", "C", "D"]
 CORE_EVENT_SEVERITY = ["Green", "Yellow", "Red", "Flashing Red"]
@@ -422,7 +422,7 @@ def _resolve_bounds(payload: dict[str, Any], events: list[dict[str, Any]]) -> di
     }
 
 
-class CoreEventPlugin(EventLogPlugin):
+class CoreEventPlugin(EventLogSourcePlugin):
     plugin_id = "core-event"
     plugin_name = "Core Event"
     row_template_path = "templates/log_row.html"

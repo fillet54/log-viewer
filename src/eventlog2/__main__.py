@@ -4,7 +4,7 @@ from pathlib import Path
 
 from .app import app
 from .plugin_manager import get_plugin, list_plugins
-from .standalone import build_standalone_file
+from .standalone import build_standalone_files
 
 USAGE = """eventlog2
 
@@ -45,7 +45,7 @@ def _apply_runtime_overrides(args: dict[str, object]) -> tuple[str, int, bool, b
     return host, port, debug, use_waitress
 
 
-def _build_standalone(args: dict[str, object]) -> Path:
+def _build_standalone(args: dict[str, object]) -> list[Path]:
     plugin_id = str(args["--plugin"])
     try:
         get_plugin(plugin_id)
@@ -58,7 +58,7 @@ def _build_standalone(args: dict[str, object]) -> Path:
 
     output_path = Path(str(args["--output"])).expanduser().resolve()
     title = str(args["--title"])
-    return build_standalone_file(
+    return build_standalone_files(
         plugin_id=plugin_id,
         data_path=data_path,
         output_path=output_path,
@@ -84,8 +84,13 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if args["build"]:
-        output_path = _build_standalone(args)
-        print(f"Wrote standalone viewer: {output_path}")
+        output_paths = _build_standalone(args)
+        if len(output_paths) == 1:
+            print(f"Wrote standalone viewer: {output_paths[0]}")
+        else:
+            print(f"Wrote {len(output_paths)} standalone viewers:")
+            for path in output_paths:
+                print(path)
         return
 
     host, port, debug, use_waitress = _apply_runtime_overrides(args)

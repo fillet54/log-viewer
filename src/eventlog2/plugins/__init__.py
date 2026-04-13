@@ -1,4 +1,9 @@
-from .base import EventLogPlugin
+from .base import EventLogDocument, EventLogSourcePlugin, EventLogViewPlugin
 from .core_event import CoreEventPlugin
 
-__all__ = ["CoreEventPlugin", "EventLogPlugin"]
+__all__ = [
+    "CoreEventPlugin",
+    "EventLogDocument",
+    "EventLogSourcePlugin",
+    "EventLogViewPlugin",
+]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 import json
 from importlib import import_module
 from importlib.resources import files
@@ -9,7 +10,14 @@ import re
 from typing import Any
 
 
-class EventLogPlugin(ABC):
+@dataclass(frozen=True)
+class EventLogDocument:
+    slug: str
+    payload: Any
+    title: str | None = None
+
+
+class EventLogViewPlugin(ABC):
     plugin_id: str
     plugin_name: str
     asset_package: str | None = None
@@ -45,16 +53,9 @@ class EventLogPlugin(ABC):
             'JavaScript assignment like `window.EVENTLOG2_PAGE_DATA = {...};`.'
         )
 
-    def read_payload_file(self, data_path: Path) -> Any:
-        return self._load_json_text(data_path.read_text(encoding="utf-8"), data_path)
-
     @abstractmethod
     def parse_payload(self, payload: Any) -> dict[str, Any]:
         raise NotImplementedError
-
-    def parse_path(self, data_path: Path) -> dict[str, Any]:
-        payload = self.read_payload_file(data_path)
-        return self.build_page_data(payload)
 
     def get_asset_package(self) -> str:
         if self.asset_package:
@@ -91,3 +92,35 @@ class EventLogPlugin(ABC):
             "logData": self.parse_payload(payload),
             "view": self.get_view_config(),
         }
+
+
+class EventLogSourcePlugin(EventLogViewPlugin):
+    def read_payload_file(self, data_path: Path) -> Any:
+        return self._load_json_text(data_path.read_text(encoding="utf-8"), data_path)
+
+    def read_source_path(self, data_path: Path) -> Any:
+        return self.read_payload_file(data_path)
+
+    def build_documents(self, source: Any, source_path: Path | None = None) -> list[EventLogDocument]:
+        return [EventLogDocument(slug="report", payload=source)]
+
+    def build_page_data_for_document(self, document: EventLogDocument) -> dict[str, Any]:
+        return self.build_page_data(document.payload)
+
+    def parse_path(self, data_path: Path) -> dict[str, Any]:
+        return self.parse_documents_path(data_path)[0]["pageData"]
+
+    def parse_documents_path(self, data_path: Path) -> list[dict[str, Any]]:
+        source = self.read_source_path(data_path)
+        documents = self.build_documents(source, source_path=data_path)
+        results: list[dict[str, Any]] = []
+        for index, document in enumerate(documents):
+            slug = str(document.slug or f"report-{index + 1}").strip() or f"report-{index + 1}"
+            results.append(
+                {
+                    "slug": slug,
+                    "title": document.title,
+                    "pageData": self.build_page_data_for_document(document),
+                }
+            )
+        return results

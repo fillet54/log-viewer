@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from eventlog2.plugin_manager import build_page_data, get_plugin, list_plugins
+from eventlog2.plugin_manager import build_page_data, build_page_data_documents_from_path, get_plugin, list_plugins
 from eventlog2.standalone import build_page_data_script
 
 
@@ -164,3 +164,14 @@ def test_plugin_accepts_simple_page_data_wrapper(tmp_path: Path) -> None:
     payload = plugin.read_payload_file(source)
 
     assert payload == {"events": []}
+
+
+def test_plugin_path_can_build_document_batch(tmp_path: Path) -> None:
+    source = tmp_path / "sample.json"
+    source.write_text('{"events":[]}', encoding="utf-8")
+
+    documents = build_page_data_documents_from_path("core-event", source)
+
+    assert len(documents) == 1
+    assert documents[0]["slug"] == "report"
+    assert documents[0]["pageData"]["plugin"]["id"] == "core-event"
