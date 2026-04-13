@@ -40,20 +40,34 @@ const queryById = (root, id) => {
 };
 
 window.EventLog2 = window.EventLog2 || {};
-window.EventLog2._pendingChartRegistrations = window.EventLog2._pendingChartRegistrations || [];
+window.EventLog2._pendingViewRegistrations = window.EventLog2._pendingViewRegistrations || [];
 window.EventLog2.registerChartType = (definition) => {
   if (!window.LogMainViewChart?.registerType) {
-    window.EventLog2._pendingChartRegistrations.push({ pluginId: null, definition });
+    window.EventLog2._pendingViewRegistrations.push({ kind: "chart", pluginId: null, definition });
     return;
   }
   return window.LogMainViewChart.registerType(definition);
 };
 window.EventLog2.registerPluginChartType = (pluginId, definition) => {
   if (!window.LogMainViewChart?.registerPluginType) {
-    window.EventLog2._pendingChartRegistrations.push({ pluginId, definition });
+    window.EventLog2._pendingViewRegistrations.push({ kind: "chart", pluginId, definition });
     return;
   }
   return window.LogMainViewChart.registerPluginType(pluginId, definition);
+};
+window.EventLog2.registerTimelineView = (definition) => {
+  if (!window.LogMainViewTimeline?.registerView) {
+    window.EventLog2._pendingViewRegistrations.push({ kind: "timeline", pluginId: null, definition });
+    return;
+  }
+  return window.LogMainViewTimeline.registerView(definition);
+};
+window.EventLog2.registerPluginTimelineView = (pluginId, definition) => {
+  if (!window.LogMainViewTimeline?.registerPluginView) {
+    window.EventLog2._pendingViewRegistrations.push({ kind: "timeline", pluginId, definition });
+    return;
+  }
+  return window.LogMainViewTimeline.registerPluginView(pluginId, definition);
 };
 
 const loadPageData = () => {
