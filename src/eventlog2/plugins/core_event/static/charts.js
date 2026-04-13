@@ -160,6 +160,27 @@ window.EventLog2PluginViews.coreEvent = window.EventLog2PluginViews.coreEvent ||
     ],
   });
 
+  EventLog2.registerPluginTimelineView("core-event", {
+    id: "bus-load",
+    label: "Bus Load",
+    kind: "line",
+    datasets: [
+      {
+        label: "Bus Load %",
+        borderColor: "rgba(245, 158, 11, 0.95)",
+        backgroundColor: "rgba(245, 158, 11, 0.18)",
+        pointRadius: 2,
+        tension: 0.2,
+        filter: (event) => event.id === "pwr_bus" && typeof event?.data?.bus?.load_pct === "number",
+        value: (event) => event.data.bus.load_pct,
+      },
+    ],
+    configureChart(chart) {
+      chart.options.scales.y.suggestedMin = 60;
+      chart.options.scales.y.suggestedMax = 72;
+    },
+  });
+
   EventLog2.registerPluginChartType("core-event", {
     id: "systems",
     label: "Subsystem Status",
