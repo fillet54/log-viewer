@@ -53,6 +53,80 @@ class LogSearchPanelElement extends LogAppComponentElement {
       .replace(/'/g, "&#39;");
   }
 
+  getSearchFieldPaths() {
+    const source = Array.isArray(this.events)
+      ? this.events
+      : Array.isArray(this.getLogData()?.events)
+        ? this.getLogData().events
+        : [];
+    const sample = source.find((event) => event && typeof event === "object") || null;
+    if (!sample) return [];
+    return Object.entries(sample)
+      .map(([key, value]) => ({
+        name: key,
+        nested:
+          value != null &&
+          typeof value === "object" &&
+          (!Array.isArray(value) ? Object.keys(value).length > 0 : value.length > 0),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  buildSearchHelpDialog() {
+    const fields = this.getSearchFieldPaths();
+    const examples = [
+      'name:temp_core',
+      'system:Power',
+      'color:Red',
+      'data.bus.load_pct>=68',
+      'description~timeout',
+      'system:Power OR system:Thermal',
+      'NOT color:Green',
+      '$:sensor',
+      '$.*:writer',
+    ];
+
+    return `
+      <dialog id="search-help-dialog" class="search-help-dialog">
+        <form method="dialog" class="search-help-card">
+          <div class="search-help-header">
+            <div>
+              <div class="section-label">Search Help</div>
+              <div class="search-help-title">Query Syntax</div>
+            </div>
+            <button class="button button-ghost button-xs" value="close" aria-label="Close search help">Close</button>
+          </div>
+          <div class="search-help-body">
+            <div class="search-help-section">
+              <div class="search-help-section-title">Basics</div>
+              <div class="support-text">Bare terms search across the main event fields and also prefix-match the event <code>name</code>. For example, typing <code>temp</code> will match names that start with <code>temp</code> and exact matching values in common fields.</div>
+              <div class="support-text">Use <code>field:value</code> for exact field matching and <code>field~text</code> for substring matching. Numeric fields support <code>&gt;</code>, <code>&gt;=</code>, <code>&lt;</code>, and <code>&lt;=</code>.</div>
+              <div class="support-text">Boolean logic is supported with <code>AND</code>, <code>OR</code>, and <code>NOT</code>. If you omit an operator between filters, it behaves like an <code>AND</code>.</div>
+              <div class="support-text">Use <code>*</code> as a wildcard for text matching. Use <code>$:key</code> to search object key names and <code>$.*:value</code> to search deeply across nested object values.</div>
+            </div>
+            <div class="search-help-section">
+              <div class="search-help-section-title">Examples</div>
+              <div class="search-help-examples">
+                ${examples.map((example) => `<button type="button" class="search-help-example" data-search-example="${this.escapeHtml(example)}">${this.escapeHtml(example)}</button>`).join("")}
+              </div>
+            </div>
+            <div class="search-help-section">
+              <div class="search-help-section-title">Searchable Columns</div>
+              <div class="support-text">These are top-level event fields. Fields marked <code>map</code> contain nested object data and can still be queried with dotted paths like <code>data.bus.load_pct</code> when needed.</div>
+              <div class="search-help-fields">
+                ${fields
+                  .map(
+                    (field) => `<span class="search-help-field"><code>${this.escapeHtml(field.name)}</code>${field.nested ? '<span class="search-help-field-badge">map</span>' : ""}</span>`
+                  )
+                  .join("")}
+              </div>
+            </div>
+          </div>
+        </form>
+      </dialog>
+    `;
+  }
+
   renderThread(threads, depth = 0) {
     if (!threads.length) return "";
     return `
@@ -101,6 +175,8 @@ class LogSearchPanelElement extends LogAppComponentElement {
     this.bookmarkView = this.getById("search-bookmark-view");
     this.searchSplit = this.getById("search-split");
     this.activityEnabled = this.bookmarks?.enabled !== false || this.comments?.enabled !== false;
+    this.helpDialog = this.getById("search-help-dialog");
+    this.helpButton = this.getById("open-search-help");
 
     if (
       !this.pinnedList ||
@@ -131,6 +207,16 @@ class LogSearchPanelElement extends LogAppComponentElement {
     this.filters = this.loadStored(keys.searchFilters, []);
 
     this.runButton.addEventListener("click", () => this.runSearch(true));
+    if (this.helpButton && this.helpDialog) {
+      this.helpButton.addEventListener("click", () => this.helpDialog.showModal());
+      this.helpDialog.querySelectorAll("[data-search-example]").forEach((button) => {
+        button.addEventListener("click", () => {
+          this.queryInput.value = button.dataset.searchExample || "";
+          this.helpDialog.close();
+          this.queryInput.focus();
+        });
+      });
+    }
     this.queryInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") this.runSearch(true);
     });
@@ -552,7 +638,6 @@ class LogSearchPanelElement extends LogAppComponentElement {
 
   renderShell() {
     const rowTemplate = this.getRowTemplate();
-    const searchHelpUrl = this.getAttribute("search-help-url") || "/static/search_syntax.html";
     this.innerHTML = `
       <div class="pane-header compact-header pane-header-spread">
         <span id="search-header-text" class="section-label">Search</span>
@@ -599,13 +684,13 @@ class LogSearchPanelElement extends LogAppComponentElement {
           <section id="search-results-pane" class="search-results">
             <div class="search-controls">
               <input id="search-query" class="text-input text-input-small search-input" placeholder="Search logs, faults, codes..." />
-              <a class="button button-ghost button-small search-help-button" href="${searchHelpUrl}" target="_blank" rel="noopener" aria-label="Search syntax help" title="Search syntax help">
+              <button type="button" id="open-search-help" class="button button-ghost button-small search-help-button" aria-label="Search syntax help" title="Search syntax help">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M9.5 9a2.5 2.5 0 1 1 4.2 1.8c-.8.6-1.2 1-1.2 2.2" />
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 17h.01" />
                   <circle cx="12" cy="12" r="9" />
                 </svg>
-              </a>
+              </button>
               <button id="run-search" class="button button-primary button-small">Search</button>
             </div>
             <div id="search-results" class="search-list search-results-list">
@@ -615,6 +700,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
           </section>
         </div>
       </div>
+      ${this.buildSearchHelpDialog()}
     `;
     if (rowTemplate) this.appendChild(rowTemplate);
   }
