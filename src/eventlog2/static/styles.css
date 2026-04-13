@@ -138,7 +138,7 @@ button {
 }
 
 .app-body-viewer {
-  background: #ffffff;
+  background: var(--color-bg-app);
 }
 
 .app-body-standalone .bookmark-toggle,
@@ -1464,6 +1464,10 @@ log-layout {
   color: #f8fbff;
   background: #12243a;
   border-color: #12243a;
+}
+
+html[data-theme="dark"] .log-channel.is-on {
+  border-color: rgba(191, 219, 254, 0.96);
 }
 
 .bookmark-toggle,
