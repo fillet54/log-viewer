@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ title }}</title>
+    <script>
+      (function () {
+        const storageKey = "eventlog2-theme";
+        const storedTheme = localStorage.getItem(storageKey);
+        const preferredTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light";
+        document.documentElement.dataset.theme = storedTheme || preferredTheme;
+      })();
+    </script>
+    <style>
+{{ styles|safe }}
+    </style>
+  </head>
+  <body class="app-body app-body-viewer app-body-standalone">
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="topbar-inner">
+          <span class="brand">HTML Log Viewer</span>
+          <div class="topbar-actions">
+            <button type="button" id="theme-toggle" class="button button-ghost button-xs" aria-label="Toggle theme">
+              Theme
+            </button>
+            <span class="user-state">Standalone Page</span>
+          </div>
+        </div>
+      </header>
+      <main class="app-content app-content-viewer">
+        <div class="viewer-page">
+          <log-viewer-app>
+            <log-layout>
+              <log-main-view>
+                {{ row_template|safe }}
+              </log-main-view>
+              <log-detail-panel></log-detail-panel>
+              <log-search-panel search-help-url="{{ help_url }}">
+                {{ row_template|safe }}
+              </log-search-panel>
+            </log-layout>
+          </log-viewer-app>
+        </div>
+      </main>
+    </div>
+    <script>
+      (function () {
+        const storageKey = "eventlog2-theme";
+        const button = document.getElementById("theme-toggle");
+        if (!button) return;
+        const root = document.documentElement;
+        const syncLabel = () => {
+          const theme = root.dataset.theme === "dark" ? "Dark" : "Light";
+          button.textContent = theme;
+          button.setAttribute("aria-label", `Switch theme. Current theme: ${theme}`);
+        };
+        button.addEventListener("click", () => {
+          root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+          localStorage.setItem(storageKey, root.dataset.theme);
+          syncLabel();
+        });
+        syncLabel();
+      })();
+    </script>
+    {% for script_block in script_blocks %}
+    <script>
+{{ script_block|replace('</script', '<\\/script')|safe }}
+    </script>
+    {% endfor %}
+  </body>
+</html>
