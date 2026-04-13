@@ -100,6 +100,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
     this.filterView = this.getById("search-filter-view");
     this.bookmarkView = this.getById("search-bookmark-view");
     this.searchSplit = this.getById("search-split");
+    this.activityEnabled = this.bookmarks?.enabled !== false || this.comments?.enabled !== false;
 
     if (
       !this.pinnedList ||
@@ -142,7 +143,12 @@ class LogSearchPanelElement extends LogAppComponentElement {
     this.clearHistoryButton.addEventListener("click", () => this.clearHistory());
     this.tabHistory.addEventListener("click", () => this.setTab("history"));
     this.tabFilters.addEventListener("click", () => this.setTab("filters"));
-    this.tabBookmarks.addEventListener("click", () => this.setTab("bookmarks"));
+    if (this.activityEnabled) {
+      this.tabBookmarks.addEventListener("click", () => this.setTab("bookmarks"));
+    } else {
+      this.tabBookmarks.classList.add("hidden");
+      this.bookmarkView.classList.add("hidden");
+    }
     this.resultsList.addEventListener("scroll", () => {
       requestAnimationFrame(() => this.updateResultsVirtual());
     });
@@ -150,13 +156,13 @@ class LogSearchPanelElement extends LogAppComponentElement {
     this.renderPinned();
     this.renderHistory();
     this.renderFilters();
-    this.renderBookmarks();
+    if (this.activityEnabled) this.renderBookmarks();
     if (this.events.length) this.measureResultRow();
     this.renderResults(this.events.slice(0, 200));
     this.applyFilters();
     this.initializeSearchSplit();
 
-    if (bus) {
+    if (bus && this.activityEnabled) {
       bus.on("bookmarks:changed", () => this.renderBookmarks());
       bus.on("bookmarks:changed", (map) => {
         if (this.currentTab === "bookmarks") {
@@ -326,6 +332,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
   }
 
   getBookmarkEvents() {
+    if (!this.activityEnabled) return [];
     const bookmarkIds = new Set(this.bookmarks?.getAll() || []);
     const commentRows = this.comments?.getByRowId() || new Map();
     const ids = new Set([...bookmarkIds, ...Array.from(commentRows.keys())]);
@@ -339,6 +346,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
     if (!row) return row;
 
     row.querySelector(".bookmark-toggle")?.addEventListener("click", (eventClick) => {
+      if (!this.activityEnabled) return;
       eventClick.stopPropagation();
       const next = this.bookmarks?.cycle(event.row_id) || 0;
       row.classList.toggle("is-bookmarked", next > 0);
@@ -367,6 +375,10 @@ class LogSearchPanelElement extends LogAppComponentElement {
   }
 
   renderBookmarks() {
+    if (!this.activityEnabled) {
+      this.bookmarksList.innerHTML = "";
+      return;
+    }
     this.bookmarksList.innerHTML = "";
     const fragment = document.createDocumentFragment();
     this.getBookmarkEvents().forEach((event) => {
@@ -520,6 +532,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
   }
 
   setTab(tab) {
+    if (tab === "bookmarks" && !this.activityEnabled) tab = "history";
     const isHistory = tab === "history";
     const isFilters = tab === "filters";
     const isBookmarks = tab === "bookmarks";

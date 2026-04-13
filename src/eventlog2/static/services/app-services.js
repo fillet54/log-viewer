@@ -1,5 +1,7 @@
 window.LogServices = window.LogServices || {};
 
+LogServices.isStandalone = () => document.body.classList.contains("app-body-standalone");
+
 LogServices.createEventBus = () => {
   const listeners = new Map();
   return {
@@ -161,6 +163,41 @@ LogServices.createCommentService = ({ logData, bus }) => {
   return { addComment, getByRowId, buildThreads };
 };
 
+LogServices.createDisabledBookmarkService = () => ({
+  enabled: false,
+  cycle() {
+    return 0;
+  },
+  setColor() {
+    return 0;
+  },
+  getColor() {
+    return 0;
+  },
+  isBookmarked() {
+    return false;
+  },
+  getAll() {
+    return [];
+  },
+  getAllWithColors() {
+    return {};
+  },
+});
+
+LogServices.createDisabledCommentService = () => ({
+  enabled: false,
+  async addComment() {
+    return null;
+  },
+  getByRowId() {
+    return new Map();
+  },
+  buildThreads() {
+    return [];
+  },
+});
+
 LogServices.createRootServices = ({ pageData }) => {
   const bus = LogServices.createEventBus();
   const pluginValue = pageData && typeof pageData === "object" ? pageData.plugin : null;
@@ -181,13 +218,18 @@ LogServices.createRootServices = ({ pageData }) => {
       ? pageData.view
       : {};
   const events = Array.isArray(logData?.events) ? logData.events : [];
+  const standalone = LogServices.isStandalone();
   return {
     plugin,
     view,
     bus,
     logData,
     searchWorker: LogSearch.createWorker(events),
-    bookmarks: LogServices.createBookmarkService({ logData, bus }),
-    comments: LogServices.createCommentService({ logData, bus }),
+    bookmarks: standalone
+      ? LogServices.createDisabledBookmarkService()
+      : LogServices.createBookmarkService({ logData, bus }),
+    comments: standalone
+      ? LogServices.createDisabledCommentService()
+      : LogServices.createCommentService({ logData, bus }),
   };
 };

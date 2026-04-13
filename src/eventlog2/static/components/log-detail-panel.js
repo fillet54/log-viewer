@@ -91,6 +91,8 @@ class DetailPanelController {
 
   renderEvent(event) {
     const { bus, bookmarks, comments } = this.services;
+    const bookmarksEnabled = bookmarks?.enabled !== false;
+    const commentsEnabled = comments?.enabled !== false;
     this.currentEvent = event || null;
     if (!this.container) return;
     if (!event) {
@@ -98,9 +100,9 @@ class DetailPanelController {
       return;
     }
 
-    const threads = comments?.buildThreads(event.row_id) || [];
-    const colorIndex = bookmarks?.getColor(event.row_id) || 0;
-    const isBookmarked = bookmarks?.isBookmarked(event.row_id);
+    const threads = commentsEnabled ? comments?.buildThreads(event.row_id) || [] : [];
+    const colorIndex = bookmarksEnabled ? bookmarks?.getColor(event.row_id) || 0 : 0;
+    const isBookmarked = bookmarksEnabled ? bookmarks?.isBookmarked(event.row_id) : false;
     const dataTree = event.data && typeof event.data === "object" ? this.buildDataTree(event.data) : null;
 
     this.container.innerHTML = `
@@ -143,16 +145,20 @@ class DetailPanelController {
         `
             : ""
         }
-        <div class="comment-section">
-          <div class="section-label">Comments</div>
-          <div class="support-text">Stored only in this browser.</div>
-          ${this.activeReply ? `<div class="comment-replying">Replying to #${this.activeReply} <button class="button button-ghost button-xs" id="cancel-reply">Cancel</button></div>` : ""}
-          <div class="comment-list">${this.renderThread(threads)}</div>
-          <div class="comment-form">
-            <textarea id="comment-body" class="text-area" rows="3" placeholder="Add a comment..."></textarea>
-            <button class="button button-primary button-small comment-submit" id="submit-comment">Post</button>
-          </div>
-        </div>
+        ${
+          commentsEnabled
+            ? `<div class="comment-section">
+                <div class="section-label">Comments</div>
+                <div class="support-text">Stored only in this browser.</div>
+                ${this.activeReply ? `<div class="comment-replying">Replying to #${this.activeReply} <button class="button button-ghost button-xs" id="cancel-reply">Cancel</button></div>` : ""}
+                <div class="comment-list">${this.renderThread(threads)}</div>
+                <div class="comment-form">
+                  <textarea id="comment-body" class="text-area" rows="3" placeholder="Add a comment..."></textarea>
+                  <button class="button button-primary button-small comment-submit" id="submit-comment">Post</button>
+                </div>
+              </div>`
+            : ""
+        }
       </div>
     `;
 

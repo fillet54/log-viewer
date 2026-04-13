@@ -80,7 +80,7 @@ def build_standalone_html(data_script: str, title: str = "HTML Log Viewer") -> s
 {styles}
     </style>
   </head>
-  <body class="app-body app-body-viewer">
+  <body class="app-body app-body-viewer app-body-standalone">
     <div class="app-shell">
       <header class="topbar">
         <div class="topbar-inner">

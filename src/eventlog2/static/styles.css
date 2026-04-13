@@ -141,6 +141,15 @@ button {
   background: #ffffff;
 }
 
+.app-body-standalone .bookmark-toggle,
+.app-body-standalone .bookmark-notes,
+.app-body-standalone .comment-section,
+.app-body-standalone #tab-bookmarks,
+.app-body-standalone #search-bookmark-view,
+.app-body-standalone .activity-thread {
+  display: none !important;
+}
+
 .app-content {
   flex: 1 1 auto;
   display: flex;
