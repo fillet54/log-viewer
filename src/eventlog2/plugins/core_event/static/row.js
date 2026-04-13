@@ -68,6 +68,7 @@ window.EventLog2.registerPluginRowRenderer("core-event", (event, templateEl, opt
   const display = resolveRowDisplay(event);
   row.className = [`log-line log-${colorClass}${colorIndex ? " is-bookmarked" : ""}`, ...extra].join(" ");
   row.dataset.bookmarkColor = String(colorIndex);
+  row.dataset.setClear = String(event?.set_clear || "");
   row.dataset.seconds = event.norm_time;
   row.dataset.rowId = event.row_id;
 

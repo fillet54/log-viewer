@@ -1128,6 +1128,22 @@ log-layout {
   background: var(--color-log-selected);
 }
 
+.log-line[data-set-clear="clear"] {
+  opacity: 0.36;
+}
+
+.log-line[data-set-clear="clear"]:hover {
+  opacity: 0.92;
+}
+
+.log-line[data-set-clear="clear"].log-selected {
+  opacity: 0.7;
+}
+
+.log-line[data-set-clear="clear"].log-selected:hover {
+  opacity: 0.96;
+}
+
 @keyframes pulse-highlight {
   0% {
     background: var(--color-highlight-start);
