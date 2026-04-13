@@ -57,10 +57,59 @@ def test_core_event_plugin_builds_normalized_page_data() -> None:
     assert page_data["logData"]["events"][0]["rowDisplay"]["prefix"] == "[PWR-Y-214]"
     assert page_data["logData"]["events"][0]["rowDisplay"]["location"] == "(Power/Distribution/PDU-1)"
     assert page_data["logData"]["events"][0]["rowDisplay"]["hasData"] is False
-    assert page_data["view"]["rowSettings"]["channels"] == ["A", "B", "C", "D"]
+    assert page_data["logData"]["channels"] == ["A", "B"]
+    assert page_data["logData"]["channelCount"] == 2
+    assert page_data["view"]["rowSettings"]["channels"] == ["A", "B"]
     assert "<template" in page_data["view"]["rowTemplate"]
     assert len(page_data["view"]["scripts"]) == 2
     assert "registerPluginChartType" in page_data["view"]["scripts"][1]
+
+
+def test_core_event_plugin_supports_variable_channel_catalog() -> None:
+    page_data = build_page_data(
+        "core-event",
+        {
+            "channelCount": 6,
+            "channels": ["1", "2", "3", "4", "5", "6"],
+            "events": [
+                {
+                    "row_id": 1,
+                    "norm_time": 0,
+                    "name": "Bus Example",
+                    "set_clear": "set",
+                    "channels": ["2", "5"],
+                }
+            ],
+        },
+    )
+
+    assert page_data["logData"]["channels"] == ["1", "2", "3", "4", "5", "6"]
+    assert page_data["logData"]["channelCount"] == 6
+    assert page_data["view"]["rowSettings"]["channels"] == ["1", "2", "3", "4", "5", "6"]
+    assert page_data["logData"]["events"][0]["channels"] == ["2", "5"]
+
+
+def test_core_event_plugin_can_use_channel_count_header() -> None:
+    page_data = build_page_data(
+        "core-event",
+        {
+            "channelCount": 6,
+            "events": [
+                {
+                    "row_id": 1,
+                    "norm_time": 0,
+                    "name": "Bus Example",
+                    "set_clear": "set",
+                    "channels": ["B", "E"],
+                }
+            ],
+        },
+    )
+
+    assert page_data["logData"]["channels"] == ["A", "B", "C", "D", "E", "F"]
+    assert page_data["logData"]["channelCount"] == 6
+    assert page_data["view"]["rowSettings"]["channels"] == ["A", "B", "C", "D", "E", "F"]
+    assert page_data["logData"]["events"][0]["channels"] == ["B", "E"]
 
 
 def test_page_data_script_emits_json_assignment() -> None:

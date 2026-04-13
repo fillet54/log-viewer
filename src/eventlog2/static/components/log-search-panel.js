@@ -149,13 +149,14 @@ class LogSearchPanelElement extends LogAppComponentElement {
   }
 
   initialize() {
-    const { logData, bus, bookmarks, comments, searchWorker, rowTemplate } = this.getServices();
+    const { logData, bus, bookmarks, comments, searchWorker, rowTemplate, view } = this.getServices();
     this.events = Array.isArray(logData?.events) ? logData.events : [];
     this.bookmarks = bookmarks;
     this.comments = comments;
     this.bus = bus;
     this.searchWorker = searchWorker;
     this.rowTemplate = rowTemplate;
+    this.view = view;
 
     this.pinnedList = this.getById("search-pinned");
     this.historyList = this.getById("search-history");
@@ -473,6 +474,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
       const row = this.buildRow(event, this.rowTemplate, {
         extraClasses: ["search-result-row"],
         bookmarks: this.bookmarks,
+        view: this.view,
       });
       if (!row) return;
       wrapper.appendChild(this.attachRowActions(row, event));
@@ -492,6 +494,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
     const row = this.buildRow(event, this.rowTemplate, {
       extraClasses: ["search-result-row"],
       bookmarks: this.bookmarks,
+      view: this.view,
     });
     if (!row) return null;
     return this.attachRowActions(row, event);
@@ -709,6 +712,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
     return {
       bus: this.getBus(),
       logData: this.getLogData(),
+      view: this.getView(),
       rowTemplate: this.getRowTemplate(),
       searchWorker: this.getSearchWorker(),
       bookmarks: this.getBookmarks(),

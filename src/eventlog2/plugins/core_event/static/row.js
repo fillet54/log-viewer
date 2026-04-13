@@ -48,6 +48,15 @@ const resolveRowDisplay = (event) => {
   };
 };
 
+const resolveConfiguredChannels = (event, view) => {
+  const configured = Array.isArray(view?.rowSettings?.channels) ? view.rowSettings.channels : [];
+  const normalizedConfigured = configured
+    .map((channel) => String(channel || "").trim())
+    .filter(Boolean);
+  if (normalizedConfigured.length) return normalizedConfigured;
+  return Array.isArray(event?.channels) ? event.channels.map((channel) => String(channel || "").trim()).filter(Boolean) : [];
+};
+
 window.EventLog2.registerPluginRowRenderer("core-event", (event, templateEl, options = {}) => {
   if (!templateEl?.content?.firstElementChild || !event) return null;
   const { extraClasses = [], bookmarks = null } = options;
@@ -80,6 +89,18 @@ window.EventLog2.registerPluginRowRenderer("core-event", (event, templateEl, opt
     actionEl.dataset.contrast = ACTION_TEXT_COLORS[colorClass] || "light";
   }
   const matchContainer = row.querySelector('[data-field="match-links"]');
+  const channelContainer = row.querySelector(".log-channels");
+
+  if (channelContainer) {
+    channelContainer.innerHTML = "";
+    resolveConfiguredChannels(event, options.view).forEach((channel) => {
+      const el = document.createElement("span");
+      el.className = "log-channel";
+      el.dataset.channel = channel;
+      el.textContent = channel;
+      channelContainer.appendChild(el);
+    });
+  }
 
   const dataIndicatorEl = row.querySelector('[data-field="data-indicator"]');
   if (dataIndicatorEl) {
