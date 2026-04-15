@@ -24,6 +24,7 @@ LogApp.STORAGE_KEYS = {
   searchHistory: "loglayout.search.history",
   searchPinned: "loglayout.search.pinned",
   searchFilters: "loglayout.search.filters",
+  chartMode: "loglayout.chart.mode",
   chartTooltips: "loglayout.chart.tooltips",
   bookmarks: "loglayout.bookmarks",
   bookmarkNotes: "loglayout.bookmark.notes",

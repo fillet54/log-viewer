@@ -127,6 +127,53 @@ FAULT_CATALOG = [
     },
 ]
 
+CONNECTIVITY_FAULTS = [
+    {
+        "id": "eth1_down",
+        "name": "ETH1_DOWN",
+        "description": "Connectivity fault for eth1 link.",
+        "color": "Red",
+        "system": "Network",
+        "subsystem": "Connectivity",
+        "unit": "ETH1",
+        "code": "NET-ETH1-DOWN",
+        "link": "eth1",
+    },
+    {
+        "id": "eth2_down",
+        "name": "ETH2_DOWN",
+        "description": "Connectivity fault for eth2 link.",
+        "color": "Red",
+        "system": "Network",
+        "subsystem": "Connectivity",
+        "unit": "ETH2",
+        "code": "NET-ETH2-DOWN",
+        "link": "eth2",
+    },
+    {
+        "id": "wifi_down",
+        "name": "WIFI_DOWN",
+        "description": "Connectivity fault for wifi link.",
+        "color": "Red",
+        "system": "Network",
+        "subsystem": "Connectivity",
+        "unit": "WIFI",
+        "code": "NET-WIFI-DOWN",
+        "link": "wifi",
+    },
+    {
+        "id": "cellular_down",
+        "name": "CELLULAR_DOWN",
+        "description": "Connectivity fault for cellular link.",
+        "color": "Red",
+        "system": "Network",
+        "subsystem": "Connectivity",
+        "unit": "CELLULAR",
+        "code": "NET-CELLULAR-DOWN",
+        "link": "cellular",
+    },
+]
+
 LEVEL_ORDER = ["Green", "Yellow", "Red", "Flashing Red"]
 
 
@@ -147,6 +194,112 @@ def _level_weight(color: str, cluster_weight: float) -> float:
     if color == "Red":
         return 0.6 + cluster_weight * 1.8
     return 0.3 + cluster_weight * 2.0
+
+
+def _build_channels(rng: random.Random) -> list[str]:
+    channels = ["A", "B", "C", "D"]
+    if rng.random() < 0.85:
+        return channels
+    return rng.sample(channels, rng.randint(1, 3))
+
+
+def _build_channel_time(
+    offset_seconds: float, channel: str, seen_channels: list[str], rng: random.Random
+) -> Optional[int]:
+    if channel not in seen_channels:
+        return None
+    jitter = rng.uniform(-1.8, 1.8)
+    return max(0, int(offset_seconds + jitter))
+
+
+def _build_event_entry(
+    choice: Dict[str, Any],
+    timestamp: datetime,
+    offset_seconds: float,
+    set_clear: str,
+    seen_channels: list[str],
+    rng: random.Random,
+) -> Dict[str, Any]:
+    return {
+        "id": choice["id"],
+        "name": choice["name"],
+        "description": choice["description"],
+        "color": choice["color"],
+        "system": choice["system"],
+        "subsystem": choice["subsystem"],
+        "unit": choice["unit"],
+        "code": choice["code"],
+        "data": choice.get("data"),
+        "set_clear": set_clear,
+        "utctime": timestamp.isoformat(timespec="seconds") + "Z",
+        "norm_time": int(offset_seconds),
+        "a_time": _build_channel_time(offset_seconds, "A", seen_channels, rng),
+        "b_time": _build_channel_time(offset_seconds, "B", seen_channels, rng),
+        "c_time": _build_channel_time(offset_seconds, "C", seen_channels, rng),
+        "d_time": _build_channel_time(offset_seconds, "D", seen_channels, rng),
+        "channels": seen_channels,
+    }
+
+
+def _generate_connectivity_events(
+    start_time: datetime, span_seconds: int, rng: random.Random
+) -> list[Dict[str, Any]]:
+    events: list[Dict[str, Any]] = []
+    if span_seconds <= 15:
+        return events
+
+    for fault in CONNECTIVITY_FAULTS:
+        is_down = False
+        cursor = rng.uniform(20, min(300, max(25, span_seconds / 6)))
+
+        while cursor < span_seconds - 5:
+            is_down = not is_down
+            set_clear = "set" if is_down else "clear"
+            timestamp = start_time + timedelta(seconds=cursor)
+            seen_channels = _build_channels(rng)
+            events.append(
+                _build_event_entry(
+                    {
+                        **fault,
+                        "data": {
+                            "link": {"name": fault["link"]},
+                            "fault": {"state": "down" if is_down else "clear"},
+                        },
+                    },
+                    timestamp,
+                    cursor,
+                    set_clear,
+                    seen_channels,
+                    rng,
+                )
+            )
+
+            if rng.random() < 0.28 and cursor < span_seconds - 20:
+                cursor += rng.uniform(2, 8)
+                is_down = not is_down
+                set_clear = "set" if is_down else "clear"
+                timestamp = start_time + timedelta(seconds=cursor)
+                seen_channels = _build_channels(rng)
+                events.append(
+                    _build_event_entry(
+                        {
+                            **fault,
+                            "data": {
+                                "link": {"name": fault["link"]},
+                                "fault": {"state": "down" if is_down else "clear"},
+                            },
+                        },
+                        timestamp,
+                        cursor,
+                        set_clear,
+                        seen_channels,
+                        rng,
+                    )
+                )
+
+            cursor += rng.uniform(45, min(1800, max(90, span_seconds / 3)))
+
+    return events
 
 
 def generate_logs(hours: float, seed_value: Optional[str]) -> Dict[str, Any]:
@@ -181,40 +334,15 @@ def generate_logs(hours: float, seed_value: Optional[str]) -> Dict[str, Any]:
         states[choice["id"]] = not is_set
 
         timestamp = start_time + timedelta(seconds=offset)
-        channels = ["A", "B", "C", "D"]
-        if rng.random() < 0.85:
-            seen_channels = channels
-        else:
-            seen_channels = rng.sample(channels, rng.randint(1, 3))
-
-        def _channel_time(letter: str) -> Optional[int]:
-            if letter not in seen_channels:
-                return None
-            jitter = rng.uniform(-1.8, 1.8)
-            return max(0, int(offset + jitter))
-
+        seen_channels = _build_channels(rng)
         events.append(
-            {
-                "row_id": idx + 1,
-                "id": choice["id"],
-                "name": choice["name"],
-                "description": choice["description"],
-                "color": choice["color"],
-                "system": choice["system"],
-                "subsystem": choice["subsystem"],
-                "unit": choice["unit"],
-                "code": choice["code"],
-                "data": choice.get("data"),
-                "set_clear": set_clear,
-                "utctime": timestamp.isoformat(timespec="seconds") + "Z",
-                "norm_time": int(offset),
-                "a_time": _channel_time("A"),
-                "b_time": _channel_time("B"),
-                "c_time": _channel_time("C"),
-                "d_time": _channel_time("D"),
-                "channels": seen_channels,
-            }
+            _build_event_entry(choice, timestamp, offset, set_clear, seen_channels, rng)
         )
+
+    events.extend(_generate_connectivity_events(start_time, span_seconds, rng))
+    events.sort(key=lambda item: (item["norm_time"], item["utctime"], item["name"]))
+    for idx, event in enumerate(events):
+        event["row_id"] = idx + 1
 
     mode_labels = ["Startup", "Self Test", "Execution", "Pre-Shutdown"]
     mode_count = max(2, min(len(mode_labels), int(hours) + 1))

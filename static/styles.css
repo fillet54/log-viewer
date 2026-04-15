@@ -97,6 +97,13 @@
   position: absolute;
   top: 0.4rem;
   right: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.chart-mode-toggle .chart-toggle {
+  min-width: 6.75rem;
 }
 
 .tool-icon {

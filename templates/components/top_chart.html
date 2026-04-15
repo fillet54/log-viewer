@@ -1,8 +1,29 @@
 <div class="chart-band">
   <div class="chart-tools">
+    <div class="join chart-mode-toggle" role="group" aria-label="Chart mode">
+      <button
+        id="chart-mode-severity"
+        class="btn btn-outline btn-xs chart-toggle"
+        type="button"
+        data-chart-mode="severity"
+        aria-pressed="true"
+      >
+        Severity
+      </button>
+      <button
+        id="chart-mode-connectivity"
+        class="btn btn-outline btn-xs chart-toggle"
+        type="button"
+        data-chart-mode="connectivity"
+        aria-pressed="false"
+      >
+        Connectivity
+      </button>
+    </div>
     <button
       id="toggle-tooltips"
       class="btn btn-outline btn-xs chart-toggle"
+      type="button"
       aria-pressed="true"
       title="Toggle value popup on hover"
     >
