@@ -4,9 +4,9 @@ LogApp.initChart = (logData, bus) => {
   if (!logData) return null;
 
   const stackedCanvas = document.getElementById("stacked-chart");
-  if (!stackedCanvas) return null;
+  if (!stackedCanvas || typeof Chart === "undefined") return null;
 
-  const events = Array.isArray(logData?.events) ? logData.events : [];
+  const events = Array.isArray(logData.events) ? logData.events : [];
   if (!events.length) return null;
 
   const startTime = new Date(logData.start);
@@ -29,7 +29,7 @@ LogApp.initChart = (logData, bus) => {
     { label: "wifi", eventName: "WIFI_DOWN" },
     { label: "cellular", eventName: "CELLULAR_DOWN" },
   ];
-  const connectivityRows = ["summary", ...connectivityLinks.map((link) => link.label)];
+  const connectivityRows = ["summary"].concat(connectivityLinks.map((link) => link.label));
   const statusColors = {
     Up: {
       backgroundColor: "rgba(34, 197, 94, 0.82)",
@@ -66,10 +66,10 @@ LogApp.initChart = (logData, bus) => {
       borderColor: "rgba(88, 28, 28, 1)",
     },
   ];
+
   const labels = [];
   for (let i = 0; i < bucketCount; i += 1) {
-    const t = new Date(startMs + i * bucketMs);
-    labels.push(t.toISOString().slice(11, 16));
+    labels.push(new Date(startMs + i * bucketMs).toISOString().slice(11, 16));
   }
 
   let filteredEvents = events.slice();
@@ -81,6 +81,9 @@ LogApp.initChart = (logData, bus) => {
 
   const formatTime = (ms) => new Date(ms).toISOString().slice(11, 19);
 
+  const getChartArea = (chart) => chart && chart.chartArea;
+  const getXScale = (chart) => (chart && chart.scales ? chart.scales["x-axis-0"] : null);
+
   const buildSeverityBuckets = (sourceEvents) => {
     const buckets = {
       Green: new Array(bucketCount).fill(0),
@@ -89,10 +92,10 @@ LogApp.initChart = (logData, bus) => {
       "Flashing Red": new Array(bucketCount).fill(0),
     };
     sourceEvents.forEach((event) => {
-      const timestamp = new Date(event.utctime);
+      const timestamp = new Date(event.utctime).getTime();
       const index = Math.min(
         bucketCount - 1,
-        Math.max(0, Math.floor((timestamp - startTime) / bucketMs))
+        Math.max(0, Math.floor((timestamp - startMs) / bucketMs))
       );
       if (buckets[event.color]) buckets[event.color][index] += 1;
     });
@@ -141,19 +144,21 @@ LogApp.initChart = (logData, bus) => {
   };
 
   const getStatusAtTime = (segments, atMs) => {
-    const segment = segments.find((item) => atMs >= item.start && atMs < item.end);
-    if (segment) return segment.status;
+    for (let i = 0; i < segments.length; i += 1) {
+      const segment = segments[i];
+      if (atMs >= segment.start && atMs < segment.end) return segment.status;
+    }
     const fallback = segments[segments.length - 1];
     return fallback ? fallback.status : "Down";
   };
 
   const summarizeStatuses = (statuses) => {
-    if (statuses.includes("Up")) return "Up";
-    if (statuses.includes("Unstable")) return "Unstable";
+    if (statuses.indexOf("Up") >= 0) return "Up";
+    if (statuses.indexOf("Unstable") >= 0) return "Unstable";
     return "Down";
   };
 
-  const buildConnectivityDatasets = () => {
+  const buildConnectivitySegments = () => {
     const laneSegments = [];
     const segmentsByLink = new Map();
     const summaryBoundaries = new Set([startMs, endMs]);
@@ -165,10 +170,9 @@ LogApp.initChart = (logData, bus) => {
         summaryBoundaries.add(segment.start);
         summaryBoundaries.add(segment.end);
         laneSegments.push({
-          x: [segment.start, segment.end],
-          y: link.label,
-          status: segment.status,
+          row: link.label,
           link: link.label,
+          status: segment.status,
           start: segment.start,
           end: segment.end,
         });
@@ -189,48 +193,172 @@ LogApp.initChart = (logData, bus) => {
 
     summarySegments.forEach((segment) => {
       laneSegments.push({
-        x: [segment.start, segment.end],
-        y: "summary",
-        status: segment.status,
+        row: "summary",
         link: "summary",
+        status: segment.status,
         start: segment.start,
         end: segment.end,
       });
     });
 
-    return [
-      {
-      label: "Connectivity",
-      data: laneSegments,
-      backgroundColor(context) {
-        const point = context.raw || {};
-        return statusColors[point.status]?.backgroundColor || statusColors.Down.backgroundColor;
-      },
-      borderColor(context) {
-        const point = context.raw || {};
-        return statusColors[point.status]?.borderColor || statusColors.Down.borderColor;
-      },
-      borderWidth: 1,
-      borderSkipped: false,
-      borderRadius: 3,
-      barPercentage: 0.82,
-      categoryPercentage: 0.72,
-      },
-    ];
+    return laneSegments;
+  };
+
+  const getTooltipEnabled = () => {
+    const stored = localStorage.getItem(LogApp.STORAGE_KEYS.chartTooltips);
+    return stored === "true";
   };
 
   const chartRatioFromPixel = (chart, pixelX) => {
-    const { chartArea } = chart;
-    if (!chartArea || chartArea.width <= 0) return 0;
-    return Math.max(0, Math.min(1, (pixelX - chartArea.left) / chartArea.width));
+    const chartArea = getChartArea(chart);
+    if (!chartArea || chartArea.right <= chartArea.left) return 0;
+    return Math.max(0, Math.min(1, (pixelX - chartArea.left) / (chartArea.right - chartArea.left)));
+  };
+
+  const hitBookmarkDot = (chart, pos) => {
+    const dots = chart.$bookmarkDots || [];
+    for (let i = 0; i < dots.length; i += 1) {
+      const dot = dots[i];
+      const dx = pos.x - dot.x;
+      const dy = pos.y - dot.y;
+      if (Math.sqrt(dx * dx + dy * dy) <= 10) return dot;
+    }
+    return null;
+  };
+
+  const drawInfoBox = (ctx, chartArea, lines, anchorX) => {
+    if (!lines.length) return;
+    const padding = 5;
+    const lineHeight = 14;
+    ctx.save();
+    ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+    let maxWidth = 0;
+    lines.forEach((line) => {
+      maxWidth = Math.max(maxWidth, ctx.measureText(line).width);
+    });
+    const boxWidth = maxWidth + padding * 2;
+    const boxHeight = lines.length * lineHeight + padding * 2;
+    const boxX = Math.min(
+      chartArea.right - boxWidth,
+      Math.max(chartArea.left, anchorX - boxWidth / 2)
+    );
+    const boxY = chartArea.top + 6;
+    ctx.fillStyle = "rgba(15, 23, 42, 0.78)";
+    ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+    ctx.fillStyle = "#f8fafc";
+    ctx.textBaseline = "top";
+    lines.forEach((line, index) => {
+      ctx.fillText(line, boxX + padding, boxY + padding + index * lineHeight);
+    });
+    ctx.restore();
+  };
+
+  const modeBandPlugin = {
+    beforeDatasetsDraw(chartInstance) {
+      const chartArea = getChartArea(chartInstance);
+      if (!chartArea || !modeSegments.length) return;
+      const ctx = chartInstance.ctx;
+      ctx.save();
+      modeSegments.forEach((mode, idx) => {
+        const start = new Date(mode.start).getTime();
+        const end = new Date(mode.end).getTime();
+        const startRatio = Math.max(0, Math.min(1, (start - startMs) / spanMs));
+        const endRatio = Math.max(0, Math.min(1, (end - startMs) / spanMs));
+        const x0 = chartArea.left + startRatio * (chartArea.right - chartArea.left);
+        const x1 = chartArea.left + endRatio * (chartArea.right - chartArea.left);
+        ctx.fillStyle = modeColors[idx % modeColors.length];
+        ctx.fillRect(x0, chartArea.top, Math.max(0, x1 - x0), chartArea.bottom - chartArea.top);
+        ctx.fillStyle = "rgba(15, 23, 42, 0.5)";
+        ctx.font = "11px ui-sans-serif, system-ui, -apple-system, sans-serif";
+        ctx.textBaseline = "top";
+        ctx.fillText(mode.name, x0 + 4, chartArea.top + 4);
+      });
+      ctx.restore();
+    },
+  };
+
+  const connectivityLanePlugin = {
+    afterDatasetsDraw(chartInstance) {
+      if (chartInstance.$mode !== "connectivity") return;
+      const chartArea = getChartArea(chartInstance);
+      const xScale = getXScale(chartInstance);
+      const segments = chartInstance.$connectivitySegments || [];
+      if (!chartArea || !xScale || !segments.length) return;
+
+      const ctx = chartInstance.ctx;
+      const laneHeight = (chartArea.bottom - chartArea.top) / connectivityRows.length;
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(148, 163, 184, 0.16)";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= connectivityRows.length; i += 1) {
+        const y = chartArea.top + laneHeight * i;
+        ctx.beginPath();
+        ctx.moveTo(chartArea.left, y);
+        ctx.lineTo(chartArea.right, y);
+        ctx.stroke();
+      }
+
+      segments.forEach((segment) => {
+        const rowIndex = connectivityRows.indexOf(segment.row);
+        if (rowIndex < 0) return;
+        const x0 = xScale.getPixelForValue(segment.start);
+        const x1 = xScale.getPixelForValue(segment.end);
+        const yTop = chartArea.top + rowIndex * laneHeight + 3;
+        const height = Math.max(4, laneHeight - 6);
+        const width = Math.max(0, x1 - x0);
+        const colors = statusColors[segment.status] || statusColors.Down;
+        if (colors.backgroundColor !== "rgba(0, 0, 0, 0)" && width > 0) {
+          ctx.fillStyle = colors.backgroundColor;
+          ctx.fillRect(x0, yTop, width, height);
+        }
+        if (colors.borderColor !== "rgba(0, 0, 0, 0)" && width > 0) {
+          ctx.strokeStyle = colors.borderColor;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x0 + 0.5, yTop + 0.5, Math.max(0, width - 1), Math.max(0, height - 1));
+        }
+      });
+      ctx.restore();
+    },
+  };
+
+  const bookmarkPlugin = {
+    afterDatasetsDraw(chartInstance) {
+      const chartArea = getChartArea(chartInstance);
+      if (!chartArea) return;
+      const ids = LogApp.bookmarks?.getAll() || [];
+      const dots = [];
+      const ctx = chartInstance.ctx;
+      const dotY = Math.min(chartArea.bottom + 5, chartArea.bottom + 2);
+      ctx.save();
+      ids.forEach((id) => {
+        const event = events.find((entry) => String(entry.row_id) === String(id));
+        if (!event) return;
+        const colorIndex = LogApp.bookmarks?.getColor(event.row_id) || 1;
+        const timestamp = new Date(event.utctime).getTime();
+        const ratio = Math.max(0, Math.min(1, (timestamp - startMs) / spanMs));
+        const x = chartArea.left + ratio * (chartArea.right - chartArea.left);
+        ctx.beginPath();
+        ctx.fillStyle =
+          getComputedStyle(document.documentElement).getPropertyValue(
+            `--bookmark-color-${colorIndex}`
+          ) || "rgba(14, 116, 144, 0.9)";
+        ctx.arc(x, dotY, 3, 0, Math.PI * 2);
+        ctx.fill();
+        dots.push({ x, y: dotY, rowId: event.row_id });
+      });
+      chartInstance.$bookmarkDots = dots;
+      ctx.restore();
+    },
   };
 
   const hoverLinePlugin = {
-    id: "hoverLine",
-    afterDatasetsDraw(chart) {
-      const { ctx, chartArea } = chart;
-      const x = chart.$hoverX;
-      if (typeof x !== "number") return;
+    afterDatasetsDraw(chartInstance) {
+      const chartArea = getChartArea(chartInstance);
+      const x = chartInstance.$hoverX;
+      if (!chartArea || typeof x !== "number") return;
+
+      const ctx = chartInstance.ctx;
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(x, chartArea.top);
@@ -238,37 +366,44 @@ LogApp.initChart = (logData, bus) => {
       ctx.lineWidth = 1;
       ctx.strokeStyle = "rgba(100, 116, 139, 0.6)";
       ctx.stroke();
-      const tooltipEnabled = chart.options.plugins?.tooltip?.enabled !== false;
-      if (!tooltipEnabled && chart.$hoverTime) {
-        const label = formatTime(chart.$hoverTime.getTime());
-        const padding = 4;
-        ctx.font =
-          "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
-        const textWidth = ctx.measureText(label).width;
-        const boxWidth = textWidth + padding * 2;
-        const boxHeight = 18;
-        const boxX = Math.min(
-          chartArea.right - boxWidth,
-          Math.max(chartArea.left, x - boxWidth / 2)
-        );
-        const boxY = chartArea.top + 6;
-        ctx.fillStyle = "rgba(15, 23, 42, 0.75)";
-        ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
-        ctx.fillStyle = "#f8fafc";
-        ctx.textBaseline = "middle";
-        ctx.fillText(label, boxX + padding, boxY + boxHeight / 2);
+
+      const tooltipEnabled = chartInstance.$tooltipsEnabled === true;
+      const hoverTime = chartInstance.$hoverTime;
+      if (!hoverTime) {
+        ctx.restore();
+        return;
       }
+
+      if (chartInstance.$mode === "connectivity") {
+        const hit = chartInstance.$hoverSegment;
+        if (tooltipEnabled && hit) {
+          drawInfoBox(
+            ctx,
+            chartArea,
+            [
+              `${hit.link} ${hit.status}`,
+              `${formatTime(hit.start)} - ${formatTime(hit.end)}`,
+            ],
+            x
+          );
+        } else if (!tooltipEnabled) {
+          drawInfoBox(ctx, chartArea, [formatTime(hoverTime.getTime())], x);
+        }
+      } else if (!tooltipEnabled) {
+        drawInfoBox(ctx, chartArea, [formatTime(hoverTime.getTime())], x);
+      }
+
       ctx.restore();
     },
   };
 
   const scrollIndicatorPlugin = {
-    id: "scrollIndicator",
-    afterDatasetsDraw(chart) {
-      const { ctx, chartArea } = chart;
-      const ratio = chart.$scrollRatio;
-      if (typeof ratio !== "number") return;
-      const x = chartArea.left + ratio * chartArea.width;
+    afterDatasetsDraw(chartInstance) {
+      const chartArea = getChartArea(chartInstance);
+      const ratio = chartInstance.$scrollRatio;
+      if (!chartArea || typeof ratio !== "number") return;
+      const x = chartArea.left + ratio * (chartArea.right - chartArea.left);
+      const ctx = chartInstance.ctx;
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(x, chartArea.top);
@@ -281,68 +416,12 @@ LogApp.initChart = (logData, bus) => {
     },
   };
 
-  const modeBandPlugin = {
-    id: "modeBands",
-    beforeDatasetsDraw(chart) {
-      const { ctx, chartArea } = chart;
-      if (!modeSegments.length) return;
-      ctx.save();
-      modeSegments.forEach((mode, idx) => {
-        const start = new Date(mode.start).getTime();
-        const end = new Date(mode.end).getTime();
-        const startRatio = Math.max(0, Math.min(1, (start - startMs) / spanMs));
-        const endRatio = Math.max(0, Math.min(1, (end - startMs) / spanMs));
-        const x0 = chartArea.left + startRatio * chartArea.width;
-        const x1 = chartArea.left + endRatio * chartArea.width;
-        const width = Math.max(0, x1 - x0);
-        ctx.fillStyle = modeColors[idx % modeColors.length];
-        ctx.fillRect(x0, chartArea.top, width, chartArea.height);
-        ctx.fillStyle = "rgba(15, 23, 42, 0.5)";
-        ctx.font = "11px ui-sans-serif, system-ui, -apple-system, sans-serif";
-        ctx.textBaseline = "top";
-        ctx.fillText(mode.name, x0 + 4, chartArea.top + 4);
-      });
-      ctx.restore();
-    },
-  };
-
-  const bookmarkPlugin = {
-    id: "bookmarkDots",
-    afterDatasetsDraw(chart) {
-      const { ctx, chartArea, scales } = chart;
-      const ids = LogApp.bookmarks?.getAll() || [];
-      const dots = [];
-      const xScale = scales?.x;
-      const yBase = xScale ? xScale.bottom : chartArea.bottom;
-      const dotY = Math.min(chartArea.bottom + 5, yBase + 2);
-      ctx.save();
-      ids.forEach((id) => {
-        const event = events.find((entry) => String(entry.row_id) === String(id));
-        if (!event) return;
-        const colorIndex = LogApp.bookmarks?.getColor(event.row_id) || 1;
-        const timestamp = new Date(event.utctime).getTime();
-        const ratio = Math.max(0, Math.min(1, (timestamp - startMs) / spanMs));
-        const x = chartArea.left + ratio * chartArea.width;
-        ctx.beginPath();
-        ctx.fillStyle =
-          getComputedStyle(document.documentElement).getPropertyValue(
-            `--bookmark-color-${colorIndex}`
-          ) || "rgba(14, 116, 144, 0.9)";
-        ctx.arc(x, dotY, 3, 0, Math.PI * 2);
-        ctx.fill();
-        dots.push({ x, y: dotY, rowId: event.row_id });
-      });
-      chart.$bookmarkDots = dots;
-      ctx.restore();
-    },
-  };
-
   const createSeverityChart = () => {
     const buckets = buildSeverityBuckets(filteredEvents);
-    return new Chart(stackedCanvas.getContext("2d"), {
+    const chart = new Chart(stackedCanvas.getContext("2d"), {
       type: "bar",
       data: {
-        labels,
+        labels: labels,
         datasets: severityPalette.map((item) => ({
           label: item.label,
           data: buckets[item.label],
@@ -354,78 +433,76 @@ LogApp.initChart = (logData, bus) => {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: { mode: "index", intersect: false, enabled: true },
-        },
+        legend: { display: false },
+        tooltips: { mode: "index", intersect: false, enabled: getTooltipEnabled() },
         scales: {
-          x: { stacked: true },
-          y: { stacked: true, beginAtZero: true },
+          xAxes: [{ stacked: true }],
+          yAxes: [{ stacked: true, ticks: { beginAtZero: true } }],
         },
       },
       plugins: [modeBandPlugin, bookmarkPlugin, hoverLinePlugin, scrollIndicatorPlugin],
     });
+    chart.$mode = "severity";
+    chart.$tooltipsEnabled = getTooltipEnabled();
+    return chart;
   };
 
-  const createConnectivityChart = () =>
-    new Chart(stackedCanvas.getContext("2d"), {
-      type: "bar",
+  const createConnectivityChart = () => {
+    const chart = new Chart(stackedCanvas.getContext("2d"), {
+      type: "horizontalBar",
       data: {
-        datasets: buildConnectivityDatasets(),
+        labels: connectivityRows,
+        datasets: [
+          {
+            label: "Connectivity",
+            data: connectivityRows.map(() => 0),
+            backgroundColor: "rgba(0, 0, 0, 0)",
+            borderWidth: 0,
+            hoverBackgroundColor: "rgba(0, 0, 0, 0)",
+          },
+        ],
       },
       options: {
-        indexAxis: "y",
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            enabled: true,
-            intersect: false,
-            callbacks: {
-              title(items) {
-                const point = items?.[0]?.raw;
-                return point?.link ? point.link : "";
-              },
-              label(context) {
-                const point = context.raw || {};
-                return `${point.status}: ${formatTime(point.start)} - ${formatTime(point.end)}`;
-              },
-            },
-          },
-        },
+        legend: { display: false },
+        tooltips: { enabled: false },
+        animation: false,
+        hover: { mode: null },
+        events: [],
         scales: {
-          x: {
-            type: "linear",
-            min: startMs,
-            max: endMs,
-            grid: { color: "rgba(148, 163, 184, 0.15)" },
-            ticks: {
-              callback(value) {
-                return formatTime(Number(value)).slice(0, 5);
+          xAxes: [
+            {
+              type: "linear",
+              ticks: {
+                min: startMs,
+                max: endMs,
+                callback(value) {
+                  return formatTime(Number(value)).slice(0, 5);
+                },
               },
+              gridLines: { color: "rgba(148, 163, 184, 0.15)" },
             },
-          },
-          y: {
-            type: "category",
-            labels: connectivityRows,
-            grid: { display: false },
-          },
+          ],
+          yAxes: [
+            {
+              gridLines: { display: false },
+            },
+          ],
         },
       },
-      plugins: [modeBandPlugin, bookmarkPlugin, hoverLinePlugin, scrollIndicatorPlugin],
+      plugins: [
+        modeBandPlugin,
+        connectivityLanePlugin,
+        bookmarkPlugin,
+        hoverLinePlugin,
+        scrollIndicatorPlugin,
+      ],
     });
-
-  const setTooltipState = () => {
-    const toggleTooltips = document.getElementById("toggle-tooltips");
-    if (!toggleTooltips || !stackedChart) return;
-    const stored = localStorage.getItem(LogApp.STORAGE_KEYS.chartTooltips);
-    const enabled = stored === "true";
-    stackedChart.options.plugins.tooltip.enabled = enabled;
-    toggleTooltips.setAttribute("aria-pressed", String(enabled));
-    toggleTooltips.classList.toggle("tooltip-disabled", !enabled);
-    toggleTooltips.classList.toggle("is-enabled", enabled);
-    stackedChart.update();
+    chart.$mode = "connectivity";
+    chart.$connectivitySegments = buildConnectivitySegments();
+    chart.$tooltipsEnabled = getTooltipEnabled();
+    return chart;
   };
 
   const setModeButtons = () => {
@@ -436,37 +513,72 @@ LogApp.initChart = (logData, bus) => {
     });
   };
 
+  const setTooltipState = () => {
+    const toggleTooltips = document.getElementById("toggle-tooltips");
+    if (!toggleTooltips || !stackedChart) return;
+    const enabled = getTooltipEnabled();
+    stackedChart.$tooltipsEnabled = enabled;
+    if (stackedChart.options && stackedChart.options.tooltips) {
+      stackedChart.options.tooltips.enabled = chartMode === "severity" ? enabled : false;
+    }
+    toggleTooltips.setAttribute("aria-pressed", String(enabled));
+    toggleTooltips.classList.toggle("tooltip-disabled", !enabled);
+    toggleTooltips.classList.toggle("is-enabled", enabled);
+    stackedChart.update(0);
+  };
+
   const rebuildChart = () => {
-    const previousScrollRatio = stackedChart?.$scrollRatio;
-    const previousHoverX = stackedChart?.$hoverX;
-    const previousHoverTime = stackedChart?.$hoverTime;
+    const previousScrollRatio = stackedChart ? stackedChart.$scrollRatio : undefined;
+    const previousHoverX = stackedChart ? stackedChart.$hoverX : undefined;
+    const previousHoverTime = stackedChart ? stackedChart.$hoverTime : undefined;
+    const previousHoverSegment = stackedChart ? stackedChart.$hoverSegment : undefined;
     if (stackedChart) stackedChart.destroy();
-    stackedChart =
-      chartMode === "connectivity" ? createConnectivityChart() : createSeverityChart();
+    stackedChart = chartMode === "connectivity" ? createConnectivityChart() : createSeverityChart();
     stackedChart.$scrollRatio = previousScrollRatio;
     stackedChart.$hoverX = previousHoverX;
     stackedChart.$hoverTime = previousHoverTime;
+    stackedChart.$hoverSegment = previousHoverSegment;
     setModeButtons();
     setTooltipState();
+  };
+
+  const findConnectivitySegmentAt = (chart, pos) => {
+    if (chart.$mode !== "connectivity") return null;
+    const chartArea = getChartArea(chart);
+    if (!chartArea) return null;
+    if (pos.x < chartArea.left || pos.x > chartArea.right || pos.y < chartArea.top || pos.y > chartArea.bottom) {
+      return null;
+    }
+    const laneHeight = (chartArea.bottom - chartArea.top) / connectivityRows.length;
+    const rowIndex = Math.min(
+      connectivityRows.length - 1,
+      Math.max(0, Math.floor((pos.y - chartArea.top) / laneHeight))
+    );
+    const row = connectivityRows[rowIndex];
+    const hoverMs = startMs + chartRatioFromPixel(chart, pos.x) * spanMs;
+    const segments = chart.$connectivitySegments || [];
+    for (let i = 0; i < segments.length; i += 1) {
+      const segment = segments[i];
+      if (segment.row === row && hoverMs >= segment.start && hoverMs < segment.end) return segment;
+    }
+    return null;
   };
 
   const handleChartClick = (event) => {
     if (!stackedChart) return;
     const pos = Chart.helpers.getRelativePosition(event, stackedChart);
-    const { chartArea, scales } = stackedChart;
-    const dots = stackedChart.$bookmarkDots || [];
-    for (const dot of dots) {
-      const dx = pos.x - dot.x;
-      const dy = pos.y - dot.y;
-      if (Math.sqrt(dx * dx + dy * dy) <= 10) {
-        const hit = events.find((entry) => String(entry.row_id) === String(dot.rowId));
-        if (bus && hit) bus.emit("event:selected", hit);
-        if (bus) bus.emit("log:jump", { rowId: dot.rowId });
-        return;
-      }
+    const chartArea = getChartArea(stackedChart);
+    if (!chartArea) return;
+
+    const dot = hitBookmarkDot(stackedChart, pos);
+    if (dot) {
+      const hit = events.find((entry) => String(entry.row_id) === String(dot.rowId));
+      if (bus && hit) bus.emit("event:selected", hit);
+      if (bus) bus.emit("log:jump", { rowId: dot.rowId });
+      return;
     }
 
-    const xScale = scales?.x;
+    const xScale = getXScale(stackedChart);
     const dotHitBottom = xScale ? xScale.bottom + 12 : chartArea.bottom + 12;
     if (pos.x < chartArea.left || pos.x > chartArea.right) return;
     if (pos.y < chartArea.top || pos.y > dotHitBottom) return;
@@ -477,8 +589,9 @@ LogApp.initChart = (logData, bus) => {
   const updateHover = (event) => {
     if (!stackedChart) return;
     const pos = Chart.helpers.getRelativePosition(event, stackedChart);
-    const { chartArea } = stackedChart;
+    const chartArea = getChartArea(stackedChart);
     if (
+      !chartArea ||
       pos.x < chartArea.left ||
       pos.x > chartArea.right ||
       pos.y < chartArea.top ||
@@ -486,12 +599,15 @@ LogApp.initChart = (logData, bus) => {
     ) {
       stackedChart.$hoverX = null;
       stackedChart.$hoverTime = null;
+      stackedChart.$hoverSegment = null;
       stackedChart.draw();
       return;
     }
+
     const ratio = chartRatioFromPixel(stackedChart, pos.x);
     stackedChart.$hoverX = pos.x;
     stackedChart.$hoverTime = new Date(startMs + ratio * spanMs);
+    stackedChart.$hoverSegment = findConnectivitySegmentAt(stackedChart, pos);
     stackedChart.draw();
   };
 
@@ -500,16 +616,19 @@ LogApp.initChart = (logData, bus) => {
     if (!stackedChart) return;
     stackedChart.$hoverX = null;
     stackedChart.$hoverTime = null;
+    stackedChart.$hoverSegment = null;
     stackedChart.draw();
   });
-  stackedCanvas.addEventListener("click", (event) => handleChartClick(event));
+  stackedCanvas.addEventListener("click", (event) => {
+    handleChartClick(event);
+  });
 
   const toggleTooltips = document.getElementById("toggle-tooltips");
   if (toggleTooltips) {
     toggleTooltips.addEventListener("click", () => {
       if (!stackedChart) return;
-      const current = stackedChart.options.plugins.tooltip.enabled !== false;
-      localStorage.setItem(LogApp.STORAGE_KEYS.chartTooltips, String(!current));
+      const next = !getTooltipEnabled();
+      localStorage.setItem(LogApp.STORAGE_KEYS.chartTooltips, String(next));
       setTooltipState();
     });
   }
@@ -531,7 +650,7 @@ LogApp.initChart = (logData, bus) => {
     severityPalette.forEach((item, index) => {
       stackedChart.data.datasets[index].data = buckets[item.label];
     });
-    stackedChart.update();
+    stackedChart.update(0);
   };
 
   rebuildChart();
@@ -543,10 +662,10 @@ LogApp.initChart = (logData, bus) => {
     bus.on("log:scroll", (payload) => {
       if (!stackedChart || !payload || typeof payload.seconds !== "number") return;
       stackedChart.$scrollRatio = Math.max(0, Math.min(1, payload.seconds / (spanMs / 1000)));
-      stackedChart.update("none");
+      stackedChart.update(0);
     });
     bus.on("bookmarks:changed", () => {
-      if (stackedChart) stackedChart.update();
+      if (stackedChart) stackedChart.update(0);
     });
   }
 
