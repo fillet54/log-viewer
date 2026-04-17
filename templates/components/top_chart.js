@@ -4,7 +4,8 @@ LogApp.initChart = (logData, bus) => {
   if (!logData) return null;
 
   const stackedCanvas = document.getElementById("stacked-chart");
-  if (!stackedCanvas || typeof Chart === "undefined") return null;
+  const chartBand = document.getElementById("chart-band");
+  if (!stackedCanvas || !chartBand || typeof Chart === "undefined") return null;
 
   const events = Array.isArray(logData.events) ? logData.events : [];
   if (!events.length) return null;
@@ -30,6 +31,68 @@ LogApp.initChart = (logData, bus) => {
     { label: "cellular", eventName: "CELLULAR_DOWN" },
   ];
   const connectivityRows = ["summary"].concat(connectivityLinks.map((link) => link.label));
+  const performanceBucketLabels = [
+    "0-10%",
+    "10-20%",
+    "20-30%",
+    "30-40%",
+    "40-50%",
+    "50-60%",
+    "60-70%",
+    "70-80%",
+    "80-90%",
+    "90-100%",
+  ];
+  const performanceBucketColors = [
+    "rgba(14, 165, 233, 0.9)",
+    "rgba(6, 182, 212, 0.88)",
+    "rgba(34, 197, 94, 0.84)",
+    "rgba(132, 204, 22, 0.84)",
+    "rgba(250, 204, 21, 0.86)",
+    "rgba(251, 146, 60, 0.86)",
+    "rgba(249, 115, 22, 0.88)",
+    "rgba(239, 68, 68, 0.86)",
+    "rgba(225, 29, 72, 0.84)",
+    "rgba(127, 29, 29, 0.9)",
+  ];
+  const performanceChannels = ["A", "B", "C", "D"];
+  const performanceChannelVersions = {
+    A: "v1",
+    B: "v2",
+    C: "v1",
+    D: "v2",
+  };
+  const performanceRateGroups = ["1hz", "2hz", "5hz", "10hz", "20hz"];
+  const performanceData = {
+    A: {
+      "1hz": { histogram: [85, 15, 0, 0, 0, 0, 0, 0, 0, 0], maxPercent: 12 },
+      "2hz": { histogram: [80, 20, 0, 0, 0, 0, 0, 0, 0, 0], maxPercent: 14 },
+      "5hz": { histogram: [72, 28, 0, 0, 0, 0, 0, 0, 0, 0], maxPercent: 15 },
+      "10hz": { histogram: [34, 30, 22, 14, 0, 0, 0, 0, 0, 0], maxPercent: 38 },
+      "20hz": { histogram: [24, 26, 24, 17, 9, 0, 0, 0, 0, 0], maxPercent: 48 },
+    },
+    B: {
+      "1hz": { histogram: [88, 12, 0, 0, 0, 0, 0, 0, 0, 0], maxPercent: 10 },
+      "2hz": { histogram: [82, 18, 0, 0, 0, 0, 0, 0, 0, 0], maxPercent: 13 },
+      "5hz": { histogram: [75, 25, 0, 0, 0, 0, 0, 0, 0, 0], maxPercent: 15 },
+      "10hz": { histogram: [38, 28, 21, 13, 0, 0, 0, 0, 0, 0], maxPercent: 35 },
+      "20hz": { histogram: [28, 25, 23, 15, 9, 0, 0, 0, 0, 0], maxPercent: 45 },
+    },
+    C: {
+      "1hz": { histogram: [84, 16, 0, 0, 0, 0, 0, 0, 0, 0], maxPercent: 11 },
+      "2hz": { histogram: [79, 21, 0, 0, 0, 0, 0, 0, 0, 0], maxPercent: 14 },
+      "5hz": { histogram: [70, 30, 0, 0, 0, 0, 0, 0, 0, 0], maxPercent: 15 },
+      "10hz": { histogram: [30, 31, 24, 15, 0, 0, 0, 0, 0, 0], maxPercent: 39 },
+      "20hz": { histogram: [21, 27, 25, 18, 9, 0, 0, 0, 0, 0], maxPercent: 49 },
+    },
+    D: {
+      "1hz": { histogram: [86, 14, 0, 0, 0, 0, 0, 0, 0, 0], maxPercent: 12 },
+      "2hz": { histogram: [81, 19, 0, 0, 0, 0, 0, 0, 0, 0], maxPercent: 14 },
+      "5hz": { histogram: [73, 27, 0, 0, 0, 0, 0, 0, 0, 0], maxPercent: 15 },
+      "10hz": { histogram: [32, 30, 23, 15, 0, 0, 0, 0, 0, 0], maxPercent: 37 },
+      "20hz": { histogram: [23, 26, 24, 17, 10, 0, 0, 0, 0, 0], maxPercent: 50 },
+    },
+  };
   const statusColors = {
     Up: {
       backgroundColor: "rgba(34, 197, 94, 0.82)",
@@ -73,16 +136,29 @@ LogApp.initChart = (logData, bus) => {
   }
 
   let filteredEvents = events.slice();
-  let chartMode =
-    localStorage.getItem(LogApp.STORAGE_KEYS.chartMode) === "connectivity"
-      ? "connectivity"
-      : "severity";
+  let chartMode = localStorage.getItem(LogApp.STORAGE_KEYS.chartMode);
+  if (["severity", "connectivity", "performance"].indexOf(chartMode) < 0) {
+    chartMode = "severity";
+  }
   let stackedChart = null;
 
   const formatTime = (ms) => new Date(ms).toISOString().slice(11, 19);
+  const chartHeights = {
+    normal: 180,
+    performance: 360,
+  };
+  const chartPaddingTop = 44;
+  const chartPaddingBottom = 4;
 
   const getChartArea = (chart) => chart && chart.chartArea;
   const getXScale = (chart) => (chart && chart.scales ? chart.scales["x-axis-0"] : null);
+  const applyChartDimensions = () => {
+    const bandHeight = chartMode === "performance" ? chartHeights.performance : chartHeights.normal;
+    const canvasHeight = Math.max(80, bandHeight - chartPaddingTop - chartPaddingBottom);
+    chartBand.style.height = `${bandHeight}px`;
+    stackedCanvas.style.height = `${canvasHeight}px`;
+    stackedCanvas.height = canvasHeight;
+  };
 
   const buildSeverityBuckets = (sourceEvents) => {
     const buckets = {
@@ -209,6 +285,42 @@ LogApp.initChart = (logData, bus) => {
     return stored === "true";
   };
 
+  const buildPerformanceModel = () => {
+    const labels = [];
+    const points = [];
+    performanceRateGroups.forEach((rateGroup) => {
+      performanceChannels.forEach((channel) => {
+        labels.push(`${rateGroup} ${channel}`);
+        points.push({ rateGroup, channel, spacer: false });
+      });
+      labels.push("");
+      points.push({ rateGroup, channel: null, spacer: true });
+    });
+
+    labels.pop();
+    points.pop();
+
+    const histogramDatasets = performanceBucketLabels.map((bucketLabel, bucketIndex) => ({
+      label: bucketLabel,
+      stack: "histogram",
+      backgroundColor: performanceBucketColors[bucketIndex],
+      borderColor: performanceBucketColors[bucketIndex].replace(/0\.\d+\)/, "1)"),
+      borderWidth: 0,
+      categoryPercentage: 1.0,
+      barPercentage: 1.04,
+      data: points.map((point) => {
+        if (point.spacer) return 0;
+        return performanceData[point.channel][point.rateGroup].histogram[bucketIndex];
+      }),
+    }));
+
+    return {
+      labels,
+      points,
+      datasets: histogramDatasets,
+    };
+  };
+
   const chartRatioFromPixel = (chart, pixelX) => {
     const chartArea = getChartArea(chart);
     if (!chartArea || chartArea.right <= chartArea.left) return 0;
@@ -251,6 +363,93 @@ LogApp.initChart = (logData, bus) => {
       ctx.fillText(line, boxX + padding, boxY + padding + index * lineHeight);
     });
     ctx.restore();
+  };
+
+  const performanceAxisPlugin = {
+    beforeInit(chartInstance) {
+      const xAxes = chartInstance.options?.scales?.xAxes || [];
+      xAxes.forEach((axis) => {
+        const originalAfterFit = axis.afterFit;
+        axis.afterFit = function afterFit(scaleInstance) {
+          if (typeof originalAfterFit === "function") originalAfterFit(scaleInstance);
+          scaleInstance.height = Math.max(scaleInstance.height || 0, 58);
+        };
+      });
+    },
+    afterDraw(chartInstance) {
+      const xScale = getXScale(chartInstance);
+      if (!xScale) return;
+      const labels = chartInstance.data?.labels || [];
+      const ctx = chartInstance.ctx;
+      const tickY = xScale.top + 2;
+      const versionY = xScale.top + 15;
+      const groupY = xScale.top + 29;
+      const groups = [];
+
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillStyle = "rgba(71, 85, 105, 0.92)";
+      ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+
+      labels.forEach((label, index) => {
+        if (!label) return;
+        const parts = String(label).split(" ");
+        const rateGroup = parts[0];
+        const channel = parts[1];
+        const x = xScale.getPixelForTick(index);
+        ctx.fillText(channel, x, tickY);
+        ctx.fillStyle = "rgba(100, 116, 139, 0.86)";
+        ctx.font = "10px ui-sans-serif, system-ui, -apple-system, sans-serif";
+        ctx.fillText(performanceChannelVersions[channel] || "", x, versionY);
+        ctx.fillStyle = "rgba(71, 85, 105, 0.92)";
+        ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+
+        const existing = groups[groups.length - 1];
+        if (existing && existing.rateGroup === rateGroup) {
+          existing.end = x;
+        } else {
+          groups.push({ rateGroup, start: x, end: x });
+        }
+      });
+
+      ctx.fillStyle = "rgba(15, 23, 42, 0.72)";
+      ctx.font = "12px ui-sans-serif, system-ui, -apple-system, sans-serif";
+      groups.forEach((group) => {
+        const center = (group.start + group.end) / 2;
+        ctx.fillText(group.rateGroup, center, groupY);
+      });
+      ctx.restore();
+    },
+  };
+
+  const performanceMaxPlugin = {
+    afterDatasetsDraw(chartInstance) {
+      if (chartInstance.$mode !== "performance") return;
+      const meta = chartInstance.getDatasetMeta(0);
+      const yScale = chartInstance.scales ? chartInstance.scales["y-axis-0"] : null;
+      const points = chartInstance.$performancePoints || [];
+      if (!meta?.data?.length || !yScale) return;
+
+      const ctx = chartInstance.ctx;
+      ctx.save();
+      ctx.strokeStyle = "rgba(15, 23, 42, 0.95)";
+      ctx.lineWidth = 2;
+
+      meta.data.forEach((bar, index) => {
+        const point = points[index];
+        if (!point || point.spacer) return;
+        const model = bar._model || {};
+        const maxPercent = performanceData[point.channel][point.rateGroup].maxPercent;
+        const y = yScale.getPixelForValue(maxPercent);
+        const halfWidth = Math.max(6, (model.width || 0) / 2);
+        ctx.beginPath();
+        ctx.moveTo(model.x - halfWidth, y);
+        ctx.lineTo(model.x + halfWidth, y);
+        ctx.stroke();
+      });
+      ctx.restore();
+    },
   };
 
   const modeBandPlugin = {
@@ -505,6 +704,79 @@ LogApp.initChart = (logData, bus) => {
     return chart;
   };
 
+  const createPerformanceChart = () => {
+    const model = buildPerformanceModel();
+    const chart = new Chart(stackedCanvas.getContext("2d"), {
+      type: "bar",
+      data: model,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        legend: { display: true, position: "top", labels: { boxWidth: 10 } },
+        tooltips: {
+          enabled: getTooltipEnabled(),
+          mode: "index",
+          intersect: false,
+          callbacks: {
+            title(tooltipItems) {
+              return tooltipItems && tooltipItems.length ? tooltipItems[0].xLabel : "";
+            },
+            footer(tooltipItems) {
+              if (!tooltipItems || !tooltipItems.length) return "";
+              const label = tooltipItems[0].xLabel || "";
+              if (!label) return "";
+              const parts = String(label).split(" ");
+              const rateGroup = parts[0];
+              const channel = parts[1];
+              return `max: ${performanceData[channel][rateGroup].maxPercent}%`;
+            },
+          },
+        },
+        scales: {
+          xAxes: [
+            {
+              stacked: true,
+              gridLines: { display: false },
+              categoryPercentage: 1.0,
+              barPercentage: 1.0,
+              ticks: {
+                autoSkip: false,
+                maxRotation: 0,
+                minRotation: 0,
+                callback() {
+                  return "";
+                },
+              },
+            },
+          ],
+          yAxes: [
+            {
+              id: "y-axis-0",
+              stacked: true,
+              position: "left",
+              ticks: {
+                beginAtZero: true,
+                max: 100,
+                callback(value) {
+                  return `${value}%`;
+                },
+              },
+              scaleLabel: {
+                display: true,
+                labelString: "Histogram %",
+              },
+            },
+          ],
+        },
+      },
+      plugins: [performanceAxisPlugin, hoverLinePlugin, performanceMaxPlugin],
+    });
+    chart.$mode = "performance";
+    chart.$performancePoints = model.points;
+    chart.$tooltipsEnabled = getTooltipEnabled();
+    return chart;
+  };
+
   const setModeButtons = () => {
     document.querySelectorAll("[data-chart-mode]").forEach((button) => {
       const active = button.dataset.chartMode === chartMode;
@@ -519,7 +791,7 @@ LogApp.initChart = (logData, bus) => {
     const enabled = getTooltipEnabled();
     stackedChart.$tooltipsEnabled = enabled;
     if (stackedChart.options && stackedChart.options.tooltips) {
-      stackedChart.options.tooltips.enabled = chartMode === "severity" ? enabled : false;
+      stackedChart.options.tooltips.enabled = chartMode === "connectivity" ? false : enabled;
     }
     toggleTooltips.setAttribute("aria-pressed", String(enabled));
     toggleTooltips.classList.toggle("tooltip-disabled", !enabled);
@@ -533,7 +805,14 @@ LogApp.initChart = (logData, bus) => {
     const previousHoverTime = stackedChart ? stackedChart.$hoverTime : undefined;
     const previousHoverSegment = stackedChart ? stackedChart.$hoverSegment : undefined;
     if (stackedChart) stackedChart.destroy();
-    stackedChart = chartMode === "connectivity" ? createConnectivityChart() : createSeverityChart();
+    applyChartDimensions();
+    if (chartMode === "connectivity") {
+      stackedChart = createConnectivityChart();
+    } else if (chartMode === "performance") {
+      stackedChart = createPerformanceChart();
+    } else {
+      stackedChart = createSeverityChart();
+    }
     stackedChart.$scrollRatio = previousScrollRatio;
     stackedChart.$hoverX = previousHoverX;
     stackedChart.$hoverTime = previousHoverTime;
@@ -566,6 +845,7 @@ LogApp.initChart = (logData, bus) => {
 
   const handleChartClick = (event) => {
     if (!stackedChart) return;
+    if (stackedChart.$mode === "performance") return;
     const pos = Chart.helpers.getRelativePosition(event, stackedChart);
     const chartArea = getChartArea(stackedChart);
     if (!chartArea) return;
@@ -606,8 +886,12 @@ LogApp.initChart = (logData, bus) => {
 
     const ratio = chartRatioFromPixel(stackedChart, pos.x);
     stackedChart.$hoverX = pos.x;
-    stackedChart.$hoverTime = new Date(startMs + ratio * spanMs);
-    stackedChart.$hoverSegment = findConnectivitySegmentAt(stackedChart, pos);
+    stackedChart.$hoverTime =
+      stackedChart.$mode === "performance" ? null : new Date(startMs + ratio * spanMs);
+    stackedChart.$hoverSegment =
+      stackedChart.$mode === "connectivity"
+        ? findConnectivitySegmentAt(stackedChart, pos)
+        : null;
     stackedChart.draw();
   };
 
