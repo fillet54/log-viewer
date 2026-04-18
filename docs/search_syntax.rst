@@ -24,6 +24,12 @@ Quick Examples
 - ``$.*:a``
 - ``data$.*:a``
 - ``data$.child.*:a``
+- ``first(time>10)``
+- ``last(time<10)``
+- ``status:@first(norm_time<10)``
+- ``status:@first(norm_time<10).other_status``
+- ``status:@(norm_time<10)``
+- ``status:@(norm_time<10).other_status``
 
 Boolean Logic
 -------------
@@ -72,6 +78,8 @@ Numeric comparisons are supported on fields:
 
 Comparisons are numeric only. Non-numeric values do not match.
 
+``time`` is accepted as a shorthand alias for ``norm_time``.
+
 Deep Field Lookup
 -----------------
 
@@ -116,6 +124,40 @@ Grouped expressions can be scoped to a field using parentheses:
 - ``field~(error OR timeout)``
 
 Each term in the group is applied to the same field.
+
+Methods
+-------
+
+Some queries can select a single matching event from the current result set:
+
+- ``first(expr)`` returns the first event matching ``expr``.
+- ``last(expr)`` returns the last event matching ``expr``.
+
+Examples:
+
+- ``first(time>10)``
+- ``last(code:42)``
+- ``first(name:startup AND system:core)``
+
+Deref Values
+------------
+
+You can dereference another query result when supplying a field value by using
+``@`` before an expression.
+
+- ``status:@(norm_time<10)`` compares each row's ``status`` against any
+  ``status`` value from rows where ``norm_time < 10``.
+- ``status:@first(norm_time<10)`` compares each row's ``status`` against the
+  ``status`` value from the first row where ``norm_time < 10``.
+- ``status:@first(norm_time<10).other_status`` compares ``status`` against the
+  ``other_status`` value from the first row where ``norm_time < 10``.
+- ``status:@(norm_time<10).other_status`` compares ``status`` against any
+  ``other_status`` value from rows where ``norm_time < 10``.
+- ``code:@last(name:error)`` compares ``code`` against the last matching row's
+  ``code`` value.
+
+The referenced expression is evaluated against the current dataset, and the
+current field is compared against the same field on the referenced rows.
 
 Notes
 -----

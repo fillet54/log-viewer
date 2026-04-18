@@ -3,7 +3,9 @@ window.LogApp = window.LogApp || {};
 LogApp.buildSearchParser = () => {
   const getFieldValue = (event, path) => {
     if (!event || !path) return null;
-    const parts = path.split(".");
+    const parts = String(path)
+      .replace(/^\.+/, "")
+      .split(".");
     let current = event;
     for (const part of parts) {
       if (current == null || typeof current !== "object") return null;
@@ -131,43 +133,62 @@ LogApp.buildSearchParser = () => {
 
   const filterObjects = (objects, ast, options = {}) => {
     const { fieldHandlers = {} } = options;
+    const allIndexes = new Set(objects.map((_, index) => index));
+    const resultIndexes = evaluate(ast, objects);
+    return Array.from(resultIndexes)
+      .sort((a, b) => a - b)
+      .map((index) => objects[index]);
 
-    return objects.filter((obj) => evaluate(ast, obj));
-
-    function evaluate(node, obj) {
-      if (!node) return true;
+    function evaluate(node, list) {
+      if (!node) return new Set(allIndexes);
       switch (node.type) {
         case "EMPTY":
-          return true;
+          return new Set(allIndexes);
         case "AND":
-          return node.terms.every((t) => evaluate(t, obj));
+          return node.terms.reduce(
+            (acc, term) => intersectSets(acc, evaluate(term, list)),
+            new Set(allIndexes)
+          );
         case "OR":
-          return node.terms.some((t) => evaluate(t, obj));
+          return node.terms.reduce((acc, term) => unionSets(acc, evaluate(term, list)), new Set());
         case "NOT":
-          return !evaluate(node.term, obj);
+          return subtractSets(new Set(allIndexes), evaluate(node.term, list));
         case "TEXT":
-          return matchBareTerm(obj, node.value);
+          return matchIndexes(list, (obj) => matchBareTerm(obj, node.value));
         case "FILTER":
-          return evalFilter(node, obj);
+          return matchIndexes(list, (obj) => evalFilter(node, obj, list));
+        case "METHOD":
+          return evalMethod(node, list);
         default:
-          return true;
+          return new Set(allIndexes);
       }
     }
 
-    function evalFilter(node, obj) {
-      const key = node.key.toLowerCase();
+    function evalMethod(node, list) {
+      const matches = Array.from(evaluate(node.term, list)).sort((a, b) => a - b);
+      if (!matches.length) return new Set();
+      if (node.name === "first") return new Set([matches[0]]);
+      if (node.name === "last") return new Set([matches[matches.length - 1]]);
+      return new Set(matches);
+    }
+
+    function evalFilter(node, obj, list) {
+      const key = normalizeFieldKey(node.key);
 
       if (fieldHandlers[key]) {
-        return fieldHandlers[key](obj, node.value, evaluate, node.op);
+        return fieldHandlers[key](obj, node.value, null, node.op);
       }
 
-      return defaultFieldEval(key, node.value, obj, node.op);
+      return defaultFieldEval(key, node.value, obj, node.op, list);
     }
 
-    function defaultFieldEval(key, valueNode, obj, op) {
-      if (!valueNode || valueNode.type !== "TEXT") return false;
-      if (valueNode.value == null) return false;
+    function defaultFieldEval(key, valueNode, obj, op, list) {
+      if (!valueNode) return false;
       if (key === "$" && op && op !== ":" && op !== "~") return false;
+      if (valueNode.type === "REF") {
+        return compareFieldToReference(obj, key, valueNode, op, list);
+      }
+      if (valueNode.type !== "TEXT" || valueNode.value == null) return false;
       if (!op || op === ":") {
         return matchFieldTerm(obj, key, valueNode.value);
       }
@@ -209,6 +230,81 @@ LogApp.buildSearchParser = () => {
       return false;
     }
 
+    function compareFieldToReference(obj, key, refNode, op, list) {
+      const referenceKey = normalizeFieldKey(refNode.field || key);
+      const referenceValues = resolveReferenceValues(refNode, referenceKey, list);
+      if (!referenceValues.length) return false;
+      if (!op || op === ":") {
+        return compareFieldAgainstValues(obj, key, referenceValues, equalsComparable);
+      }
+      if (op === "~") {
+        return compareFieldAgainstValues(obj, key, referenceValues, containsComparable);
+      }
+      if (![">", ">=", "<", "<="].includes(op)) return false;
+      return compareFieldAgainstValues(obj, key, referenceValues, (left, right) =>
+        compareNumeric(left, right, op)
+      );
+    }
+
+    function resolveReferenceValues(refNode, key, list) {
+      const matches = Array.from(evaluate(refNode.term, list))
+        .sort((a, b) => a - b)
+        .map((index) => list[index]);
+      const values = [];
+      matches.forEach((item) => {
+        getFieldValues(item, key).forEach((value) => {
+          if (Array.isArray(value)) {
+            value.forEach((entry) => values.push(entry));
+            return;
+          }
+          values.push(value);
+        });
+      });
+      return values;
+    }
+
+    function compareFieldAgainstValues(obj, key, referenceValues, compareFn) {
+      const fieldValues = getFieldValues(obj, key);
+      for (const fieldValue of fieldValues) {
+        if (Array.isArray(fieldValue)) {
+          for (const item of fieldValue) {
+            if (referenceValues.some((ref) => compareFn(item, ref))) return true;
+          }
+          continue;
+        }
+        if (referenceValues.some((ref) => compareFn(fieldValue, ref))) return true;
+      }
+      return false;
+    }
+
+    function equalsComparable(left, right) {
+      if (left == null || right == null) return false;
+      return String(left).toLowerCase() === String(right).toLowerCase();
+    }
+
+    function containsComparable(left, right) {
+      if (left == null || right == null) return false;
+      return String(left).toLowerCase().includes(String(right).toLowerCase());
+    }
+
+    function compareNumeric(left, right, op) {
+      const leftNum = Number(left);
+      const rightNum = Number(right);
+      if (!Number.isFinite(leftNum) || !Number.isFinite(rightNum)) return false;
+      switch (op) {
+        case ">":
+          return leftNum > rightNum;
+        case ">=":
+          return leftNum >= rightNum;
+        case "<":
+          return leftNum < rightNum;
+        case "<=":
+          return leftNum <= rightNum;
+        default:
+          return false;
+      }
+    }
+
     function containsField(obj, key, rawValue) {
       if (key === "$") return matchKeyNameContains(obj, rawValue);
       const needle = String(rawValue).toLowerCase();
@@ -225,6 +321,40 @@ LogApp.buildSearchParser = () => {
         if (contains(fieldValue)) return true;
       }
       return false;
+    }
+
+    function matchIndexes(list, predicate) {
+      const matches = new Set();
+      list.forEach((obj, index) => {
+        if (predicate(obj)) matches.add(index);
+      });
+      return matches;
+    }
+
+    function intersectSets(left, right) {
+      const out = new Set();
+      left.forEach((value) => {
+        if (right.has(value)) out.add(value);
+      });
+      return out;
+    }
+
+    function unionSets(left, right) {
+      const out = new Set(left);
+      right.forEach((value) => out.add(value));
+      return out;
+    }
+
+    function subtractSets(left, right) {
+      const out = new Set(left);
+      right.forEach((value) => out.delete(value));
+      return out;
+    }
+
+    function normalizeFieldKey(key) {
+      const normalized = String(key || "").replace(/^\.+/, "").toLowerCase();
+      if (normalized === "time") return "norm_time";
+      return normalized;
     }
   };
 
@@ -317,6 +447,11 @@ LogApp.buildSearchParser = () => {
     return (event) => filterObjects([event], ast, options).length === 1;
   };
 
+  const filterQueryObjects = (objects, query, options = {}) => {
+    const ast = parseQuery(query);
+    return filterObjects(objects, ast, options);
+  };
+
   const getQueryPredicate = (() => {
     const cache = new Map();
     return (query) => {
@@ -386,6 +521,7 @@ LogApp.buildSearchParser = () => {
 
       if (ch === "(") return (i++, { type: "LPAREN", start, end: i });
       if (ch === ")") return (i++, { type: "RPAREN", start, end: i });
+      if (ch === "@") return (i++, { type: "AT", start, end: i });
       if (ch === "|") return (i++, { type: "OR", start, end: i });
       if (ch === "~") return (i++, { type: "CONTAINS", op: "~", start, end: i });
       if (ch === ">" || ch === "<") {
@@ -536,6 +672,15 @@ LogApp.buildSearchParser = () => {
         const value = parsePrimaryValue(ts);
         return { type: "FILTER", key: token.value, op: comp.op, value };
       }
+      if (ts.peek().type === "LPAREN") {
+        const methodName = token.value.toLowerCase();
+        if (methodName === "first" || methodName === "last") {
+          ts.next();
+          const expr = parseExpression(ts, 0);
+          ts.expect("RPAREN", "Expected ')'");
+          return { type: "METHOD", name: methodName, term: expr };
+        }
+      }
       return { type: "TEXT", value: token.value, kind: "word" };
     }
     if (token.type === "PHRASE") {
@@ -564,6 +709,15 @@ LogApp.buildSearchParser = () => {
 
   function parsePrimaryValue(ts) {
     const next = ts.peek();
+    if (next.type === "AT") {
+      ts.next();
+      const term = parsePrimary(ts);
+      let field = null;
+      if (ts.peek().type === "WORD") {
+        field = ts.next().value;
+      }
+      return { type: "REF", term, field };
+    }
     if (next.type === "WORD") {
       const token = ts.next();
       return { type: "TEXT", value: token.value, kind: "word" };
@@ -613,6 +767,7 @@ LogApp.buildSearchParser = () => {
     matchFieldTerm,
     matchBareTerm,
     filterObjects,
+    filterQueryObjects,
     makePredicate,
     getQueryPredicate,
   };
@@ -628,6 +783,7 @@ LogApp.searchParser = LogApp.buildSearchParser();
   "matchFieldTerm",
   "matchBareTerm",
   "filterObjects",
+  "filterQueryObjects",
   "makePredicate",
   "getQueryPredicate",
 ].forEach((key) => {
@@ -656,10 +812,11 @@ LogApp.createSearchWorker = (events = []) => {
           postMessage({ type: "result", id: payload.id, indices: all });
           return;
         }
-        const predicate = parser.makePredicate(query);
+        const filtered = parser.filterQueryObjects(EVENTS, query);
+        const matchSet = new Set(filtered);
         const indices = [];
         for (let i = 0; i < EVENTS.length; i += 1) {
-          if (predicate(EVENTS[i])) indices.push(i);
+          if (matchSet.has(EVENTS[i])) indices.push(i);
         }
         postMessage({ type: "result", id: payload.id, indices });
       }

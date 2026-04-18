@@ -201,10 +201,11 @@ LogApp.initLogList = (logData, bus) => {
       return;
     }
 
-    const predicates = terms.map((term) => LogApp.getQueryPredicate(term));
-    state.filtered = state.events.filter((event) =>
-      predicates.some((predicate) => predicate(event))
-    );
+    const matched = new Set();
+    terms.forEach((term) => {
+      LogApp.filterQueryObjects(state.events, term).forEach((event) => matched.add(event));
+    });
+    state.filtered = state.events.filter((event) => matched.has(event));
     rebuildIndex();
     setSpacer();
     state.lastRange = [0, 0];

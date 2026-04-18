@@ -440,7 +440,7 @@ LogApp.initSearchPane = (logData, bus) => {
       });
       return;
     }
-    const filtered = source.filter(LogApp.getQueryPredicate(query));
+    const filtered = LogApp.filterQueryObjects(source, query);
     renderResults(filtered);
     if (commitHistory && !isBookmarks) addHistory(query, filtered.length, filtered[0]?.color);
   };
