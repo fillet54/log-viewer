@@ -75,6 +75,10 @@ LogApp.loadLogData = () => {
   }
 };
 
+LogApp.searchOptions = {
+  intervalField: "norm_time",
+};
+
 LogApp.smoothScrollTo = (container, targetTop, durationMs = 200, onComplete = null) => {
   const startTop = container.scrollTop;
   const delta = targetTop - startTop;
@@ -310,7 +314,10 @@ LogApp.createCommentStore = (logData, bus) => {
 window.addEventListener("DOMContentLoaded", () => {
   const bus = LogApp.createEventBus();
   const logData = LogApp.loadLogData();
-  LogApp.searchWorker = LogApp.createSearchWorker(logData?.events || []);
+  LogApp.searchOptions = {
+    intervalField: logData?.interval_field || "norm_time",
+  };
+  LogApp.searchWorker = LogApp.createSearchWorker(logData?.events || [], LogApp.searchOptions);
   LogApp.bookmarks = LogApp.createBookmarkStore(logData, bus);
   LogApp.comments = LogApp.createCommentStore(logData, bus);
 

@@ -30,6 +30,10 @@ Quick Examples
 - ``status:@first(norm_time<10).other_status``
 - ``status:@(norm_time<10)``
 - ``status:@(norm_time<10).other_status``
+- ``norm_time IN interval(norm_time>50, norm_time<100)``
+- ``norm_time IN duration(name:Power, set_clear:SET, set_clear:CLEAR)``
+- ``interval(norm_time>50, norm_time<100)``
+- ``duration(name:Power, set_clear:SET, set_clear:CLEAR)``
 
 Boolean Logic
 -------------
@@ -79,6 +83,46 @@ Numeric comparisons are supported on fields:
 Comparisons are numeric only. Non-numeric values do not match.
 
 ``time`` is accepted as a shorthand alias for ``norm_time``.
+
+Intervals
+---------
+
+Use ``field IN interval(start_expr, end_expr)`` to match values inside a numeric
+range.
+
+- ``norm_time IN interval(norm_time>50, norm_time<100)``
+- ``norm_time IN interval(first(norm_time>50), last(norm_time<100))``
+
+Interval bounds are inclusive. For shorthand interval expressions that match
+multiple rows, the start side uses the first match and the end side uses the
+last match.
+
+You can also omit the explicit field and use ``interval(...)`` directly. In
+that form the current dataset's interval field is used, which defaults to
+``norm_time``.
+
+Durations
+---------
+
+Use ``field IN duration(...)`` to build multiple intervals by scanning the
+ordered log.
+
+- Two arguments: ``duration(start_expr, end_expr)``
+- Three arguments: ``duration(common_expr, start_expr, end_expr)``
+  The first argument is ANDed into both the start and end expressions.
+
+Examples:
+
+- ``norm_time IN duration(set_clear:SET, set_clear:CLEAR)``
+- ``norm_time IN duration(name:Power, set_clear:SET, set_clear:CLEAR)``
+- ``duration(name:Power, set_clear:SET, set_clear:CLEAR)``
+
+Duration scan behavior:
+
+- Find the first row matching the start expression.
+- From there, find the first row after it matching the end expression.
+- Emit that interval.
+- Continue scanning after that end row for the next start/end pair.
 
 Deep Field Lookup
 -----------------

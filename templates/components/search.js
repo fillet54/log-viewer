@@ -133,7 +133,12 @@ LogApp.buildSearchParser = () => {
 
   const filterObjects = (objects, ast, options = {}) => {
     const { fieldHandlers = {} } = options;
+    const intervalField = normalizeFieldKey(options.intervalField || "norm_time");
     const allIndexes = new Set(objects.map((_, index) => index));
+    const evalCache = new WeakMap();
+    const refValueCache = new Map();
+    const boundaryCache = new Map();
+    const intervalCache = new Map();
     const resultIndexes = evaluate(ast, objects);
     return Array.from(resultIndexes)
       .sort((a, b) => a - b)
@@ -141,27 +146,42 @@ LogApp.buildSearchParser = () => {
 
     function evaluate(node, list) {
       if (!node) return new Set(allIndexes);
+      if (evalCache.has(node)) return new Set(evalCache.get(node));
+      let result;
       switch (node.type) {
         case "EMPTY":
-          return new Set(allIndexes);
+          result = new Set(allIndexes);
+          break;
         case "AND":
-          return node.terms.reduce(
+          result = node.terms.reduce(
             (acc, term) => intersectSets(acc, evaluate(term, list)),
             new Set(allIndexes)
           );
+          break;
         case "OR":
-          return node.terms.reduce((acc, term) => unionSets(acc, evaluate(term, list)), new Set());
+          result = node.terms.reduce((acc, term) => unionSets(acc, evaluate(term, list)), new Set());
+          break;
         case "NOT":
-          return subtractSets(new Set(allIndexes), evaluate(node.term, list));
+          result = subtractSets(new Set(allIndexes), evaluate(node.term, list));
+          break;
         case "TEXT":
-          return matchIndexes(list, (obj) => matchBareTerm(obj, node.value));
+          result = matchIndexes(list, (obj) => matchBareTerm(obj, node.value));
+          break;
         case "FILTER":
-          return matchIndexes(list, (obj) => evalFilter(node, obj, list));
+          result = matchIndexes(list, (obj) => evalFilter(node, obj, list));
+          break;
         case "METHOD":
-          return evalMethod(node, list);
+          result = evalMethod(node, list);
+          break;
+        case "RANGE":
+          result = matchIndexes(list, (obj) => matchInOperator(obj, intervalField, node.value, list));
+          break;
         default:
-          return new Set(allIndexes);
+          result = new Set(allIndexes);
+          break;
       }
+      evalCache.set(node, new Set(result));
+      return new Set(result);
     }
 
     function evalMethod(node, list) {
@@ -185,6 +205,7 @@ LogApp.buildSearchParser = () => {
     function defaultFieldEval(key, valueNode, obj, op, list) {
       if (!valueNode) return false;
       if (key === "$" && op && op !== ":" && op !== "~") return false;
+      if (op === "IN") return matchInOperator(obj, key, valueNode, list);
       if (valueNode.type === "REF") {
         return compareFieldToReference(obj, key, valueNode, op, list);
       }
@@ -197,6 +218,114 @@ LogApp.buildSearchParser = () => {
       }
       if (![">", ">=", "<", "<="].includes(op)) return false;
       return compareField(obj, key, valueNode.value, op);
+    }
+
+    function matchInOperator(obj, key, valueNode, list) {
+      const intervals = resolveIntervals(valueNode, key, list);
+      if (!intervals.length) return false;
+      const fieldValues = getFieldValues(obj, key);
+      for (const fieldValue of fieldValues) {
+        if (Array.isArray(fieldValue)) {
+          if (fieldValue.some((item) => intervals.some((interval) => isWithinInterval(item, interval)))) {
+            return true;
+          }
+          continue;
+        }
+        if (intervals.some((interval) => isWithinInterval(fieldValue, interval))) return true;
+      }
+      return false;
+    }
+
+    function resolveIntervals(node, key, list) {
+      if (!node) return [];
+      const cacheKey = `${key}:${serializeNode(node)}`;
+      if (intervalCache.has(cacheKey)) return intervalCache.get(cacheKey);
+
+      let intervals = [];
+      if (node.type === "INTERVAL") {
+        const start = resolveBoundaryValue(node.start, key, list, "first");
+        const end = resolveBoundaryValue(node.end, key, list, "last");
+        intervals = buildNormalizedIntervalList(start, end);
+      } else if (node.type === "DURATION") {
+        intervals = resolveDurationIntervals(node, key, list);
+      }
+
+      intervalCache.set(cacheKey, intervals);
+      return intervals;
+    }
+
+    function resolveDurationIntervals(node, key, list) {
+      const startMatches = Array.from(evaluate(node.start, list)).sort((a, b) => a - b);
+      const endMatches = Array.from(evaluate(node.end, list)).sort((a, b) => a - b);
+      const intervals = [];
+      let startCursor = 0;
+      let endCursor = 0;
+
+      while (startCursor < startMatches.length && endCursor < endMatches.length) {
+        const startIndex = startMatches[startCursor];
+        while (endCursor < endMatches.length && endMatches[endCursor] <= startIndex) {
+          endCursor += 1;
+        }
+        if (endCursor >= endMatches.length) break;
+
+        const endIndex = endMatches[endCursor];
+        const startValue = getBoundaryFieldValue(list[startIndex], key);
+        const endValue = getBoundaryFieldValue(list[endIndex], key);
+        intervals.push(...buildNormalizedIntervalList(startValue, endValue));
+
+        startCursor += 1;
+        endCursor += 1;
+        while (startCursor < startMatches.length && startMatches[startCursor] <= endIndex) {
+          startCursor += 1;
+        }
+      }
+
+      return intervals;
+    }
+
+    function getBoundaryFieldValue(obj, key) {
+      const values = getFieldValues(obj, key);
+      if (!values.length) return null;
+      const first = values[0];
+      if (Array.isArray(first)) return first[0] ?? null;
+      return first;
+    }
+
+    function buildNormalizedIntervalList(start, end) {
+      const lower = Number(start);
+      const upper = Number(end);
+      if (!Number.isFinite(lower) || !Number.isFinite(upper)) return [];
+      return [{ min: Math.min(lower, upper), max: Math.max(lower, upper) }];
+    }
+
+    function resolveBoundaryValue(node, key, list, selectionMode) {
+      const cacheKey = `${selectionMode}:${key}:${serializeNode(node)}`;
+      if (boundaryCache.has(cacheKey)) return boundaryCache.get(cacheKey);
+      let resolved = null;
+      if (!node) return null;
+      if (node.type === "TEXT") resolved = node.value;
+      else if (node.type === "REF") {
+        const referenceKey = normalizeFieldKey(node.field || key);
+        const values = resolveReferenceValues(node, referenceKey, list);
+        resolved = selectionMode === "last" ? values[values.length - 1] : values[0];
+      } else {
+        const matches = Array.from(evaluate(node, list)).sort((a, b) => a - b);
+        if (!matches.length) {
+          boundaryCache.set(cacheKey, null);
+          return null;
+        }
+        const pickedIndex = selectionMode === "last" ? matches[matches.length - 1] : matches[0];
+        const picked = list[pickedIndex];
+        const values = getFieldValues(picked, key);
+        resolved = Array.isArray(values[0]) ? values[0][0] : values[0];
+      }
+      boundaryCache.set(cacheKey, resolved);
+      return resolved;
+    }
+
+    function isWithinInterval(value, interval) {
+      const num = Number(value);
+      return Number.isFinite(num) && num >= interval.min && num <= interval.max;
     }
 
     function compareField(obj, key, rawValue, op) {
@@ -247,6 +376,8 @@ LogApp.buildSearchParser = () => {
     }
 
     function resolveReferenceValues(refNode, key, list) {
+      const cacheKey = `${key}:${serializeNode(refNode.term)}`;
+      if (refValueCache.has(cacheKey)) return refValueCache.get(cacheKey);
       const matches = Array.from(evaluate(refNode.term, list))
         .sort((a, b) => a - b)
         .map((index) => list[index]);
@@ -260,6 +391,7 @@ LogApp.buildSearchParser = () => {
           values.push(value);
         });
       });
+      refValueCache.set(cacheKey, values);
       return values;
     }
 
@@ -356,6 +488,11 @@ LogApp.buildSearchParser = () => {
       if (normalized === "time") return "norm_time";
       return normalized;
     }
+
+    function serializeNode(node) {
+      if (!node) return "null";
+      return JSON.stringify(node);
+    }
   };
 
   function collectDeepValues(root, pathParts) {
@@ -449,7 +586,9 @@ LogApp.buildSearchParser = () => {
 
   const filterQueryObjects = (objects, query, options = {}) => {
     const ast = parseQuery(query);
-    return filterObjects(objects, ast, options);
+    const globalOptions =
+      typeof window !== "undefined" && window.LogApp?.searchOptions ? window.LogApp.searchOptions : {};
+    return filterObjects(objects, ast, { ...globalOptions, ...options });
   };
 
   const getQueryPredicate = (() => {
@@ -497,7 +636,7 @@ LogApp.buildSearchParser = () => {
       return next();
     };
 
-  const startsExpression = (type) =>
+    const startsExpression = (type) =>
     type === "LPAREN" ||
     type === "WORD" ||
     type === "PHRASE" ||
@@ -521,6 +660,7 @@ LogApp.buildSearchParser = () => {
 
       if (ch === "(") return (i++, { type: "LPAREN", start, end: i });
       if (ch === ")") return (i++, { type: "RPAREN", start, end: i });
+      if (ch === ",") return (i++, { type: "COMMA", start, end: i });
       if (ch === "@") return (i++, { type: "AT", start, end: i });
       if (ch === "|") return (i++, { type: "OR", start, end: i });
       if (ch === "~") return (i++, { type: "CONTAINS", op: "~", start, end: i });
@@ -569,6 +709,7 @@ LogApp.buildSearchParser = () => {
     if (upper === "OR") return { type: "OR", start: wordStart, end: i };
     if (upper === "AND") return { type: "AND", start: wordStart, end: i };
     if (upper === "NOT") return { type: "NOT", start: wordStart, end: i };
+    if (upper === "IN") return { type: "IN", start: wordStart, end: i };
       return { type: "WORD", value: word, start: wordStart, end: i };
     };
 
@@ -579,6 +720,7 @@ LogApp.buildSearchParser = () => {
       !isWhitespace(c) &&
       c !== "(" &&
       c !== ")" &&
+      c !== "," &&
       c !== ":" &&
       c !== '"' &&
       c !== "|" &&
@@ -667,6 +809,11 @@ LogApp.buildSearchParser = () => {
     if (token.type === "EOF") return { type: "EMPTY" };
 
     if (token.type === "WORD") {
+      if (ts.peek().type === "IN") {
+        const inToken = ts.next();
+        const value = parseInValue(ts);
+        return { type: "FILTER", key: token.value, op: inToken.type, value };
+      }
       if (ts.peek().type === "COMP" || ts.peek().type === "CONTAINS") {
         const comp = ts.next();
         const value = parsePrimaryValue(ts);
@@ -679,6 +826,13 @@ LogApp.buildSearchParser = () => {
           const expr = parseExpression(ts, 0);
           ts.expect("RPAREN", "Expected ')'");
           return { type: "METHOD", name: methodName, term: expr };
+        }
+        if (methodName === "interval" || methodName === "duration") {
+          const value =
+            methodName === "interval"
+              ? parseIntervalValueBody(ts)
+              : parseDurationValueBody(ts);
+          return { type: "RANGE", value };
         }
       }
       return { type: "TEXT", value: token.value, kind: "word" };
@@ -700,7 +854,7 @@ LogApp.buildSearchParser = () => {
         ts.expect("RPAREN", "Expected ')'");
         return scopeField(token.key, expr, token.op);
       }
-      const value = parsePrimaryValue(ts);
+      const value = token.op === "IN" ? parseInValue(ts) : parsePrimaryValue(ts);
       return { type: "FILTER", key: token.key, op: token.op, value };
     }
 
@@ -727,6 +881,74 @@ LogApp.buildSearchParser = () => {
       return { type: "TEXT", value: token.value, kind: "phrase" };
     }
     throw ts.error("Expected a field value", next);
+  }
+
+  function parseInValue(ts) {
+    const next = ts.peek();
+    if (next.type !== "WORD") {
+      throw ts.error("Expected interval(...) or duration(...)", next);
+    }
+    const fnName = String(next.value || "").toLowerCase();
+    if (fnName === "interval" || fnName === "duration") return parseInValueFromName(ts, fnName);
+    throw ts.error("Expected interval(...) or duration(...)", next);
+  }
+
+  function parseInValueFromName(ts, fnName) {
+    if (fnName === "interval") return parseIntervalValue(ts);
+    if (fnName === "duration") return parseDurationValue(ts);
+    throw ts.error("Expected interval(...) or duration(...)", ts.peek());
+  }
+
+  function parseIntervalValue(ts) {
+    const next = ts.peek();
+    if (next.type !== "WORD" || String(next.value || "").toLowerCase() !== "interval") {
+      throw ts.error("Expected interval(...)", next);
+    }
+    ts.next();
+    return parseIntervalValueBody(ts);
+  }
+
+  function parseIntervalValueBody(ts) {
+    ts.expect("LPAREN", "Expected '(' after interval");
+    const start = parseExpression(ts, 0);
+    ts.expect("COMMA", "Expected ',' in interval");
+    const end = parseExpression(ts, 0);
+    ts.expect("RPAREN", "Expected ')' after interval");
+    return { type: "INTERVAL", start, end };
+  }
+
+  function parseDurationValue(ts) {
+    const next = ts.peek();
+    if (next.type !== "WORD" || String(next.value || "").toLowerCase() !== "duration") {
+      throw ts.error("Expected duration(...)", next);
+    }
+    ts.next();
+    return parseDurationValueBody(ts);
+  }
+
+  function parseDurationValueBody(ts) {
+    ts.expect("LPAREN", "Expected '(' after duration");
+    const first = parseExpression(ts, 0);
+    ts.expect("COMMA", "Expected ',' in duration");
+    const second = parseExpression(ts, 0);
+    let third = null;
+    if (ts.match("COMMA")) {
+      third = parseExpression(ts, 0);
+    }
+    ts.expect("RPAREN", "Expected ')' after duration");
+
+    if (third) {
+      return {
+        type: "DURATION",
+        start: makeAnd([first, second]),
+        end: makeAnd([first, third]),
+      };
+    }
+    return {
+      type: "DURATION",
+      start: first,
+      end: second,
+    };
   }
 
   function scopeField(field, node, op = ":") {
@@ -790,11 +1012,12 @@ LogApp.searchParser = LogApp.buildSearchParser();
   LogApp[key] = LogApp.searchParser[key];
 });
 
-LogApp.createSearchWorker = (events = []) => {
+LogApp.createSearchWorker = (events = [], options = {}) => {
   if (typeof Worker === "undefined") return null;
   const parserSource = LogApp.buildSearchParser.toString();
   const workerMain = (builderSource) => {
     let EVENTS = [];
+    let OPTIONS = {};
     const buildParser = eval("(" + builderSource + ")");
     const parser = buildParser();
 
@@ -802,6 +1025,7 @@ LogApp.createSearchWorker = (events = []) => {
       const payload = event.data || {};
       if (payload.type === "init") {
         EVENTS = Array.isArray(payload.events) ? payload.events : [];
+        OPTIONS = payload.options || {};
         postMessage({ type: "ready" });
         return;
       }
@@ -812,7 +1036,7 @@ LogApp.createSearchWorker = (events = []) => {
           postMessage({ type: "result", id: payload.id, indices: all });
           return;
         }
-        const filtered = parser.filterQueryObjects(EVENTS, query);
+        const filtered = parser.filterQueryObjects(EVENTS, query, OPTIONS);
         const matchSet = new Set(filtered);
         const indices = [];
         for (let i = 0; i < EVENTS.length; i += 1) {
@@ -826,7 +1050,7 @@ LogApp.createSearchWorker = (events = []) => {
 
   const blob = new Blob([workerCode], { type: "application/javascript" });
   const worker = new Worker(URL.createObjectURL(blob));
-  worker.postMessage({ type: "init", events });
+  worker.postMessage({ type: "init", events, options });
   return worker;
 };
 
