@@ -43,6 +43,13 @@ LogApp.initSearchPane = (logData, bus) => {
     return;
   const events = Array.isArray(logData.events) ? logData.events : [];
 
+  const resetPendingResults = () => {
+    resultsItems.innerHTML = "";
+    resultsSpacer.style.height = "0";
+    resultsState.items = [];
+    resultsState.lastRange = [0, 0];
+  };
+
   const pinIcon = `
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
       <path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6l-1 6 3 3-1.5 1.5L12 10l-3.5 3.5L7 12l3-3-1-6Z" />
@@ -443,10 +450,7 @@ LogApp.initSearchPane = (logData, bus) => {
     if (event.key === "Enter") runSearch(true);
   });
   queryInput.addEventListener("input", () => {
-    resultsItems.innerHTML = "";
-    resultsSpacer.style.height = "0";
-    resultsState.items = [];
-    resultsState.lastRange = [0, 0];
+    resetPendingResults();
   });
   // Live search disabled; only Search button or Enter triggers.
 
@@ -481,6 +485,19 @@ LogApp.initSearchPane = (logData, bus) => {
   renderResults(events.slice(0, 200));
   applyFilters();
 
+  const api = {
+    getQuery: () => queryInput.value.trim(),
+    setQuery: (value, options = {}) => {
+      const { run = false, commitHistory = false, focus = false } = options;
+      queryInput.value = value ?? "";
+      resetPendingResults();
+      if (focus) queryInput.focus();
+      if (run) runSearch(commitHistory);
+    },
+    runSearch,
+  };
+  LogApp.searchPane = api;
+
   if (bus) {
     bus.on("bookmarks:changed", renderBookmarks);
     bus.on("bookmarks:changed", (map) => {
@@ -512,4 +529,6 @@ LogApp.initSearchPane = (logData, bus) => {
   resultsList.addEventListener("scroll", () => {
     requestAnimationFrame(updateResultsVirtual);
   });
+
+  return api;
 };

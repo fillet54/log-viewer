@@ -11,6 +11,8 @@
 
 {% include 'components/search.js' %}
 
+{% include 'components/log_field_menu.js' %}
+
 window.LogApp = window.LogApp || {};
 LogApp.isLoggedIn = {{ "true" if current_user else "false" }};
 LogApp.currentUser = {% if current_user %}{{ {"id": current_user["id"], "name": current_user.get("name"), "email": current_user.get("email")} | tojson }}{% else %}null{% endif %};
@@ -317,4 +319,5 @@ window.addEventListener("DOMContentLoaded", () => {
   LogApp.initChart(logData, bus);
   LogApp.initSearchPane(logData, bus);
   LogApp.initRightPane(bus);
+  LogApp.initFieldQueryMenu();
 });

@@ -1,5 +1,40 @@
 window.LogApp = window.LogApp || {};
 
+LogApp.getEventPathValue = (event, path) => {
+  if (!event || !path) return null;
+  const parts = String(path).split(".");
+  let current = event;
+  for (const part of parts) {
+    if (current == null || typeof current !== "object") return null;
+    current = current[part];
+  }
+  return current;
+};
+
+LogApp.decorateRowQueryFields = (row, event) => {
+  if (!row || !event) return;
+  row.querySelectorAll("[data-query-field]").forEach((fieldEl) => {
+    const queryField = fieldEl.dataset.queryField?.trim();
+    if (!queryField) return;
+
+    const valuePath = fieldEl.dataset.queryValueField || fieldEl.dataset.field || queryField;
+    const rawValue = Object.prototype.hasOwnProperty.call(fieldEl.dataset, "queryValue")
+      ? fieldEl.dataset.queryValue
+      : LogApp.getEventPathValue(event, valuePath);
+    const inferredType =
+      fieldEl.dataset.queryType ||
+      (typeof rawValue === "number" && Number.isFinite(rawValue) ? "number" : "string");
+
+    fieldEl.dataset.queryField = queryField;
+    fieldEl.dataset.queryType = inferredType;
+    fieldEl.dataset.queryValue = rawValue == null ? "" : String(rawValue);
+    fieldEl.dataset.queryDisplay = (fieldEl.textContent || "").trim();
+    fieldEl.classList.add("log-query-field");
+    fieldEl.dataset.queryDisabled =
+      rawValue == null || rawValue === "" ? "true" : "false";
+  });
+};
+
 LogApp.renderLogRow = (
   event,
   templateEl = document.getElementById("log-row-template"),
@@ -38,6 +73,8 @@ LogApp.renderLogRow = (
     const el = row.querySelector(`[data-channel="${channelId}"]`);
     if (el) el.classList.toggle("is-on", channels.has(channelId));
   });
+
+  LogApp.decorateRowQueryFields(row, event);
 
   return row;
 };
