@@ -1,0 +1,184 @@
+[{:name "LEFT_ENGINE_OIL_PRESS_LOW"
+  :system 1
+  :subsystem 1
+  :units 2
+  :code 17
+  :severity "Yellow"
+  :description "The left engine oil pressure has dropped below the advisory threshold."
+  :limit 6}
+ {:name "RIGHT_ENGINE_OIL_PRESS_LOW"
+  :system 1
+  :subsystem 1
+  :units 2
+  :code 18
+  :severity "Yellow"
+  :description "The right engine oil pressure has dropped below the advisory threshold."
+  :limit 6}
+ {:name "LEFT_ENGINE_OVERTEMP"
+  :system 1
+  :subsystem 2
+  :units 2
+  :code 23
+  :severity "Red"
+  :description "The left engine core temperature has exceeded the operating limit."
+  :limit 3}
+ {:name "RIGHT_ENGINE_OVERTEMP"
+  :system 1
+  :subsystem 2
+  :units 2
+  :code 24
+  :severity "Red"
+  :description "The right engine core temperature has exceeded the operating limit."
+  :limit 3}
+ {:name "FUEL_CROSSFEED_VALVE_DISAGREE"
+  :system 1
+  :subsystem 3
+  :units 1
+  :code 29
+  :severity "Yellow"
+  :description "The fuel crossfeed valve position does not match the commanded state."
+  :limit 8}
+ {:name "LEFT_ELEVON_ACTUATOR_FAULT"
+  :system 2
+  :subsystem 1
+  :units 2
+  :code 81
+  :severity "Red"
+  :description "The left elevon actuator feedback is outside the valid control band."
+  :limit 4}
+ {:name "RIGHT_ELEVON_ACTUATOR_FAULT"
+  :system 2
+  :subsystem 1
+  :units 2
+  :code 82
+  :severity "Red"
+  :description "The right elevon actuator feedback is outside the valid control band."
+  :limit 4}
+ {:name "RUDDER_SERVO_DEGRADED"
+  :system 2
+  :subsystem 2
+  :units 1
+  :code 90
+  :severity "Yellow"
+  :description "The rudder servo has entered a degraded control mode."
+  :limit 8}
+ {:name "BRAKE_CHANNEL_MISMATCH"
+  :system 2
+  :subsystem 3
+  :units 2
+  :code 96
+  :severity "Yellow"
+  :description "Brake channel feedback indicates a left and right pressure mismatch."
+  :limit 10}
+ {:name "BATTERY_BUS_UNDERVOLT"
+  :system 3
+  :subsystem 1
+  :units 2
+  :code 131
+  :severity "Yellow"
+  :description "A battery bus voltage has fallen below the nominal operating range."
+  :limit 10}
+ {:name "GENERATOR_OFFLINE"
+  :system 3
+  :subsystem 2
+  :units 2
+  :code 140
+  :severity "Red"
+  :description "A primary generator has disconnected from the electrical bus."
+  :limit 4}
+ {:name "ESSENTIAL_BUS_SHED"
+  :system 3
+  :subsystem 3
+  :units 1
+  :code 149
+  :severity "Flashing Red"
+  :description "The essential electrical bus has shed noncritical loads to maintain power."
+  :limit 2}
+ {:name "CABIN_ALTITUDE_HIGH"
+  :system 4
+  :subsystem 1
+  :units 1
+  :code 201
+  :severity "Red"
+  :description "The cabin altitude has exceeded the maximum pressurization limit."
+  :limit 3}
+ {:name "ECS_PACK_OVERTEMP"
+  :system 4
+  :subsystem 2
+  :units 2
+  :code 214
+  :severity "Yellow"
+  :description "An environmental control pack temperature has exceeded the caution threshold."
+  :limit 6}
+ {:name "COCKPIT_TEMP_SENSOR_FAIL"
+  :system 4
+  :subsystem 3
+  :units 1
+  :code 220
+  :severity "Green"
+  :description "The cockpit temperature sensor is unavailable and backup estimation is active."
+  :limit 12}
+ {:name "IMU_ALIGNMENT_TIMEOUT"
+  :system 5
+  :subsystem 1
+  :units 2
+  :code 311
+  :severity "Yellow"
+  :description "An inertial measurement unit did not complete alignment within the allowed time."
+  :limit 5}
+ {:name "GPS_POSITION_INVALID"
+  :system 5
+  :subsystem 2
+  :units 2
+  :code 325
+  :severity "Yellow"
+  :description "The GPS receiver solution is invalid for navigation use."
+  :limit 10}
+ {:name "AIR_DATA_DISAGREE"
+  :system 5
+  :subsystem 3
+  :units 3
+  :code 338
+  :severity "Red"
+  :description "Air data sources disagree beyond the allowable comparison threshold."
+  :limit 4}
+ {:name "X_BAND_LINK_LOSS"
+  :system 6
+  :subsystem 1
+  :units 2
+  :code 411
+  :severity "Yellow"
+  :description "The X-band communications link has been lost for longer than the retry window."
+  :limit 8}
+ {:name "S_BAND_POWER_AMP_FAIL"
+  :system 6
+  :subsystem 2
+  :units 1
+  :code 423
+  :severity "Red"
+  :description "The S-band transmitter power amplifier has reported an internal failure."
+  :limit 3}
+ {:name "FLIGHT_COMPUTER_PRIMARY_RESET"
+  :system 7
+  :subsystem 1
+  :units 3
+  :code 512
+  :severity "Flashing Red"
+  :description "The primary flight computer has reset unexpectedly during active operation."
+  :limit 2}
+ {:name "MISSION_STORAGE_NEAR_CAPACITY"
+  :system 7
+  :subsystem 2
+  :units 1
+  :code 529
+  :severity "Green"
+  :description "Mission data storage has reached the configured capacity warning threshold."
+  :limit 20}
+ {:name "TIME_SYNC_DRIFT_HIGH"
+  :system 7
+  :subsystem 3
+  :units 3
+  :code 541
+  :severity "Yellow"
+  :description "Time synchronization drift has exceeded the allowable avionics tolerance."
+  :limit 10}]

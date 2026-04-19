@@ -1,0 +1,137 @@
+{:systems
+ {0 {:name "Any/All"
+     :subsystems
+     {0 {:name "Any/All"
+         :units
+         {0 "Any/All"}}}}
+  1 {:name "Propulsion"
+     :subsystems
+     {0 {:name "Any/All"
+         :units
+         {0 "Any/All"}}
+      1 {:name "Lubrication"
+         :units
+         {0 "Any/All"
+          1 "Left Engine"
+          2 "Right Engine"}}
+      2 {:name "Engine Core"
+         :units
+         {0 "Any/All"
+          1 "Left Engine"
+          2 "Right Engine"}}
+      3 {:name "Fuel Distribution"
+         :units
+         {0 "Any/All"
+          1 "Crossfeed Manifold"}}}}
+  2 {:name "Flight Controls"
+     :subsystems
+     {0 {:name "Any/All"
+         :units
+         {0 "Any/All"}}
+      1 {:name "Elevon Control"
+         :units
+         {0 "Any/All"
+          1 "Left Elevon"
+          2 "Right Elevon"}}
+      2 {:name "Yaw Control"
+         :units
+         {0 "Any/All"
+          1 "Rudder"}}
+      3 {:name "Wheel Braking"
+         :units
+         {0 "Any/All"
+          1 "Left Brake Channel"
+          2 "Right Brake Channel"}}}}
+  3 {:name "Electrical Power"
+     :subsystems
+     {0 {:name "Any/All"
+         :units
+         {0 "Any/All"}}
+      1 {:name "Battery Distribution"
+         :units
+         {0 "Any/All"
+          1 "Battery Bus A"
+          2 "Battery Bus B"}}
+      2 {:name "Primary Generation"
+         :units
+         {0 "Any/All"
+          1 "Generator A"
+          2 "Generator B"}}
+      3 {:name "Essential Bus"
+         :units
+         {0 "Any/All"
+          1 "Essential Bus"}}}}
+  4 {:name "Environmental Control"
+     :subsystems
+     {0 {:name "Any/All"
+         :units
+         {0 "Any/All"}}
+      1 {:name "Pressurization"
+         :units
+         {0 "Any/All"
+          1 "Cabin"}}
+      2 {:name "Thermal Packs"
+         :units
+         {0 "Any/All"
+          1 "Pack Left"
+          2 "Pack Right"}}
+      3 {:name "Cockpit Conditioning"
+         :units
+         {0 "Any/All"
+          1 "Cockpit"}}}}
+  5 {:name "Guidance Navigation"
+     :subsystems
+     {0 {:name "Any/All"
+         :units
+         {0 "Any/All"}}
+      1 {:name "Inertial Reference"
+         :units
+         {0 "Any/All"
+          1 "IMU A"
+          2 "IMU B"}}
+      2 {:name "Satellite Navigation"
+         :units
+         {0 "Any/All"
+          1 "GPS Receiver A"
+          2 "GPS Receiver B"}}
+      3 {:name "Air Data"
+         :units
+         {0 "Any/All"
+          1 "ADC Left"
+          2 "ADC Center"
+          3 "ADC Right"}}}}
+  6 {:name "Communications"
+     :subsystems
+     {0 {:name "Any/All"
+         :units
+         {0 "Any/All"}}
+      1 {:name "X-Band"
+         :units
+         {0 "Any/All"
+          1 "X-Band Radio A"
+          2 "X-Band Radio B"}}
+      2 {:name "S-Band"
+         :units
+         {0 "Any/All"
+          1 "S-Band Transmitter"}}}}
+  7 {:name "Mission Computing"
+     :subsystems
+     {0 {:name "Any/All"
+         :units
+         {0 "Any/All"}}
+      1 {:name "Flight Computers"
+         :units
+         {0 "Any/All"
+          1 "FCC A"
+          2 "FCC B"
+          3 "FCC C"}}
+      2 {:name "Mass Storage"
+         :units
+         {0 "Any/All"
+          1 "Mission Recorder"}}
+      3 {:name "Time Distribution"
+         :units
+         {0 "Any/All"
+          1 "Time Node A"
+          2 "Time Node B"
+          3 "Time Node C"}}}}}}

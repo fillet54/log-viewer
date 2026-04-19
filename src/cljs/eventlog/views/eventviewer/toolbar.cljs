@@ -41,13 +41,19 @@
     :on-click on-click}
    [icons/chevron-icon icon]])
 
-(defn main-toolbar [{:keys [layout-store active-view]}]
-  [:div.main-toolbar
-   [:div.toolbar-group
-    [toolbar-button {:layout-store layout-store :view :list :label "List" :active-view active-view}]
-    [toolbar-button {:layout-store layout-store :view :chart :label "Chart" :active-view active-view}]
-    [toolbar-button {:layout-store layout-store :view :split :label "Split" :active-view active-view}]]
-   [:div.toolbar-status
-    [:span.status-pill "SPA shell"]
-    [:span.status-text
-     (str "View: " (str/capitalize (name active-view)))]]])
+(defn main-toolbar [{:keys [layout-store active-view log-state]}]
+  (let [{:keys [status events]} @log-state]
+    [:div.main-toolbar
+     [:div.toolbar-group
+      [toolbar-button {:layout-store layout-store :view :list :label "List" :active-view active-view}]
+      [toolbar-button {:layout-store layout-store :view :chart :label "Chart" :active-view active-view}]
+      [toolbar-button {:layout-store layout-store :view :split :label "Split" :active-view active-view}]]
+     [:div.toolbar-status
+      [:span.status-pill (case status
+                           :loading "Loading"
+                           :error "Error"
+                           "Core Event")]
+      [:span.status-text
+       (str "View: " (str/capitalize (name active-view))
+            "  "
+            (count events) " rows")]]]))

@@ -2,15 +2,28 @@
   (:require
    [eventlog.storage :as storage]
    [eventlog.views.eventviewer.drag :as drag]
+   [eventlog.views.eventviewer.events.row :as event-row]
    [eventlog.views.eventviewer.icons :as icons]
+   [eventlog.views.eventviewer.virtual-list :as virtual-list]
    [eventlog.views.eventviewer.toolbar :as toolbar]))
 
 (declare split-view)
 
-(defn listing-view []
-  [:section.content-card
-   [:div.placeholder-pane
-    [:div.placeholder-label "Log Listing"]]])
+(defn listing-view [{:keys [log-state]}]
+  (let [{:keys [status events error]} @log-state]
+    [:section.content-card.log-listing-panel
+     [:div.log-list
+      (case status
+        :loading [:div.placeholder-pane [:div.placeholder-label "Loading Core Event Log"]]
+        :error [:div.placeholder-pane [:div.placeholder-label (or error "Failed to load log")]]
+        :ready (if (seq events)
+                 [virtual-list/virtual-list
+                  {:rows events
+                   :row-height 42
+                   :overscan 10
+                   :render-row event-row/render-row}]
+                 [:div.placeholder-pane [:div.placeholder-label "No Events"]])
+        [:div.placeholder-pane [:div.placeholder-label "Loading Core Event Log"]])]]))
 
 (defn chart-view [compact?]
   [:section.content-card {:class (when compact? "is-compact")}
@@ -69,20 +82,20 @@
   [:div.splitter.splitter-inner
    {:on-pointer-down #(drag/begin-drag! drag-controller :split-chart %)}])
 
-(defn split-view [{:keys [layout-store drag-controller]}]
+(defn split-view [{:keys [layout-store drag-controller log-state]}]
   (let [{:keys [split-chart-size]} @(storage/layout-state layout-store)]
     [:section.split-stack
      {:id "split-stack"
       :style {:grid-template-rows (str split-chart-size "% 6px minmax(0, 1fr)")}}
      [chart-view true]
      [inner-splitter {:drag-controller drag-controller}]
-     [listing-view]]))
+     [listing-view {:log-state log-state}]]))
 
-(defn main-panel [{:keys [layout-store drag-controller main-view]}]
+(defn main-panel [{:keys [layout-store drag-controller main-view log-state]}]
   [:main.main-panel
-   [toolbar/main-toolbar {:layout-store layout-store :active-view main-view}]
+   [toolbar/main-toolbar {:layout-store layout-store :active-view main-view :log-state log-state}]
    [:div.main-body
     (case main-view
       :chart [chart-view false]
-      :split [split-view {:layout-store layout-store :drag-controller drag-controller}]
-      [listing-view])]])
+      :split [split-view {:layout-store layout-store :drag-controller drag-controller :log-state log-state}]
+      [listing-view {:log-state log-state}])]])

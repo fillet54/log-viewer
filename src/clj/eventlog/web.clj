@@ -13,25 +13,32 @@
   (-> (response/response "ok")
       (response/content-type "text/plain; charset=utf-8")))
 
-(defn app-handler []
+(defn core-event-log-handler [{:keys [core-event-log]}]
+  (-> (pr-str (:events core-event-log))
+      response/response
+      (response/content-type "application/edn; charset=utf-8")))
+
+(defn app-handler [core-event-log]
   (wrap-defaults
    (ring/ring-handler
     (ring/router
      [["/" {:get index-handler}]
-      ["/healthz" {:get health-handler}]])
+      ["/healthz" {:get health-handler}]
+      ["/api/core-event/log" {:get (fn [_request]
+                                     (core-event-log-handler {:core-event-log core-event-log}))}]])
     (ring/routes
      (ring/create-resource-handler {:path "/" :root "public"})
      (ring/create-default-handler)))
    (-> site-defaults
        (assoc-in [:security :anti-forgery] false))))
 
-(defrecord WebServer [port server]
+(defrecord WebServer [port core-event-log server]
   com.stuartsierra.component/Lifecycle
   (start [this]
     (if server
       this
       (assoc this
-             :server (jetty/run-jetty (app-handler)
+             :server (jetty/run-jetty (app-handler core-event-log)
                                       {:port port
                                        :join? false}))))
   (stop [this]

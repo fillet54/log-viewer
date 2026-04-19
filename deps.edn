@@ -11,5 +11,6 @@
         cljsjs/react-dom {:mvn/version "17.0.2-0"}}
  :aliases
  {:run {:main-opts ["-m" "eventlog.main"]}
+  :sample-core-event {:main-opts ["-m" "eventlog.sample.core-event"]}
   :build-cljs {:main-opts ["-m" "cljs.main" "-co" "cljs.edn" "-c" "eventlog.app"]}
   :watch-cljs {:main-opts ["-m" "cljs.main" "-co" "cljs.edn" "-w" "src/cljs" "-c" "eventlog.app"]}}}

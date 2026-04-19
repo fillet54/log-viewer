@@ -31,7 +31,7 @@
      (str "minmax(0, 1fr) 6px " (px (state/clamp bottom-size 140 420)))
      (str "minmax(0, 1fr) 6px " (px (:bottom-collapsed-size storage/default-layout))))})
 
-(defn workspace [{:keys [layout-store drag-controller]}]
+(defn workspace [{:keys [layout-store drag-controller log-state]}]
   (let [{:keys [right-open? bottom-open? main-view] :as layout} @(storage/layout-state layout-store)]
     [:div.workspace
      [:div.workspace-main
@@ -41,7 +41,8 @@
                          :style (center-row-style layout)}
         [panes/main-panel {:layout-store layout-store
                            :drag-controller drag-controller
-                           :main-view main-view}]
+                           :main-view main-view
+                           :log-state log-state}]
         [panes/vertical-splitter {:drag-controller drag-controller}]
         (if right-open?
           [panes/details-pane {:layout-store layout-store}]
