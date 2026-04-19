@@ -1,0 +1,6 @@
+{:main eventlog.app
+ :output-to "resources/public/js/app.js"
+ :output-dir "resources/public/js/out"
+ :asset-path "/js/out"
+ :optimizations :none
+ :source-map true}

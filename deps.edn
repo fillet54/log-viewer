@@ -1,0 +1,15 @@
+{:paths ["src/clj" "src/cljs" "resources"]
+ :deps {org.clojure/clojure {:mvn/version "1.11.3"}
+        org.clojure/clojurescript {:mvn/version "1.11.132"}
+        com.stuartsierra/component {:mvn/version "1.1.0"}
+        metosin/reitit-ring {:mvn/version "0.7.2"}
+        ring/ring-core {:mvn/version "1.12.1"}
+        ring/ring-jetty-adapter {:mvn/version "1.12.1"}
+        ring/ring-defaults {:mvn/version "0.5.0"}
+        reagent/reagent {:mvn/version "1.2.0"}
+        cljsjs/react {:mvn/version "17.0.2-0"}
+        cljsjs/react-dom {:mvn/version "17.0.2-0"}}
+ :aliases
+ {:run {:main-opts ["-m" "eventlog.main"]}
+  :build-cljs {:main-opts ["-m" "cljs.main" "-co" "cljs.edn" "-c" "eventlog.app"]}
+  :watch-cljs {:main-opts ["-m" "cljs.main" "-co" "cljs.edn" "-w" "src/cljs" "-c" "eventlog.app"]}}}
