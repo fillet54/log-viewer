@@ -12,12 +12,21 @@
    :bottom-size 220
    :right-last-size 320
    :bottom-last-size 220
-   :split-chart-size 36})
+   :split-chart-size 220})
+
+(defn normalize-layout [layout]
+  (update layout :split-chart-size
+          (fn [value]
+            (let [value (or value (:split-chart-size default-layout))]
+              (if (<= value 100)
+                (:split-chart-size default-layout)
+                value)))))
 
 (defn load-layout [storage-key]
   (try
     (if-let [text (.getItem js/localStorage storage-key)]
-      (merge default-layout (edn/read-string text))
+      (-> (merge default-layout (edn/read-string text))
+          normalize-layout)
       default-layout)
     (catch :default _
       default-layout)))

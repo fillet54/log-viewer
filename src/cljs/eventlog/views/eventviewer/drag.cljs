@@ -35,10 +35,8 @@
 
 (defn calc-split-chart-size [bounds event]
   (let [top (.-top bounds)
-        height (.-height bounds)
-        next-size (- (.-clientY event) top)
-        percent (* (/ next-size height) 100)]
-    (clamp percent 20 80)))
+        next-size (- (.-clientY event) top)]
+    (clamp next-size 120 520)))
 
 (defn update-layout! [f & args]
   (rf/dispatch-sync (into [:eventviewer/update-layout f] args)))

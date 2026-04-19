@@ -150,7 +150,7 @@
   (let [{:keys [split-chart-size]} layout]
     [:section.split-stack
      {:id "split-stack"
-      :style {:grid-template-rows (str split-chart-size "% 6px minmax(0, 1fr)")}}
+      :style {:grid-template-rows (str split-chart-size "px 6px minmax(0, 1fr)")}}
      [chart-view true]
      [inner-splitter {:drag-controller drag-controller}]
      [listing-view {:log-state log-state}]]))
