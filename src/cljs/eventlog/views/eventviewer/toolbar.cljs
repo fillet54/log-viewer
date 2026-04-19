@@ -1,18 +1,18 @@
 (ns eventlog.views.eventviewer.toolbar
   (:require
    [clojure.string :as str]
-   [eventlog.storage :as storage]
    [eventlog.views.eventviewer.icons :as icons]
-   [eventlog.views.eventviewer.state :as state]))
+   [eventlog.views.eventviewer.state :as state]
+   [re-frame.core :as rf]))
 
-(defn toolbar-button [{:keys [layout-store view label active-view]}]
+(defn toolbar-button [{:keys [view label active-view]}]
   [:button.toolbar-button
    {:class (when (= view active-view) "is-active")
     :type "button"
-    :on-click #(storage/swap-layout! layout-store state/set-main-view view)}
+    :on-click #(rf/dispatch [:eventviewer/update-layout state/set-main-view view])}
    label])
 
-(defn navbar [{:keys [layout-store]}]
+(defn navbar []
   [:header.topbar
    [:div.brand
     [:span.brand-mark "EL"]
@@ -22,7 +22,7 @@
    [:div.topbar-actions
     [:button.chrome-button
      {:type "button"
-      :on-click #(storage/reset-layout! layout-store)}
+      :on-click #(rf/dispatch [:eventviewer/reset-layout])}
      "Reset layout"]]])
 
 (defn panel-header [title subtitle actions]
@@ -41,13 +41,13 @@
     :on-click on-click}
    [icons/chevron-icon icon]])
 
-(defn main-toolbar [{:keys [layout-store active-view log-state]}]
-  (let [{:keys [status events]} @log-state]
+(defn main-toolbar [{:keys [active-view log-state]}]
+  (let [{:keys [status events]} log-state]
     [:div.main-toolbar
      [:div.toolbar-group
-      [toolbar-button {:layout-store layout-store :view :list :label "List" :active-view active-view}]
-      [toolbar-button {:layout-store layout-store :view :chart :label "Chart" :active-view active-view}]
-      [toolbar-button {:layout-store layout-store :view :split :label "Split" :active-view active-view}]]
+      [toolbar-button {:view :list :label "List" :active-view active-view}]
+      [toolbar-button {:view :chart :label "Chart" :active-view active-view}]
+      [toolbar-button {:view :split :label "Split" :active-view active-view}]]
      [:div.toolbar-status
       [:span.status-pill (case status
                            :loading "Loading"

@@ -1,6 +1,7 @@
 (ns eventlog.views.eventviewer.drag
   (:require
    [eventlog.storage :as storage]
+   [re-frame.core :as rf]
    [reagent.core :as r]))
 
 (defprotocol IDragController
@@ -39,28 +40,29 @@
         percent (* (/ next-size height) 100)]
     (clamp percent 20 80)))
 
-(defn apply-resize! [layout-store value {:keys [min-size max-size open-key size-key last-size-key]}]
+(defn update-layout! [f & args]
+  (rf/dispatch-sync (into [:eventviewer/update-layout f] args)))
+
+(defn apply-resize! [value {:keys [min-size max-size open-key size-key last-size-key]}]
   (let [next-size (clamp value min-size max-size)]
-    (storage/swap-layout!
-     layout-store
+    (update-layout!
      assoc
      open-key true
      size-key next-size
      last-size-key next-size)))
 
-(defn apply-auto-collapse! [layout-store _value {:keys [min-size open-key size-key last-size-key]}]
-  (storage/swap-layout!
-   layout-store
+(defn apply-auto-collapse! [_value {:keys [min-size open-key size-key last-size-key]}]
+  (update-layout!
    (fn [layout]
      (assoc layout
             open-key false
             last-size-key (get layout size-key min-size)))))
 
 (defn make-auto-collapse-applier [{:keys [collapse-threshold] :as pane-config}]
-  (fn [layout-store value]
+  (fn [value]
     (if (< value collapse-threshold)
-      (apply-auto-collapse! layout-store value pane-config)
-      (apply-resize! layout-store value pane-config))))
+      (apply-auto-collapse! value pane-config)
+      (apply-resize! value pane-config))))
 
 (def drag-containers
   {:right {:bounds-id "center-row"
@@ -83,16 +85,16 @@
                             :last-size-key :bottom-last-size})}
    :split-chart {:bounds-id "split-stack"
                  :calc-value calc-split-chart-size
-                 :apply-value! (fn [layout-store value]
-                                 (storage/swap-layout! layout-store assoc :split-chart-size value))}})
+                 :apply-value! (fn [value]
+                                 (update-layout! assoc :split-chart-size value))}})
 
-(defn apply-drag! [layout-store kind event]
+(defn apply-drag! [kind event]
   (when-let [{:keys [bounds-id calc-value apply-value!]} (get drag-containers kind)]
     (when-let [bounds (element-bounds bounds-id)]
       (when-let [value (calc-value bounds event)]
-        (apply-value! layout-store value)))))
+        (apply-value! value)))))
 
-(defrecord DragController [layout-store drag-state pointermove-fn pointerup-fn]
+(defrecord DragController [drag-state pointermove-fn pointerup-fn]
   IDragController
   (install! [this]
     (.addEventListener js/window "pointermove" pointermove-fn)
@@ -112,18 +114,18 @@
     (set-user-select! "")
     (reset! drag-state nil)))
 
-(defn make-drag-controller [layout-store]
+(defn make-drag-controller []
   (let [controller* (atom nil)
         drag-state (r/atom nil)
         pointermove-fn
         (fn [event]
           (when-let [{:keys [kind]} @drag-state]
-            (apply-drag! layout-store kind event)))
+            (apply-drag! kind event)))
         pointerup-fn
         (fn [_event]
           (when-let [controller @controller*]
             (end-drag! controller)))
         controller
-        (->DragController layout-store drag-state pointermove-fn pointerup-fn)]
+        (->DragController drag-state pointermove-fn pointerup-fn)]
     (reset! controller* controller)
     controller))

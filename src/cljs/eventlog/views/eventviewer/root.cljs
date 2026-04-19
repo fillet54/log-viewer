@@ -5,6 +5,7 @@
    [eventlog.views.eventviewer.state :as state]
    [eventlog.views.eventviewer.system :as system]
    [eventlog.views.eventviewer.toolbar :as toolbar]
+   [re-frame.core :as rf]
    [reagent.core :as r]
    [reagent.dom :as rdom]))
 
@@ -31,32 +32,33 @@
      (str "minmax(0, 1fr) 6px " (px (state/clamp bottom-size 140 420)))
      (str "minmax(0, 1fr) 6px " (px (:bottom-collapsed-size storage/default-layout))))})
 
-(defn workspace [{:keys [layout-store drag-controller log-state]}]
-  (let [{:keys [right-open? bottom-open? main-view] :as layout} @(storage/layout-state layout-store)]
+(defn workspace [{:keys [drag-controller]}]
+  (let [{:keys [right-open? bottom-open? main-view] :as layout} @(rf/subscribe [:eventviewer/layout])
+        log-state @(rf/subscribe [:eventviewer/log])]
     [:div.workspace
      [:div.workspace-main
       [:div.center-stack {:id "center-stack"
                           :style (center-stack-style layout)}
        [:div.center-row {:id "center-row"
                          :style (center-row-style layout)}
-        [panes/main-panel {:layout-store layout-store
-                           :drag-controller drag-controller
+        [panes/main-panel {:drag-controller drag-controller
+                           :layout layout
                            :main-view main-view
                            :log-state log-state}]
         [panes/vertical-splitter {:drag-controller drag-controller}]
         (if right-open?
-          [panes/details-pane {:layout-store layout-store
+          [panes/details-pane {:layout layout
                                :log-state log-state}]
-          [panes/collapsed-details-rail {:layout-store layout-store}])]
+          [panes/collapsed-details-rail {:layout layout}])]
        [panes/horizontal-splitter {:drag-controller drag-controller}]
        (if bottom-open?
-         [panes/search-pane {:layout-store layout-store}]
-         [panes/collapsed-search-rail {:layout-store layout-store}])]]]))
+         [panes/search-pane {:layout layout}]
+         [panes/collapsed-search-rail {:layout layout}])]]]))
 
 (defn shell [app-system]
-  (let [layout @(storage/layout-state (:layout-store app-system))]
+  (let [layout @(rf/subscribe [:eventviewer/layout])]
     [:div.app-shell {:style (root-style layout)}
-     [toolbar/navbar {:layout-store (:layout-store app-system)}]
+     [toolbar/navbar]
      [workspace app-system]]))
 
 (defn app-root []
