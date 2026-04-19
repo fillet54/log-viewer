@@ -138,6 +138,13 @@ input {
   box-shadow: var(--color-shadow-soft);
 }
 
+.chrome-button-small {
+  min-height: 1.8rem;
+  padding: 0 0.6rem;
+  border-radius: 0.5rem;
+  font-size: 0.76rem;
+}
+
 .toolbar-button.is-active {
   background: var(--color-accent);
   color: white;
@@ -407,6 +414,7 @@ input {
   padding: 0.25rem 0.55rem;
   border-bottom: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
   overflow: hidden;
+  cursor: pointer;
 }
 
 .log-line.log-green {
@@ -431,6 +439,15 @@ input {
 
 .log-line[data-set-clear="clear"]:hover {
   opacity: 0.9;
+}
+
+.log-line:hover {
+  background: color-mix(in srgb, var(--color-bg-soft) 96%, transparent);
+}
+
+.log-line.is-selected {
+  background: var(--color-log-selected);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
 
 .log-muted,
@@ -567,6 +584,105 @@ input {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.details-content {
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  padding: 10px;
+}
+
+.details-summary {
+  margin-bottom: 12px;
+}
+
+.details-event-name {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+
+.details-event-description {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.details-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.details-section-title {
+  margin: 0;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.detail-tree {
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+}
+
+.detail-tree-node {
+  min-width: 0;
+}
+
+.detail-tree-children {
+  margin-left: 10px;
+}
+
+.detail-tree-row {
+  display: grid;
+  grid-template-columns: 18px minmax(90px, auto) minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  min-height: 22px;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.detail-tree-row:hover {
+  background: color-mix(in srgb, var(--color-bg-soft) 96%, transparent);
+}
+
+.detail-tree-toggle {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.detail-tree-spacer {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
+}
+
+.detail-tree-key {
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.detail-tree-value {
+  min-width: 0;
+  color: var(--color-text);
+  text-align: right;
+  word-break: break-word;
+}
+
+.detail-tree-value-summary {
+  color: var(--color-text-muted);
 }
 
 .splitter {

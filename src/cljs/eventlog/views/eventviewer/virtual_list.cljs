@@ -7,7 +7,7 @@
   (max low (min high n)))
 
 (defn virtual-list
-  [{:keys [rows row-height overscan render-row]
+  [{:keys [rows row-height overscan render-row selected-row-id on-select]
     :or {row-height 42
          overscan 8}}]
   (r/with-let [scroll-top* (r/atom 0)
@@ -44,6 +44,8 @@
               ^{:key (str idx "|" (events/event-time row))}
               [:div.log-list-row
                {:style {:height (str row-height "px")}}
-               [render-row row idx]]))
+               [render-row row {:index idx
+                                :selected? (= (:row-id row) selected-row-id)
+                                :on-select #(on-select row)}]]))
           visible-rows))
         [:div {:style {:height (str bottom-pad "px")}}]]])))

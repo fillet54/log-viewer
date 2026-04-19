@@ -26,10 +26,12 @@
 (defn channel-active? [channels label]
   (not= -1 (.indexOf channels label)))
 
-(defn log-row [event _index]
+(defn log-row [event {:keys [selected? on-select]}]
   [:article.log-line
-   {:class (severity-class (:severity event))
-    :data-set-clear (if (:is_set event) "set" "clear")}
+   {:class [(severity-class (:severity event))
+            (when selected? "is-selected")]
+    :data-set-clear (if (:is_set event) "set" "clear")
+    :on-click on-select}
    [:span.log-channels
     (for [label channel-labels]
       ^{:key label}
@@ -44,7 +46,5 @@
    [:span.log-details
     [:span.log-title-row
      [:span.log-name (:name event)]
-     [:span.log-pill.log-kind (:type event)]
-     [:span.log-pill.log-channel-count (str (:num-channels event) " ch")]
      [:span.log-meta (location-label event)]]
     [:span.log-desc (:description event)]]])

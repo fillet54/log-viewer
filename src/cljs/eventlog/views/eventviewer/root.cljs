@@ -45,7 +45,8 @@
                            :log-state log-state}]
         [panes/vertical-splitter {:drag-controller drag-controller}]
         (if right-open?
-          [panes/details-pane {:layout-store layout-store}]
+          [panes/details-pane {:layout-store layout-store
+                               :log-state log-state}]
           [panes/collapsed-details-rail {:layout-store layout-store}])]
        [panes/horizontal-splitter {:drag-controller drag-controller}]
        (if bottom-open?

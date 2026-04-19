@@ -1,6 +1,7 @@
 (ns eventlog.views.eventviewer.panes
   (:require
    [eventlog.storage :as storage]
+   [eventlog.views.eventviewer.data :as data]
    [eventlog.views.eventviewer.drag :as drag]
    [eventlog.views.eventviewer.events.row :as event-row]
    [eventlog.views.eventviewer.icons :as icons]
@@ -9,8 +10,69 @@
 
 (declare split-view)
 
+(declare data-tree-node)
+
+(defn tree-label [value]
+  (if (keyword? value)
+    (name value)
+    (str value)))
+
+(defn data-tree-children [value]
+  (cond
+    (map? value) (seq value)
+    (sequential? value) (map-indexed vector value)
+    :else nil))
+
+(defn data-tree-node [log-state path key value]
+  (let [children (data-tree-children value)
+        branch? (boolean (seq children))
+        expanded? (contains? (:expanded-paths @log-state) path)]
+    [:div.detail-tree-node
+     [:div.detail-tree-row
+      (if branch?
+        [:button.detail-tree-toggle
+         {:type "button"
+          :on-click #(data/toggle-path! log-state path)}
+         (if expanded? "▾" "▸")]
+        [:span.detail-tree-spacer])
+      [:span.detail-tree-key (tree-label key)]
+      (if branch?
+        [:span.detail-tree-value.detail-tree-value-summary
+         (cond
+           (map? value) (str (count value) " keys")
+           (sequential? value) (str (count value) " items")
+           :else "")]
+        [:span.detail-tree-value (pr-str value)])]
+     (when (and branch? expanded?)
+       [:div.detail-tree-children
+        (for [[child-key child-value] children]
+          ^{:key (str path "|" child-key)}
+          [data-tree-node log-state (conj path child-key) child-key child-value])])]))
+
+(defn details-content [{:keys [log-state]}]
+  (if-let [selected-event (data/selected-event log-state)]
+    [:div.details-content
+     [:div.details-summary
+      [:h3.details-event-name (:name selected-event)]
+      [:p.details-event-description (:description selected-event)]]
+     [:div.details-section-header
+      [:h4.details-section-title "Data"]
+      [:div.panel-actions
+       [:button.chrome-button.chrome-button-small
+        {:type "button"
+         :on-click #(data/collapse-all! log-state)}
+        "Collapse all"]
+       [:button.chrome-button.chrome-button-small
+        {:type "button"
+         :on-click #(data/expand-all! log-state)}
+        "Expand all"]]]
+     [:div.detail-tree
+      [data-tree-node log-state [] :data (:data selected-event)]]]
+    [:div.placeholder-pane
+     [:div.placeholder-label "Select an Event"]]))
+
 (defn listing-view [{:keys [log-state]}]
-  (let [{:keys [status events error]} @log-state]
+  (let [{:keys [status events error selected-row-id]} @log-state]
     [:section.content-card.log-listing-panel
      [:div.log-list
       (case status
@@ -21,7 +83,9 @@
                   {:rows events
                    :row-height 42
                    :overscan 10
-                   :render-row event-row/render-row}]
+                   :render-row event-row/render-row
+                   :selected-row-id selected-row-id
+                   :on-select #(data/select-event! log-state (:row-id %))}]
                  [:div.placeholder-pane [:div.placeholder-label "No Events"]])
         [:div.placeholder-pane [:div.placeholder-label "Loading Core Event Log"]])]]))
 
@@ -30,7 +94,7 @@
    [:div.placeholder-pane
     [:div.placeholder-label (if compact? "Mini Chart" "Chart View")]]])
 
-(defn details-pane [{:keys [layout-store]}]
+(defn details-pane [{:keys [layout-store log-state]}]
   [:aside.side-panel
    [toolbar/panel-header
     "Details"
@@ -39,8 +103,7 @@
      {:title "Collapse details"
       :icon :right
       :on-click #(storage/swap-layout! layout-store assoc :right-open? false)}]]
-   [:div.placeholder-pane
-    [:div.placeholder-label "Details"]]])
+   [details-content {:log-state log-state}]])
 
 (defn search-pane [{:keys [layout-store]}]
   [:section.bottom-panel
