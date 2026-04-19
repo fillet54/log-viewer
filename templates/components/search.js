@@ -67,7 +67,12 @@ LogApp.buildSearchParser = () => {
   };
 
   const parseQuery = (input) => {
-    const ts = makeTokenStream(input || "");
+    return parseQueryWithAliases(input || "", {});
+  };
+
+  const parseQueryWithAliases = (input, options = {}, depth = 0) => {
+    if (depth > 12) throw new SyntaxError("Alias expansion exceeded max depth");
+    const ts = makeTokenStream(input || "", options, depth);
     if (ts.peek().type === "EOF") return { type: "EMPTY" };
     const ast = parseExpression(ts, 0);
     ts.expect("EOF", "Unexpected extra input");
@@ -580,15 +585,19 @@ LogApp.buildSearchParser = () => {
   }
 
   const makePredicate = (query, options = {}) => {
-    const ast = parseQuery(query);
+    const globalOptions =
+      typeof window !== "undefined" && window.LogApp?.searchOptions ? window.LogApp.searchOptions : {};
+    const mergedOptions = { ...globalOptions, ...options };
+    const ast = parseQueryWithAliases(query, mergedOptions);
     return (event) => filterObjects([event], ast, options).length === 1;
   };
 
   const filterQueryObjects = (objects, query, options = {}) => {
-    const ast = parseQuery(query);
     const globalOptions =
       typeof window !== "undefined" && window.LogApp?.searchOptions ? window.LogApp.searchOptions : {};
-    return filterObjects(objects, ast, { ...globalOptions, ...options });
+    const mergedOptions = { ...globalOptions, ...options };
+    const ast = parseQueryWithAliases(query, mergedOptions);
+    return filterObjects(objects, ast, mergedOptions);
   };
 
   const getQueryPredicate = (() => {
@@ -602,9 +611,11 @@ LogApp.buildSearchParser = () => {
     };
   })();
 
-  function makeTokenStream(input) {
+  function makeTokenStream(input, options = {}, depth = 0) {
     let i = 0;
     let buffered = null;
+    let lastToken = null;
+    const aliases = normalizeAliases(options.searchAliases || {});
 
     const error = (msg, tok) => {
       const t = tok || buffered || { start: i };
@@ -619,6 +630,7 @@ LogApp.buildSearchParser = () => {
     const next = () => {
       const t = peek();
       buffered = null;
+      lastToken = t;
       return t;
     };
 
@@ -765,7 +777,57 @@ LogApp.buildSearchParser = () => {
       return c;
     };
 
-    return { peek, next, match, expect, error, startsExpression };
+    return {
+      peek,
+      next,
+      match,
+      expect,
+      error,
+      startsExpression,
+      source: input,
+      aliases,
+      depth,
+      lastEnd: () => lastToken?.end ?? i,
+    };
+  }
+
+  function normalizeAliases(searchAliases) {
+    const out = {};
+    Object.entries(searchAliases || {}).forEach(([key, value]) => {
+      const normalizedKey = String(key || "").trim().toLowerCase();
+      const normalizedValue = String(value || "").trim();
+      if (!normalizedKey || !normalizedValue) return;
+      out[normalizedKey] = normalizedValue;
+    });
+    return out;
+  }
+
+  function expandAliasTemplate(template, args) {
+    const argList = Array.isArray(args) ? args : [];
+    return String(template || "")
+      .replace(/%([1-9]\d*)/g, (_, index) => argList[Number(index) - 1] ?? "")
+      .replace(/%/g, argList[0] ?? "");
+  }
+
+  function parseAliasInvocation(name, ts) {
+    const template = ts.aliases[String(name || "").toLowerCase()];
+    if (!template || !ts.match("LPAREN")) return null;
+
+    const args = [];
+    if (!ts.match("RPAREN")) {
+      while (true) {
+        const start = ts.peek().start;
+        parseExpression(ts, 0);
+        const end = ts.lastEnd();
+        args.push(ts.source.slice(start, end).trim());
+        if (ts.match("COMMA")) continue;
+        ts.expect("RPAREN", "Expected ')' after alias arguments");
+        break;
+      }
+    }
+
+    const expanded = expandAliasTemplate(template, args);
+    return parseQueryWithAliases(expanded, { searchAliases: ts.aliases }, ts.depth + 1);
   }
 
   function parseExpression(ts, minBp) {
@@ -809,6 +871,8 @@ LogApp.buildSearchParser = () => {
     if (token.type === "EOF") return { type: "EMPTY" };
 
     if (token.type === "WORD") {
+      const aliasNode = parseAliasInvocation(token.value, ts);
+      if (aliasNode) return aliasNode;
       if (ts.peek().type === "IN") {
         const inToken = ts.next();
         const value = parseInValue(ts);

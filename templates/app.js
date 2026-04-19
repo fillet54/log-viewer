@@ -77,6 +77,7 @@ LogApp.loadLogData = () => {
 
 LogApp.searchOptions = {
   intervalField: "norm_time",
+  searchAliases: {},
 };
 
 LogApp.smoothScrollTo = (container, targetTop, durationMs = 200, onComplete = null) => {
@@ -316,6 +317,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const logData = LogApp.loadLogData();
   LogApp.searchOptions = {
     intervalField: logData?.interval_field || "norm_time",
+    searchAliases: logData?.search_aliases || {},
   };
   LogApp.searchWorker = LogApp.createSearchWorker(logData?.events || [], LogApp.searchOptions);
   LogApp.bookmarks = LogApp.createBookmarkStore(logData, bus);

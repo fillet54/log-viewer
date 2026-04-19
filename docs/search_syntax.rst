@@ -34,6 +34,7 @@ Quick Examples
 - ``norm_time IN duration(name:Power, set_clear:SET, set_clear:CLEAR)``
 - ``interval(norm_time>50, norm_time<100)``
 - ``duration(name:Power, set_clear:SET, set_clear:CLEAR)``
+- ``while_set(name:Power)``
 
 Boolean Logic
 -------------
@@ -123,6 +124,29 @@ Duration scan behavior:
 - From there, find the first row after it matching the end expression.
 - Emit that interval.
 - Continue scanning after that end row for the next start/end pair.
+
+Query Aliases
+-------------
+
+Datasets can provide named query aliases. Aliases look like normal functions
+and expand into query text before parsing.
+
+Placeholder syntax:
+
+- ``%`` means argument 1
+- ``%1``, ``%2``, ``%3`` are explicit argument positions
+
+Example alias definition:
+
+- ``while_set`` -> ``duration(%, set_clear:SET, set_clear:CLEAR)``
+
+Example usage:
+
+- ``while_set(name:Power)``
+
+This expands to:
+
+- ``duration(name:Power, set_clear:SET, set_clear:CLEAR)``
 
 Deep Field Lookup
 -----------------
