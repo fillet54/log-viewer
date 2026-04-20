@@ -76,10 +76,10 @@
 
 (defn build-output-event [event subsystem-map unit-id utc-seconds boot-seconds channel-count is-set]
   (let [{:keys [system subsystem unit]} (resolve-subsystem-entry subsystem-map (:system event) (:subsystem event) unit-id)
-        channels (choose-channel-group channel-count)]
-    {:utctime (seconds->iso8601 utc-seconds)
+        channels (choose-channel-group channel-count)
+        utc-time (seconds->iso8601 utc-seconds)]
+    {:time [utc-time boot-seconds]
      :type "core-event"
-     :time boot-seconds
      :num-channels channel-count
      :channels channels
      :name (:name event)

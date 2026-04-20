@@ -1,6 +1,7 @@
 (ns eventlog.views.eventviewer.events.core-event
   (:require
-   [clojure.string :as str]))
+   [clojure.string :as str]
+   [eventlog.views.eventviewer.events.base :as base]))
 
 (def channel-labels ["A" "B" "C" "D"])
 
@@ -33,12 +34,14 @@
     :data-set-clear (if (:is_set event) "set" "clear")
     :on-click on-select}
    [:span.log-channels
-    (for [label channel-labels]
+   (for [label channel-labels]
       ^{:key label}
       [:span.log-channel {:class (when (channel-active? (:channels event) label) "is-on")}
        label])]
-   [:span.log-time.log-muted (:utctime event)]
-   [:span.log-offset.log-muted (str "T+" (:time event) "s")]
+   [:span.log-time.log-muted (base/event-primary-time event)]
+   [:span.log-offset.log-muted
+    (when-let [since-boot (base/event-since-boot event)]
+      (str "T+" since-boot "s"))]
    [:span.log-action
     {:data-contrast (action-contrast (:severity event))
      :data-event-color (severity-token (:severity event))}

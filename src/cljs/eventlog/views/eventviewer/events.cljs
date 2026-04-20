@@ -2,6 +2,7 @@
   (:require
    [cljs.reader :as reader]
    [eventlog.storage :as storage]
+   [eventlog.views.eventviewer.events.base :as event-base]
    [eventlog.views.eventviewer.data :as data]
    [eventlog.views.eventviewer.db :as db]
    [re-frame.core :as rf]))
@@ -10,6 +11,15 @@
  :persist-layout
  (fn [layout]
    (storage/save-layout! db/layout-storage-key layout)))
+
+(rf/reg-fx
+ :notify-layout-resized
+ (fn [_]
+   (js/requestAnimationFrame
+    (fn []
+      (js/requestAnimationFrame
+       (fn []
+         (.dispatchEvent js/window (js/Event. "eventviewer:layout-resized"))))))))
 
 (rf/reg-fx
  :load-core-event-log
@@ -36,13 +46,15 @@
  (fn [{:keys [db]} [_ f & args]]
    (let [layout (apply f (:layout db) args)]
      {:db (assoc db :layout layout)
-      :persist-layout layout})))
+      :persist-layout layout
+      :notify-layout-resized true})))
 
 (rf/reg-event-fx
  :eventviewer/reset-layout
  (fn [{:keys [db]} _]
    {:db (assoc db :layout storage/default-layout)
-    :persist-layout storage/default-layout}))
+    :persist-layout storage/default-layout
+    :notify-layout-resized true}))
 
 (rf/reg-event-db
  :eventviewer/log-loaded
@@ -51,11 +63,13 @@
                      (map-indexed (fn [index event]
                                     (assoc event :row-id index)))
                      vec)
-         first-event (first events)]
+         first-event (first events)
+         first-time (some-> first-event event-base/event-time-ms)]
      (assoc db :log {:status :ready
                      :events events
                      :error nil
                      :selected-row-id (:row-id first-event)
+                     :viewport-time (when-not (js/isNaN first-time) first-time)
                      :expanded-paths (if first-event
                                        (data/expanded-paths-for first-event)
                                        #{})}))))
@@ -67,6 +81,7 @@
                    :events []
                    :error error
                    :selected-row-id nil
+                   :viewport-time nil
                    :expanded-paths #{}})))
 
 (rf/reg-event-db
@@ -99,3 +114,8 @@
  :eventviewer/collapse-all
  (fn [db _]
    (assoc-in db [:log :expanded-paths] #{})))
+
+(rf/reg-event-db
+ :eventviewer/set-viewport-time
+ (fn [db [_ viewport-time]]
+   (assoc-in db [:log :viewport-time] viewport-time)))

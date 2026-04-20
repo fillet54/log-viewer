@@ -9,6 +9,7 @@
    :events []
    :error nil
    :selected-row-id nil
+   :viewport-time nil
    :expanded-paths #{}})
 
 (def default-db

@@ -1,6 +1,7 @@
 (ns eventlog.views.eventviewer.panes
   (:require
    [eventlog.views.eventviewer.data :as data]
+   [eventlog.views.eventviewer.charts.severity-histogram :as severity-histogram]
    [eventlog.views.eventviewer.drag :as drag]
    [eventlog.views.eventviewer.events.row :as event-row]
    [eventlog.views.eventviewer.icons :as icons]
@@ -90,10 +91,19 @@
                  [:div.placeholder-pane [:div.placeholder-label "No Events"]])
         [:div.placeholder-pane [:div.placeholder-label "Loading Core Event Log"]])]]))
 
-(defn chart-view [compact?]
-  [:section.content-card {:class (when compact? "is-compact")}
-   [:div.placeholder-pane
-    [:div.placeholder-label (if compact? "Mini Chart" "Chart View")]]])
+(defn chart-view [{:keys [compact? log-state]}]
+  (let [{:keys [events status]} log-state]
+    [:section.content-card {:class (when compact? "is-compact")}
+     (if (and (= status :ready) (seq events))
+       [:div.chart-panel
+        [:div.chart-panel-header
+         [:div.chart-panel-title (if compact? "Severity Histogram" "Severity Histogram")]
+         [:div.chart-panel-subtitle "Stacked SET-event counts by severity across the timeline"]]
+         [:div.chart-panel-body
+         [severity-histogram/component {:events events
+                                        :viewport-time (:viewport-time log-state)}]]]
+       [:div.placeholder-pane
+        [:div.placeholder-label (if compact? "Mini Chart" "Chart View")]])]))
 
 (defn details-pane [_]
   [:aside.side-panel
@@ -151,7 +161,7 @@
     [:section.split-stack
      {:id "split-stack"
       :style {:grid-template-rows (str split-chart-size "px 6px minmax(0, 1fr)")}}
-     [chart-view true]
+     [chart-view {:compact? true :log-state log-state}]
      [inner-splitter {:drag-controller drag-controller}]
      [listing-view {:log-state log-state}]]))
 
@@ -160,6 +170,6 @@
    [toolbar/main-toolbar {:active-view main-view :log-state log-state}]
    [:div.main-body
     (case main-view
-      :chart [chart-view false]
+      :chart [chart-view {:compact? false :log-state log-state}]
       :split [split-view {:layout layout :drag-controller drag-controller :log-state log-state}]
       [listing-view {:log-state log-state}])]])
