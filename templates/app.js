@@ -13,6 +13,8 @@
 
 {% include 'components/log_field_menu.js' %}
 
+{% include 'components/live.js' %}
+
 window.LogApp = window.LogApp || {};
 LogApp.isLoggedIn = {{ "true" if current_user else "false" }};
 LogApp.currentUser = {% if current_user %}{{ {"id": current_user["id"], "name": current_user.get("name"), "email": current_user.get("email")} | tojson }}{% else %}null{% endif %};
@@ -26,6 +28,7 @@ LogApp.STORAGE_KEYS = {
   searchHistory: "loglayout.search.history",
   searchPinned: "loglayout.search.pinned",
   searchFilters: "loglayout.search.filters",
+  searchFollowBottom: "loglayout.search.followBottom",
   chartMode: "loglayout.chart.mode",
   chartTooltips: "loglayout.chart.tooltips",
   bookmarks: "loglayout.bookmarks",
@@ -209,7 +212,11 @@ LogApp.createBookmarkStore = (logData, bus) => {
   const isBookmarked = (rowId) => getColor(rowId) > 0;
   const getAll = () => Object.keys(bookmarks);
   const getAllWithColors = () => ({ ...bookmarks });
-  return { cycle, setColor, getColor, isBookmarked, getAll, getAllWithColors };
+  const registerEvent = (event) => {
+    if (event?.row_id == null) return;
+    validIds.add(String(event.row_id));
+  };
+  return { cycle, setColor, getColor, isBookmarked, getAll, getAllWithColors, registerEvent };
 };
 
 LogApp.createCommentStore = (logData, bus) => {
@@ -309,24 +316,38 @@ LogApp.createCommentStore = (logData, bus) => {
     return withComments.sort((a, b) => (a.norm_time || 0) - (b.norm_time || 0));
   };
 
-  return { addComment, getByRowId, buildThreads, getActivityRows, reload: load };
+  const registerEvent = (event) => {
+    if (!event?.row_id) return;
+    const existingIndex = events.findIndex((entry) => String(entry.row_id) === String(event.row_id));
+    if (existingIndex >= 0) {
+      events.splice(existingIndex, 1, event);
+      return;
+    }
+    events.push(event);
+  };
+
+  return { addComment, getByRowId, buildThreads, getActivityRows, reload: load, registerEvent };
 };
 
 window.addEventListener("DOMContentLoaded", () => {
   const bus = LogApp.createEventBus();
   const logData = LogApp.loadLogData();
+  const liveConfig = LogApp.loadLiveConfig ? LogApp.loadLiveConfig() : null;
   LogApp.searchOptions = {
     intervalField: logData?.interval_field || "norm_time",
     searchAliases: logData?.search_aliases || {},
   };
-  LogApp.searchWorker = LogApp.createSearchWorker(logData?.events || [], LogApp.searchOptions);
+  LogApp.searchWorker =
+    liveConfig?.is_live_view ? null : LogApp.createSearchWorker(logData?.events || [], LogApp.searchOptions);
   LogApp.bookmarks = LogApp.createBookmarkStore(logData, bus);
   LogApp.comments = LogApp.createCommentStore(logData, bus);
 
   LogApp.initSplits();
-  LogApp.initLogList(logData, bus);
+  const logListController = LogApp.initLogList(logData, bus);
+  LogApp.logListController = logListController;
   LogApp.initChart(logData, bus);
   LogApp.initSearchPane(logData, bus);
   LogApp.initRightPane(bus);
   LogApp.initFieldQueryMenu();
+  LogApp.initLiveStream(logData, bus, logListController);
 });

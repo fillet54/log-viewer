@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Live Log Viewer{% endblock %}
+
+{% block content %}
+  {% include 'components/log_row_template.html' %}
+  <main class="flex-1 w-full p-3 min-h-0 flex flex-col gap-3">
+    <section class="rounded-2xl bg-base-100 shadow-sm border border-base-300 px-4 py-3 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="font-semibold truncate">Live Stream</span>
+        <span class="badge badge-outline badge-sm">{{ live_stream_name }}</span>
+        <span id="live-status" class="badge badge-sm badge-warning">Connecting</span>
+        <span id="live-event-count" class="text-xs text-base-content/60">0 events</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="label cursor-pointer gap-2 py-0">
+          <span class="label-text text-xs">Follow bottom</span>
+          <input id="live-follow-bottom" type="checkbox" class="toggle toggle-sm" checked />
+        </label>
+        <button id="live-reconnect" class="btn btn-xs btn-ghost" type="button">Reconnect</button>
+      </div>
+    </section>
+    <div id="split-root" class="flex-1 h-full w-full rounded-2xl bg-base-100 shadow-xl ghost-split">
+      <section id="pane-top" class="flex">
+        <div id="split-top" class="flex h-full w-full ghost-split">
+          {% include 'components/log_view.html' %}
+          {% include 'components/right_pane.html' %}
+        </div>
+      </section>
+
+      {% include 'components/search_pane.html' %}
+    </div>
+  </main>
+{% endblock %}
+
+{% block body_scripts %}
+  <script src="{{ url_for('app_js') }}"></script>
+  <script id="log-data" type="application/json">{{ log_data | tojson }}</script>
+  <script id="live-config" type="application/json">
+    {{ {"stream": live_stream_name, "stream_url": live_stream_url, "publish_url": live_publish_url, "is_live_view": true} | tojson }}
+  </script>
+{% endblock %}

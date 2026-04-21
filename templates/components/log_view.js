@@ -88,7 +88,6 @@ LogApp.initLogList = (logData, bus) => {
 
   if (!logBody || !logList || !logSpacer || !logData || !logRowTemplate) return null;
   const events = Array.isArray(logData.events) ? logData.events : [];
-  if (!events.length) return null;
 
   const buildLogRow = (event) => {
     const row = LogApp.renderLogRow(event, logRowTemplate);
@@ -122,15 +121,24 @@ LogApp.initLogList = (logData, bus) => {
   const rowStride = rowHeight + gap;
 
   const state = {
-    events,
-    filtered: events,
+    events: events.slice(),
+    filtered: events.slice(),
     filterQuery: "",
+    filterTerms: [],
     rowStride,
     overscan: 4,
     maxVisible: 120,
     lastRange: [0, 0],
+    eventIndexByRowId: new Map(),
     indexByRowId: new Map(),
     selectedRowId: null,
+  };
+
+  const rebuildEventIndex = () => {
+    state.eventIndexByRowId.clear();
+    state.events.forEach((event, idx) => {
+      state.eventIndexByRowId.set(String(event.row_id), idx);
+    });
   };
 
   const rebuildIndex = () => {
@@ -173,8 +181,10 @@ LogApp.initLogList = (logData, bus) => {
   };
 
   let pendingFilter = 0;
-  const applyFilterQueries = (queries) => {
+  const applyFilterQueries = (queries, options = {}) => {
+    const { preferWorker = true } = options;
     const terms = queries.map((q) => q.trim()).filter(Boolean);
+    state.filterTerms = terms;
     state.filterQuery = terms.join(" | ");
     if (!terms.length) {
       state.filtered = state.events;
@@ -187,7 +197,7 @@ LogApp.initLogList = (logData, bus) => {
     }
 
     const query = terms.join(" OR ");
-    if (LogApp.searchWorker) {
+    if (preferWorker && LogApp.searchWorker) {
       const requestId = ++pendingFilter;
       LogApp.runSearchQuery(LogApp.searchWorker, query, (indices) => {
         if (requestId !== pendingFilter) return;
@@ -212,6 +222,8 @@ LogApp.initLogList = (logData, bus) => {
     updateVirtual();
     if (bus) bus.emit("log:filtered", state.filtered);
   };
+
+  const syncFilteredEvents = () => applyFilterQueries(state.filterTerms, { preferWorker: false });
 
   const findClosestIndexBySeconds = (targetSeconds) => {
     const list = state.filtered;
@@ -262,6 +274,86 @@ LogApp.initLogList = (logData, bus) => {
     return scrollToIndex(index);
   };
 
+  const getEventByRowId = (rowId) => {
+    const index = state.eventIndexByRowId.get(String(rowId));
+    return index == null ? null : state.events[index];
+  };
+
+  const isNearBottom = () => {
+    const remaining = logBody.scrollHeight - (logBody.scrollTop + logBody.clientHeight);
+    return remaining <= state.rowStride * 1.5;
+  };
+
+  const scrollToBottom = (duration = 0) => {
+    const target = Math.max(0, logBody.scrollHeight - logBody.clientHeight);
+    if (duration > 0) {
+      LogApp.smoothScrollTo(logBody, target, duration);
+      return;
+    }
+    logBody.scrollTop = target;
+    updateVirtual();
+  };
+
+  const compareEvents = (left, right) => {
+    const leftTime = Number(left?.norm_time) || 0;
+    const rightTime = Number(right?.norm_time) || 0;
+    if (leftTime !== rightTime) return leftTime - rightTime;
+    return (Number(left?.row_id) || 0) - (Number(right?.row_id) || 0);
+  };
+
+  const findInsertIndex = (event) => {
+    let lo = 0;
+    let hi = state.events.length;
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (compareEvents(state.events[mid], event) <= 0) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    return lo;
+  };
+
+  const upsertEvent = (event, options = {}) => {
+    if (!event || event.row_id == null) return null;
+    const { stickToBottom = false } = options;
+    const rowId = String(event.row_id);
+    const wasNearBottom = isNearBottom();
+    const visibleStart = Math.max(0, Math.floor(logBody.scrollTop / state.rowStride));
+    const previousFilteredIndex = state.indexByRowId.get(rowId);
+    const existingIndex = state.eventIndexByRowId.get(rowId);
+
+    if (existingIndex != null) {
+      state.events.splice(existingIndex, 1);
+    }
+
+    const insertIndex = findInsertIndex(event);
+    state.events.splice(insertIndex, 0, event);
+    rebuildEventIndex();
+    syncFilteredEvents();
+
+    const nextFilteredIndex = state.indexByRowId.get(rowId);
+    const rowsBeforeViewportDelta =
+      (nextFilteredIndex != null && nextFilteredIndex < visibleStart ? 1 : 0) -
+      (previousFilteredIndex != null && previousFilteredIndex < visibleStart ? 1 : 0);
+
+    if (stickToBottom || wasNearBottom) {
+      scrollToBottom();
+    } else if (rowsBeforeViewportDelta !== 0) {
+      logBody.scrollTop = Math.max(0, logBody.scrollTop + rowsBeforeViewportDelta * state.rowStride);
+      updateVirtual();
+    }
+
+    if (LogApp.bookmarks?.registerEvent) LogApp.bookmarks.registerEvent(event);
+    if (LogApp.comments?.registerEvent) LogApp.comments.registerEvent(event);
+
+    if (state.selectedRowId === rowId && bus) {
+      bus.emit("event:selected", event);
+    }
+    return event;
+  };
+
   const ensureRowVisible = (rowId) => {
     if (!state.indexByRowId.has(String(rowId))) {
       applyFilterQueries([]);
@@ -302,6 +394,7 @@ LogApp.initLogList = (logData, bus) => {
     });
   }
 
+  rebuildEventIndex();
   rebuildIndex();
   setSpacer();
   updateVirtual();
@@ -338,8 +431,13 @@ LogApp.initLogList = (logData, bus) => {
   return {
     scrollToSeconds,
     scrollToRowId,
+    scrollToBottom,
     ensureRowVisible,
     applyFilters: applyFilterQueries,
+    getEventByRowId,
     getFilteredEvents: () => state.filtered,
+    getEvents: () => state.events,
+    isNearBottom,
+    upsertEvent,
   };
 };

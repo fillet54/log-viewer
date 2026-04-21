@@ -44,6 +44,10 @@
       <section id="search-results-pane" class="search-results">
         <div class="search-controls">
           <input id="search-query" class="input input-bordered input-sm w-full" placeholder="Search logs, faults, codes..." />
+          <label class="label cursor-pointer gap-2 py-0 px-1">
+            <span class="label-text text-xs whitespace-nowrap">Follow bottom</span>
+            <input id="search-follow-bottom" type="checkbox" class="toggle toggle-xs" />
+          </label>
           <a class="btn btn-ghost btn-sm search-help-button" href="{{ url_for('static', filename='search_syntax.html') }}" target="_blank" rel="noopener" aria-label="Search syntax help" title="Search syntax help">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9.5 9a2.5 2.5 0 1 1 4.2 1.8c-.8.6-1.2 1-1.2 2.2" />

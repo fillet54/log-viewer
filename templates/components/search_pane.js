@@ -9,6 +9,7 @@ LogApp.initSearchPane = (logData, bus) => {
   const resultsSpacer = document.getElementById("search-results-spacer");
   const resultsItems = document.getElementById("search-results-list");
   const queryInput = document.getElementById("search-query");
+  const followBottomInput = document.getElementById("search-follow-bottom");
   const runButton = document.getElementById("run-search");
   const clearHistoryButton = document.getElementById("clear-history");
   const tabHistory = document.getElementById("tab-history");
@@ -29,6 +30,7 @@ LogApp.initSearchPane = (logData, bus) => {
     !resultsSpacer ||
     !resultsItems ||
     !queryInput ||
+    !followBottomInput ||
     !runButton ||
     !clearHistoryButton ||
     !tabHistory ||
@@ -156,6 +158,24 @@ LogApp.initSearchPane = (logData, bus) => {
 
   const renderPinned = () => {
     renderList(pinned.slice(0, 24), pinnedList, true);
+  };
+
+  const isFollowBottomEnabled = () => Boolean(followBottomInput?.checked);
+
+  const loadFollowBottom = () => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.searchFollowBottom) === "true";
+    } catch (err) {
+      return false;
+    }
+  };
+
+  const saveFollowBottom = (enabled) => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.searchFollowBottom, String(Boolean(enabled)));
+    } catch (err) {
+      return;
+    }
   };
 
   const renderHistory = () => {
@@ -358,6 +378,80 @@ LogApp.initSearchPane = (logData, bus) => {
     overscan: 4,
     maxVisible: 80,
     lastRange: [0, 0],
+    activeQuery: "",
+    activeTab: "history",
+  };
+
+  const isResultsNearBottom = () => {
+    const remaining = resultsList.scrollHeight - (resultsList.scrollTop + resultsList.clientHeight);
+    return remaining <= resultsState.rowStride * 1.5;
+  };
+
+  const scrollResultsToBottom = () => {
+    resultsList.scrollTop = Math.max(0, resultsList.scrollHeight - resultsList.clientHeight);
+    updateResultsVirtual();
+  };
+
+  const compareEvents = (left, right) => {
+    const leftTime = Number(left?.norm_time) || 0;
+    const rightTime = Number(right?.norm_time) || 0;
+    if (leftTime !== rightTime) return leftTime - rightTime;
+    return (Number(left?.row_id) || 0) - (Number(right?.row_id) || 0);
+  };
+
+  const findResultInsertIndex = (event) => {
+    let lo = 0;
+    let hi = resultsState.items.length;
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (compareEvents(resultsState.items[mid], event) <= 0) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    return lo;
+  };
+
+  const matchesActiveQuery = (event) => {
+    if (!event) return false;
+    const query = resultsState.activeQuery || "";
+    if (!query) return true;
+    return LogApp.filterQueryObjects([event], query).length > 0;
+  };
+
+  const applyLiveSearchEvent = (event) => {
+    if (!event || currentTab === "bookmarks" || resultsState.activeTab === "bookmarks") return;
+    const shouldStickToBottom = isFollowBottomEnabled();
+    const wasNearBottom = isResultsNearBottom();
+    const rowId = String(event.row_id);
+    const existingIndex = resultsState.items.findIndex(
+      (entry) => String(entry.row_id) === rowId
+    );
+    const matches = matchesActiveQuery(event);
+
+    if (existingIndex >= 0) {
+      resultsState.items.splice(existingIndex, 1);
+    }
+    if (!matches) {
+      if (!resultsState.items.length) {
+        renderResults([]);
+      } else {
+        resultsState.lastRange = [0, 0];
+        setResultsSpacer();
+        updateResultsVirtual();
+      }
+      return;
+    }
+
+    const insertIndex = findResultInsertIndex(event);
+    resultsState.items.splice(insertIndex, 0, event);
+    resultsState.lastRange = [0, 0];
+    setResultsSpacer();
+    updateResultsVirtual();
+    if (shouldStickToBottom || wasNearBottom) {
+      scrollResultsToBottom();
+    }
   };
 
   const measureResultRow = () => {
@@ -424,6 +518,8 @@ LogApp.initSearchPane = (logData, bus) => {
   const runSearch = (commitHistory = false) => {
     const query = queryInput.value.trim();
     const isBookmarks = currentTab === "bookmarks";
+    resultsState.activeQuery = query;
+    resultsState.activeTab = currentTab;
     const source = isBookmarks ? getBookmarkEvents() : events;
     if (!query) {
       renderResults(source);
@@ -479,6 +575,13 @@ LogApp.initSearchPane = (logData, bus) => {
   renderHistory();
   renderFilters();
   renderBookmarks();
+  followBottomInput.checked = loadFollowBottom();
+  followBottomInput.addEventListener("change", () => {
+    saveFollowBottom(followBottomInput.checked);
+    if (followBottomInput.checked) {
+      scrollResultsToBottom();
+    }
+  });
   if (events.length) {
     measureResultRow();
   }
@@ -523,6 +626,13 @@ LogApp.initSearchPane = (logData, bus) => {
         resultsState.lastRange = [0, 0];
         runSearch(false);
       }
+    });
+    bus.on("live:event", (event) => {
+      renderBookmarks();
+      if (!resultsState.rowStride && events.length) {
+        measureResultRow();
+      }
+      applyLiveSearchEvent(event);
     });
   }
 

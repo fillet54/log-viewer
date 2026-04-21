@@ -11,12 +11,12 @@ LogApp.initChart = (logData, bus) => {
   if (!events.length) return null;
 
   const startTime = new Date(logData.start);
-  const endTime = new Date(logData.end);
+  let endTime = new Date(logData.end);
   const startMs = startTime.getTime();
-  const endMs = endTime.getTime();
-  const spanMs = Math.max(1, endMs - startMs);
+  let endMs = endTime.getTime();
+  let spanMs = Math.max(1, endMs - startMs);
   const bucketMs = 5 * 60 * 1000;
-  const bucketCount = Math.max(1, Math.ceil(spanMs / bucketMs));
+  let bucketCount = Math.max(1, Math.ceil(spanMs / bucketMs));
   const modeSegments = Array.isArray(logData.modes) ? logData.modes : [];
   const modeColors = [
     "rgba(59, 130, 246, 0.08)",
@@ -130,10 +130,23 @@ LogApp.initChart = (logData, bus) => {
     },
   ];
 
-  const labels = [];
-  for (let i = 0; i < bucketCount; i += 1) {
-    labels.push(new Date(startMs + i * bucketMs).toISOString().slice(11, 16));
-  }
+  let labels = [];
+  const rebuildTimeline = () => {
+    const eventTimes = events
+      .map((event) => new Date(event.utctime).getTime())
+      .filter((value) => Number.isFinite(value));
+    const latestEventMs = eventTimes.length ? Math.max(...eventTimes) : endMs;
+    endMs = Math.max(new Date(logData.end).getTime(), latestEventMs, startMs + bucketMs);
+    endTime = new Date(endMs);
+    logData.end = endTime.toISOString();
+    spanMs = Math.max(1, endMs - startMs);
+    bucketCount = Math.max(1, Math.ceil(spanMs / bucketMs));
+    labels = [];
+    for (let i = 0; i < bucketCount; i += 1) {
+      labels.push(new Date(startMs + i * bucketMs).toISOString().slice(11, 16));
+    }
+  };
+  rebuildTimeline();
 
   let filteredEvents = events.slice();
   let chartMode = localStorage.getItem(LogApp.STORAGE_KEYS.chartMode);
@@ -950,6 +963,11 @@ LogApp.initChart = (logData, bus) => {
     });
     bus.on("bookmarks:changed", () => {
       if (stackedChart) stackedChart.update(0);
+    });
+    bus.on("live:event", () => {
+      rebuildTimeline();
+      filteredEvents = events.slice();
+      rebuildChart();
     });
   }
 

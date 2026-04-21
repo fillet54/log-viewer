@@ -1,6 +1,11 @@
 from datetime import datetime, timedelta
+import json
 import os
+import queue
 import random
+import secrets
+import threading
+import time
 from typing import Any, Optional, Dict
 from flask import (
     Flask,
@@ -12,6 +17,7 @@ from flask import (
     render_template,
     request,
     session,
+    stream_with_context,
     url_for,
 )
 
@@ -54,6 +60,162 @@ app.config["DATABASE"] = os.environ.get(
 app.config["DATASET_ROOT"] = os.environ.get(
     "LOG_VIEWER_DATASETS", os.path.join(app.root_path, "data", "datasets")
 )
+
+
+class LiveEventBroker:
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._subscribers: dict[str, set[queue.Queue]] = {}
+
+    def subscribe(self, stream_name: str) -> queue.Queue:
+        subscriber: queue.Queue = queue.Queue(maxsize=256)
+        with self._lock:
+            self._subscribers.setdefault(stream_name, set()).add(subscriber)
+        return subscriber
+
+    def unsubscribe(self, stream_name: str, subscriber: queue.Queue) -> None:
+        with self._lock:
+            subscribers = self._subscribers.get(stream_name)
+            if not subscribers:
+                return
+            subscribers.discard(subscriber)
+            if not subscribers:
+                self._subscribers.pop(stream_name, None)
+
+    def publish(self, stream_name: str, payload: dict[str, Any]) -> int:
+        with self._lock:
+            subscribers = list(self._subscribers.get(stream_name, set()))
+        delivered = 0
+        for subscriber in subscribers:
+            try:
+                subscriber.put_nowait(payload)
+                delivered += 1
+            except queue.Full:
+                continue
+        return delivered
+
+
+live_event_broker = LiveEventBroker()
+live_demo_streams: dict[str, threading.Thread] = {}
+live_demo_streams_lock = threading.Lock()
+
+
+def _coerce_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _normalize_live_event(raw: dict[str, Any], fallback_index: int = 0) -> dict[str, Any]:
+    now = datetime.utcnow()
+    row_id = raw.get("row_id")
+    if row_id is None:
+        row_id = fallback_index + 1
+    norm_time = raw.get("norm_time")
+    if norm_time is None:
+        norm_time = fallback_index
+    utctime = raw.get("utctime") or (now + timedelta(seconds=fallback_index)).isoformat() + "Z"
+    channels = raw.get("channels") or []
+    if not isinstance(channels, list):
+        channels = list(channels) if isinstance(channels, (tuple, set)) else []
+    tags = raw.get("tags") or raw.get("labels") or []
+    if not isinstance(tags, list):
+        tags = list(tags) if isinstance(tags, (tuple, set)) else [str(tags)]
+    event_id = raw.get("event_id") or raw.get("eventid")
+    return {
+        "row_id": _coerce_int(row_id, fallback_index + 1),
+        "name": raw.get("name", f"Event {row_id}"),
+        "description": raw.get("description", ""),
+        "color": raw.get("color", "Green"),
+        "system": raw.get("system", "Unknown"),
+        "subsystem": raw.get("subsystem", ""),
+        "unit": raw.get("unit", ""),
+        "code": raw.get("code", ""),
+        "set_clear": raw.get("set_clear", "set"),
+        "utctime": utctime,
+        "norm_time": _coerce_int(norm_time, fallback_index),
+        "a_time": raw.get("a_time"),
+        "b_time": raw.get("b_time"),
+        "c_time": raw.get("c_time"),
+        "d_time": raw.get("d_time"),
+        "channels": channels,
+        "data": raw.get("data"),
+        "event_id": event_id or "",
+        "tags": tags,
+    }
+
+
+def _sorted_events_by_norm_time(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(events, key=lambda event: (event.get("norm_time") or 0, event.get("row_id") or 0))
+
+
+def _parse_utc(value: Any) -> datetime:
+    text = str(value or "")
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(text).replace(tzinfo=None)
+    except ValueError:
+        return datetime.utcnow()
+
+
+def _build_live_demo_events(log_data: dict[str, Any], count: int = 90) -> list[dict[str, Any]]:
+    base_events = _sorted_events_by_norm_time(list(log_data.get("events") or []))
+    hours = float(log_data.get("hours") or 1.0)
+    seed = str(log_data.get("seed") or "live")
+    generated = generate_logs(max(0.25, min(48.0, hours)), f"{seed}-live-tail")
+    source_events = _sorted_events_by_norm_time(list(generated.get("events") or []))
+    if not source_events:
+        return []
+
+    tail = source_events[: max(1, min(count, len(source_events)))]
+    last_norm_time = max((int(event.get("norm_time") or 0) for event in base_events), default=0)
+    last_row_id = max((int(event.get("row_id") or 0) for event in base_events), default=0)
+    last_utc = max((_parse_utc(event.get("utctime")) for event in base_events), default=datetime.utcnow())
+
+    normalized = []
+    for idx, event in enumerate(tail, start=1):
+        cloned = dict(event)
+        cloned["row_id"] = last_row_id + idx
+        cloned["norm_time"] = last_norm_time + idx
+        cloned["utctime"] = (last_utc + timedelta(seconds=idx)).isoformat(timespec="seconds") + "Z"
+        normalized.append(cloned)
+
+    stream_events: list[dict[str, Any]] = []
+    for idx, event in enumerate(normalized, start=1):
+        stream_events.append(event)
+        if idx % 12 == 0:
+            replacement = dict(event)
+            replacement["description"] = f"{event.get('description', '').strip()} (updated)"
+            replacement["set_clear"] = "clear" if str(event.get("set_clear")).lower() == "set" else "set"
+            stream_events.append(replacement)
+    return stream_events
+
+
+def _start_live_demo_stream(stream_name: str, log_data: dict[str, Any]) -> None:
+    with live_demo_streams_lock:
+        existing = live_demo_streams.get(stream_name)
+        if existing and existing.is_alive():
+            return
+
+        demo_events = _build_live_demo_events(log_data)
+
+        def run() -> None:
+            try:
+                time.sleep(1.0)
+                for event in demo_events:
+                    live_event_broker.publish(stream_name, {"type": "upsert", "event": event})
+                    time.sleep(0.6)
+            finally:
+                with live_demo_streams_lock:
+                    current = live_demo_streams.get(stream_name)
+                    if current is threading.current_thread():
+                        live_demo_streams.pop(stream_name, None)
+
+        thread = threading.Thread(target=run, name=f"live-demo-{stream_name}", daemon=True)
+        live_demo_streams[stream_name] = thread
+        thread.start()
 
 
 def login_user(user_id: int) -> None:
@@ -211,6 +373,53 @@ def index():
         current_dataset=dataset,
         datasets=datasets,
         boots=boots_for_dataset,
+    )
+
+
+def _load_live_log_data() -> tuple[dict[str, Any], Optional[dict[str, Any]], list[dict[str, Any]]]:
+    current_user_id = g.current_user["id"] if g.current_user else None
+    dataset_id = request.args.get("dataset", type=int)
+    dataset = get_dataset(dataset_id) if dataset_id else get_first_dataset(current_user_id)
+    boot_id = request.args.get("boot")
+
+    log_data = None
+    if dataset:
+        if not boot_id:
+            boot_id = get_latest_boot_id_for_dataset(dataset["id"])
+        if boot_id:
+            log_data = load_log_data_from_dataset(dataset, boot_id)
+
+    if not log_data:
+        hours = request.args.get("hours", default="1")
+        seed = request.args.get("seed")
+        try:
+            hours_value = max(0.25, min(48.0, float(hours)))
+        except ValueError:
+            hours_value = 1.0
+        log_data = generate_logs(hours_value, seed)
+        dataset = None
+
+    events = _sorted_events_by_norm_time(list(log_data.get("events") or []))
+    log_data["events"] = events
+    datasets = list_datasets(current_user_id)
+    return log_data, dataset, datasets
+
+
+@app.route("/live")
+def live():
+    log_data, dataset, datasets = _load_live_log_data()
+    requested_stream = request.args.get("stream")
+    stream_name = str(requested_stream or f"demo-{secrets.token_urlsafe(6)}").strip() or "default"
+    if request.args.get("autostart", "1") != "0":
+        _start_live_demo_stream(stream_name, log_data)
+    return render_template(
+        "live.html",
+        log_data=log_data,
+        current_dataset=dataset,
+        datasets=datasets,
+        live_stream_name=stream_name,
+        live_stream_url=url_for("live_stream_api", stream=stream_name),
+        live_publish_url=url_for("live_events_api"),
     )
 
 
@@ -461,6 +670,66 @@ def edit_boot(dataset_id: int, boot_id: str):
         event_id=event_id_val,
         tags=tags_val,
         mode=mode_val,
+    )
+
+
+@app.route("/api/live/stream")
+def live_stream_api():
+    stream_name = str(request.args.get("stream") or "default").strip() or "default"
+    subscriber = live_event_broker.subscribe(stream_name)
+
+    @stream_with_context
+    def generate():
+        try:
+            yield "retry: 1500\n\n"
+            while True:
+                try:
+                    payload = subscriber.get(timeout=15)
+                except queue.Empty:
+                    yield ": keepalive\n\n"
+                    continue
+                yield f"event: log-event\ndata: {json.dumps(payload)}\n\n"
+        finally:
+            live_event_broker.unsubscribe(stream_name, subscriber)
+
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    }
+    return Response(generate(), mimetype="text/event-stream", headers=headers)
+
+
+@app.route("/api/live/events", methods=["POST"])
+def live_events_api():
+    payload = request.get_json(silent=True) or {}
+    stream_name = str(payload.get("stream") or request.args.get("stream") or "default").strip() or "default"
+    raw_events = payload.get("events")
+    if raw_events is None:
+        single = payload.get("event")
+        raw_events = [single] if isinstance(single, dict) else []
+    if not isinstance(raw_events, list):
+        return jsonify({"error": "invalid_events"}), 400
+
+    normalized = []
+    for idx, item in enumerate(raw_events):
+        if not isinstance(item, dict):
+            continue
+        normalized.append(_normalize_live_event(item, idx))
+    if not normalized:
+        return jsonify({"error": "missing_events"}), 400
+
+    delivered = 0
+    for event in normalized:
+        delivered += live_event_broker.publish(stream_name, {"type": "upsert", "event": event})
+
+    return jsonify(
+        {
+            "stream": stream_name,
+            "accepted": len(normalized),
+            "delivered": delivered,
+            "events": normalized,
+        }
     )
 
 
