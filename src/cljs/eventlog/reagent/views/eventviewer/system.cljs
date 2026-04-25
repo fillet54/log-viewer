@@ -1,8 +1,8 @@
-(ns eventlog.views.eventviewer.system
+(ns eventlog.reagent.views.eventviewer.system
   (:require
-   [eventlog.views.eventviewer.drag :as drag]
-   [eventlog.views.eventviewer.events]
-   [eventlog.views.eventviewer.subs]
+   [eventlog.reagent.views.eventviewer.drag :as drag]
+   [eventlog.reagent.views.eventviewer.events]
+   [eventlog.reagent.views.eventviewer.subs]
    [re-frame.core :as rf]
    [reagent.core :as r]))
 

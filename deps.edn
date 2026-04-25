@@ -6,6 +6,7 @@
         ring/ring-core {:mvn/version "1.12.1"}
         ring/ring-jetty-adapter {:mvn/version "1.12.1"}
         ring/ring-defaults {:mvn/version "0.5.0"}
+        no.cjohansen/replicant {:mvn/version "2025.12.1"}
         reagent/reagent {:mvn/version "1.2.0"}
         re-frame/re-frame {:mvn/version "1.4.3"}
         cljsjs/react {:mvn/version "17.0.2-0"}
@@ -14,4 +15,9 @@
  {:run {:main-opts ["-m" "eventlog.main"]}
   :sample-core-event {:main-opts ["-m" "eventlog.sample.core-event"]}
   :build-cljs {:main-opts ["-m" "cljs.main" "-co" "cljs.edn" "-c" "eventlog.app"]}
-  :watch-cljs {:main-opts ["-m" "cljs.main" "-co" "cljs.edn" "-w" "src/cljs" "-c" "eventlog.app"]}}}
+  :watch-cljs {:main-opts ["-m" "cljs.main" "-co" "cljs.edn" "-w" "src/cljs" "-c" "eventlog.app"]}
+  :build-reagent-cljs {:main-opts ["-m" "cljs.main" "-co" "reagent.cljs.edn" "-c" "eventlog.reagent.app"]}
+  :watch-reagent-cljs {:main-opts ["-m" "cljs.main" "-co" "reagent.cljs.edn" "-w" "src/cljs" "-c" "eventlog.reagent.app"]}
+  :portfolio {:extra-deps {no.cjohansen/portfolio {:mvn/version "2026.03.1"}}}
+  :build-portfolio-cljs {:main-opts ["-m" "cljs.main" "-co" "portfolio.cljs.edn" "-c" "eventlog.portfolio"]}
+  :watch-portfolio-cljs {:main-opts ["-m" "cljs.main" "-co" "portfolio.cljs.edn" "-w" "src/cljs" "-c" "eventlog.portfolio"]}}}

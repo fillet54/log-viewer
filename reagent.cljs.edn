@@ -1,0 +1,6 @@
+{:main eventlog.reagent.app
+ :output-to "resources/public/js/reagent-app.js"
+ :output-dir "resources/public/js/reagent-out"
+ :asset-path "/js/reagent-out"
+ :optimizations :none
+ :source-map true}

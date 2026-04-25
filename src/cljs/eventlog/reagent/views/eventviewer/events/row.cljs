@@ -1,7 +1,7 @@
-(ns eventlog.views.eventviewer.events.row
+(ns eventlog.reagent.views.eventviewer.events.row
   (:require
-   [eventlog.views.eventviewer.events.base :as base]
-   [eventlog.views.eventviewer.events.core-event :as core-event]))
+   [eventlog.reagent.views.eventviewer.events.base :as base]
+   [eventlog.reagent.views.eventviewer.events.core-event :as core-event]))
 
 (defn unknown-row [event {:keys [selected? on-select]}]
   [:article.log-line

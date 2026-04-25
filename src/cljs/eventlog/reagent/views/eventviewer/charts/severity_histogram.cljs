@@ -1,7 +1,7 @@
-(ns eventlog.views.eventviewer.charts.severity-histogram
+(ns eventlog.reagent.views.eventviewer.charts.severity-histogram
   (:require
-   [eventlog.views.eventviewer.charts.chartjs :as chartjs]
-   [eventlog.views.eventviewer.events.base :as event-base]
+   [eventlog.reagent.views.eventviewer.charts.chartjs :as chartjs]
+   [eventlog.reagent.views.eventviewer.events.base :as event-base]
    [reagent.core :as r]
    [re-frame.core :as rf]))
 

@@ -1,12 +1,15 @@
 (ns eventlog.views.eventviewer.icons)
 
 (defn chevron-icon [direction]
-  [:svg.chevron-icon
-   {:viewBox "0 0 16 16"
-    :aria-hidden "true"}
-   (case direction
-     :left [:path {:d "M10 3 5 8l5 5"}]
-     :right [:path {:d "m6 3 5 5-5 5"}]
-     :up [:path {:d "m3 10 5-5 5 5"}]
-     :down [:path {:d "M3 6l5 5 5-5"}]
-     [:path {:d "m6 3 5 5-5 5"}])])
+  (let [points (case direction
+                 :left "15 18 9 12 15 6"
+                 :right "9 18 15 12 9 6"
+                 :up "6 15 12 9 18 15"
+                 :down "6 9 12 15 18 9"
+                 "9 18 15 12 9 6")]
+    [:svg.chevron-icon
+     {:viewBox "0 0 24 24"
+      :aria-hidden "true"
+      :focusable "false"}
+     [:polyline {:points points}]]))
+

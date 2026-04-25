@@ -1,6 +1,6 @@
-(ns eventlog.views.eventviewer.subs
+(ns eventlog.reagent.views.eventviewer.subs
   (:require
-   [eventlog.views.eventviewer.db :as db]
+   [eventlog.reagent.views.eventviewer.db :as db]
    [re-frame.core :as rf]))
 
 (rf/reg-sub

@@ -1,6 +1,6 @@
-(ns eventlog.views.eventviewer.virtual-list
+(ns eventlog.reagent.views.eventviewer.virtual-list
   (:require
-   [eventlog.views.eventviewer.events.base :as events]
+   [eventlog.reagent.views.eventviewer.events.base :as events]
    [re-frame.core :as rf]
    [reagent.core :as r]))
 

@@ -1,4 +1,4 @@
-(ns eventlog.views.eventviewer.charts.chartjs
+(ns eventlog.reagent.views.eventviewer.charts.chartjs
   (:require
    [reagent.core :as r]))
 

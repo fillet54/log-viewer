@@ -1,4 +1,4 @@
-(ns eventlog.views.eventviewer.db
+(ns eventlog.reagent.views.eventviewer.db
   (:require
    [eventlog.storage :as storage]))
 

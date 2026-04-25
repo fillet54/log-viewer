@@ -1,7 +1,7 @@
-(ns eventlog.views.eventviewer.events.core-event
+(ns eventlog.reagent.views.eventviewer.events.core-event
   (:require
    [clojure.string :as str]
-   [eventlog.views.eventviewer.events.base :as base]))
+   [eventlog.reagent.views.eventviewer.events.base :as base]))
 
 (def channel-labels ["A" "B" "C" "D"])
 

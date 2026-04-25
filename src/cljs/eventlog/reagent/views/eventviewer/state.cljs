@@ -1,4 +1,4 @@
-(ns eventlog.views.eventviewer.state)
+(ns eventlog.reagent.views.eventviewer.state)
 
 (defn clamp [value min-value max-value]
   (-> value

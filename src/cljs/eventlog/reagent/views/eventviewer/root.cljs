@@ -1,10 +1,10 @@
-(ns eventlog.views.eventviewer.root
+(ns eventlog.reagent.views.eventviewer.root
   (:require
    [eventlog.storage :as storage]
-   [eventlog.views.eventviewer.panes :as panes]
-   [eventlog.views.eventviewer.state :as state]
-   [eventlog.views.eventviewer.system :as system]
-   [eventlog.views.eventviewer.toolbar :as toolbar]
+   [eventlog.reagent.views.eventviewer.panes :as panes]
+   [eventlog.reagent.views.eventviewer.state :as state]
+   [eventlog.reagent.views.eventviewer.system :as system]
+   [eventlog.reagent.views.eventviewer.toolbar :as toolbar]
    [re-frame.core :as rf]
    [reagent.core :as r]
    [reagent.dom :as rdom]))

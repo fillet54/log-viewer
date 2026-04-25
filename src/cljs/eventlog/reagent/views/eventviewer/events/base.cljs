@@ -1,4 +1,4 @@
-(ns eventlog.views.eventviewer.events.base)
+(ns eventlog.reagent.views.eventviewer.events.base)
 
 (defn primary-time-value [value]
   (if (vector? value)

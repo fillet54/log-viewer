@@ -1,10 +1,10 @@
-(ns eventlog.views.eventviewer.events
+(ns eventlog.reagent.views.eventviewer.events
   (:require
    [cljs.reader :as reader]
    [eventlog.storage :as storage]
-   [eventlog.views.eventviewer.events.base :as event-base]
-   [eventlog.views.eventviewer.data :as data]
-   [eventlog.views.eventviewer.db :as db]
+   [eventlog.reagent.views.eventviewer.events.base :as event-base]
+   [eventlog.reagent.views.eventviewer.data :as data]
+   [eventlog.reagent.views.eventviewer.db :as db]
    [re-frame.core :as rf]))
 
 (rf/reg-fx

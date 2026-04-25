@@ -1,4 +1,4 @@
-(ns eventlog.views.eventviewer.data)
+(ns eventlog.reagent.views.eventviewer.data)
 
 (defn branch-paths
   ([value]

@@ -1,12 +1,12 @@
-(ns eventlog.views.eventviewer.panes
+(ns eventlog.reagent.views.eventviewer.panes
   (:require
-   [eventlog.views.eventviewer.data :as data]
-   [eventlog.views.eventviewer.charts.severity-histogram :as severity-histogram]
-   [eventlog.views.eventviewer.drag :as drag]
-   [eventlog.views.eventviewer.events.row :as event-row]
-   [eventlog.views.eventviewer.icons :as icons]
-   [eventlog.views.eventviewer.virtual-list :as virtual-list]
-   [eventlog.views.eventviewer.toolbar :as toolbar]
+   [eventlog.reagent.views.eventviewer.data :as data]
+   [eventlog.reagent.views.eventviewer.charts.severity-histogram :as severity-histogram]
+   [eventlog.reagent.views.eventviewer.drag :as drag]
+   [eventlog.reagent.views.eventviewer.events.row :as event-row]
+   [eventlog.reagent.views.eventviewer.icons :as icons]
+   [eventlog.reagent.views.eventviewer.virtual-list :as virtual-list]
+   [eventlog.reagent.views.eventviewer.toolbar :as toolbar]
    [re-frame.core :as rf]))
 
 (declare split-view)

@@ -1,8 +1,8 @@
-(ns eventlog.views.eventviewer.toolbar
+(ns eventlog.reagent.views.eventviewer.toolbar
   (:require
    [clojure.string :as str]
-   [eventlog.views.eventviewer.icons :as icons]
-   [eventlog.views.eventviewer.state :as state]
+   [eventlog.reagent.views.eventviewer.icons :as icons]
+   [eventlog.reagent.views.eventviewer.state :as state]
    [re-frame.core :as rf]))
 
 (defn toolbar-button [{:keys [view label active-view]}]

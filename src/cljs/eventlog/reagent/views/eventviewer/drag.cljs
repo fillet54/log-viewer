@@ -1,4 +1,4 @@
-(ns eventlog.views.eventviewer.drag
+(ns eventlog.reagent.views.eventviewer.drag
   (:require
    [eventlog.storage :as storage]
    [re-frame.core :as rf]

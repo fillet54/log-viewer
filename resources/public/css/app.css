@@ -31,7 +31,8 @@
 
 html,
 body,
-#app {
+#app,
+#replicant-app {
   margin: 0;
   min-height: 100vh;
   height: 100%;
@@ -820,6 +821,168 @@ input {
   right: 0;
   top: 2px;
   height: 1px;
+}
+
+.dummy-layout-content {
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  padding: 14px;
+}
+
+.dummy-section-title {
+  margin-bottom: 10px;
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dummy-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.dummy-stat-card {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-bg-strong) 84%, transparent);
+  box-shadow: var(--color-shadow-soft);
+}
+
+.dummy-stat-value {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.dummy-stat-label {
+  margin-top: 3px;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.dummy-notes {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.dummy-notes p {
+  margin: 0 0 10px;
+}
+
+.dummy-event-list {
+  display: grid;
+  gap: 8px;
+}
+
+.dummy-event-row {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr) 112px;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-bg-strong) 82%, transparent);
+}
+
+.dummy-severity {
+  justify-self: start;
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  color: white;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dummy-severity[data-severity="Green"] {
+  background: rgba(34, 197, 94, 0.92);
+}
+
+.dummy-severity[data-severity="Yellow"] {
+  background: rgba(202, 138, 4, 0.92);
+}
+
+.dummy-severity[data-severity="Red"] {
+  background: rgba(220, 38, 38, 0.92);
+}
+
+.dummy-event-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dummy-event-meta {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dummy-chart-surface {
+  height: 100%;
+  min-height: 180px;
+  display: grid;
+  align-items: end;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, transparent 0, transparent calc(100% - 1px), rgba(132, 154, 180, 0.18) calc(100% - 1px)),
+    linear-gradient(90deg, rgba(132, 154, 180, 0.08) 1px, transparent 1px),
+    color-mix(in srgb, var(--color-bg-strong) 76%, transparent);
+  background-size: 100% 25%, 48px 100%, auto;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.dummy-chart-bars {
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(12px, 1fr));
+  align-items: end;
+  gap: 8px;
+}
+
+.dummy-chart-bar {
+  min-height: 18px;
+  border-radius: 8px 8px 3px 3px;
+  background: linear-gradient(180deg, #3f8ef2, var(--color-accent));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38);
+}
+
+.dummy-search-box {
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-bg-strong) 88%, transparent);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+.dummy-search-help {
+  color: var(--color-text-muted);
+  font-size: 0.86rem;
 }
 
 @media (max-width: 980px) {
