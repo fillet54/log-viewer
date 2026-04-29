@@ -1,0 +1,8 @@
+^{:watch-dirs ["src/cljs"]
+  :css-dirs ["resources/public/css"]
+  :connect-url "ws://[[config-hostname]]:[[server-port]]/figwheel-connect"}
+{:main eventlog.portfolio
+ :output-to "resources/public/js/portfolio.js"
+ :output-dir "resources/public/js/portfolio-out"
+ :asset-path "/js/portfolio-out"
+ :source-map true}

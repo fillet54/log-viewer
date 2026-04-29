@@ -1,6 +1,0 @@
-{:main eventlog.portfolio
- :output-to "resources/public/js/portfolio.js"
- :output-dir "resources/public/js/portfolio-out"
- :asset-path "/js/portfolio-out"
- :optimizations :simple
- :source-map "resources/public/js/portfolio.js.map"}

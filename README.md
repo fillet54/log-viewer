@@ -8,68 +8,42 @@ Stack:
 - Reitit for routing
 - Component for system lifecycle
 - Replicant on the default client path
-- Reagent/re-frame isolated under `eventlog.reagent` as the temporary legacy client
-- `cljs.main` for ClojureScript compilation
+- Figwheel Main for active frontend development
 
-This setup avoids `shadow-cljs` and npm. The legacy Reagent app still uses `cljsjs` React packages so the CLJS builds stay on plain `clojure` tooling.
+This setup avoids `shadow-cljs` and npm.
 
 ## Run
 
-In one terminal, compile the frontend:
+Start the server and Figwheel with:
 
 ```bash
-clojure -M:build-cljs
+./scripts/dev
 ```
 
-For iterative frontend work:
+Open:
 
-```bash
-clojure -M:watch-cljs
-```
+- `http://localhost:3000/` for the main Replicant app
+- `http://localhost:3000/portfolio.html` for Portfolio component development
 
-In another terminal, start the server:
+This uses one foreground build (`main-dev`) and one background build (`portfolio-dev`) so both pages hot reload from the same Figwheel process. This follows Figwheel's background-build model: https://figwheel.org/docs/background_builds.html
 
-```bash
-clojure -M:run
-```
-
-Then open `http://localhost:3000`.
-
-## Replicant layout spike
-
-The Replicant path is the default frontend namespace and app entrypoint.
-The legacy Reagent/re-frame app is intentionally isolated under `eventlog.reagent` while it is being phased out.
-It uses only Maven/Clojure CLI dependencies and `cljs.main`; do not add npm or `shadow-cljs`.
-
-Compile the default Replicant layout app:
-
-```bash
-clojure -M:build-cljs
-```
-
-Compile Portfolio scenes:
-
-```bash
-clojure -M:portfolio:build-portfolio-cljs
-```
-
-Compile the legacy Reagent app:
-
-```bash
-clojure -M:build-reagent-cljs
-```
-
-Run the server with Portfolio on the classpath:
+If you want to run the pieces manually:
 
 ```bash
 clojure -M:portfolio:run
 ```
 
-Then open:
+```bash
+clojure -M:figwheel -bb portfolio-dev -b main-dev -r
+```
 
-- `http://localhost:3000/` for the default atom-backed Replicant layout.
-- `http://localhost:3000/reagent.html` for the legacy Reagent/re-frame app.
-- `http://localhost:3000/portfolio.html` for Portfolio scenes, including expanded and collapsed layout states.
+## Optional one-off compile
+
+```bash
+clojure -M:build-cljs
+```
+
+This is only for a one-time app compile. Portfolio is dev-only and is served through Figwheel, not a separate bundled build.
 
 ## Structure
 
@@ -77,5 +51,6 @@ Then open:
 - `src/clj/eventlog/system.clj`: Component system wiring
 - `src/clj/eventlog/web.clj`: Ring/Reitit server
 - `src/cljs/eventlog/app.cljs`: Replicant app root
-- `src/cljs/eventlog/reagent/app.cljs`: legacy Reagent app root
+- `src/cljs/eventlog/portfolio.cljs`: Portfolio entrypoint
 - `resources/public/index.html`: page shell
+- `resources/public/portfolio.html`: Portfolio page shell

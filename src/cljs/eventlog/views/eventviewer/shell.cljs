@@ -1,14 +1,28 @@
-(ns eventlog.views.eventviewer.layout
+(ns eventlog.views.eventviewer.shell
   (:require
    [clojure.string :as str]
    [eventlog.storage :as storage]
    [eventlog.views.eventviewer.dummy-content :as dummy-content]
-   [eventlog.views.eventviewer.icons :as icons]))
+   [eventlog.views.eventviewer.icons :as icons]
+   [eventlog.views.eventviewer.navbar :as navbar]))
 
-(def layout-storage-key "eventlog.views.eventviewer.layout.v1")
+(def shell-storage-key "eventlog.views.eventviewer.shell.v1")
 
 (defn default-state []
-  {:layout storage/default-layout})
+  {:layout storage/default-layout
+
+   ; Todo: Figure proper data required
+   :app/title "Log Viewer"
+   :nav/home-href "/"
+   :log/source "prod-api-gateway"
+   :log/start-date "Apr 12"
+   :log/end-date "Apr 26, 2026"
+   :log/row-count "2.4M events"
+   :log/level-summary "Errors + Warnings"
+   :user/name "Phillip"
+   :user/email "phillip@example.com"
+   :user/initials "PG"
+   :user/avatar-url nil})
 
 (defn collapsed-state []
   (assoc (default-state)
@@ -47,24 +61,18 @@
 (defn split-stack-style [{:keys [split-chart-size]}]
   {:grid-template-rows (str (clamp split-chart-size 120 520) "px 6px minmax(0, 1fr)")})
 
-(defn element-bounds [id]
-  (some-> (.getElementById js/document id) (.getBoundingClientRect)))
-
-(defn set-user-select! [value]
-  (set! (.. js/document -body -style -userSelect) value))
-
 (defn calc-right-size [bounds event]
-  (let [right-edge (+ (.-left bounds) (.-width bounds))
-        next-size (- right-edge (.-clientX event))]
+  (let [right-edge (+ (:left bounds) (:width bounds))
+        next-size (- right-edge (:client-x event))]
     (max (:right-collapsed-size storage/default-layout) next-size)))
 
 (defn calc-bottom-size [bounds event]
-  (let [bottom-edge (+ (.-top bounds) (.-height bounds))
-        next-size (- bottom-edge (.-clientY event))]
+  (let [bottom-edge (+ (:top bounds) (:height bounds))
+        next-size (- bottom-edge (:client-y event))]
     (max (:bottom-collapsed-size storage/default-layout) next-size)))
 
 (defn calc-split-chart-size [bounds event]
-  (clamp (- (.-clientY event) (.-top bounds)) 120 520))
+  (clamp (- (:client-y event) (:top bounds)) 120 520))
 
 (def pane-configs
   {:right {:bounds-id "replicant-center-row"
@@ -125,81 +133,41 @@
                      :bottom-size (:bottom-last-size layout)))
     layout))
 
-(defn reset-layout! [store]
-  (swap! store assoc :layout storage/default-layout))
+(defn drag-value [kind bounds event]
+  (when-let [{:keys [calc-value]} (pane-configs kind)]
+    (calc-value bounds event)))
 
-(defn update-layout! [store f & args]
-  (apply swap! store update :layout f args))
-
-(defn apply-drag! [store kind event]
-  (when-let [{:keys [bounds-id calc-value]} (pane-configs kind)]
-    (when-let [bounds (element-bounds bounds-id)]
-      (update-layout! store resize-layout kind (calc-value bounds event)))))
-
-(defn begin-drag! [store kind event]
-  (.preventDefault event)
-  (.stopPropagation event)
-  (set-user-select! "none")
-  (let [move-handler (fn [move-event]
-                       (apply-drag! store kind move-event))
-        up-handler* (atom nil)
-        up-handler (fn [_up-event]
-                     (set-user-select! "")
-                     (.removeEventListener js/window "pointermove" move-handler)
-                     (when-let [handler @up-handler*]
-                       (.removeEventListener js/window "pointerup" handler)))]
-    (reset! up-handler* up-handler)
-    (.addEventListener js/window "pointermove" move-handler)
-    (.addEventListener js/window "pointerup" up-handler)))
-
-(defn execute-action! [event-data [action & args]]
+(defn perform-action [_state [action & args]]
   (case action
     :layout/reset
-    (let [[store] args]
-      (reset-layout! store))
+    [[:effect/assoc-in [:layout] storage/default-layout]]
 
     :layout/set-main-view
-    (let [[store view] args]
-      (update-layout! store set-main-view view))
+    (let [[view] args]
+      [[:effect/update-in [:layout] set-main-view view]])
 
     :layout/toggle-pane
-    (let [[store pane] args]
-      (update-layout! store toggle-pane pane))
+    (let [[pane] args]
+      [[:effect/update-in [:layout] toggle-pane pane]])
 
     :layout/begin-drag
-    (let [[store kind] args]
-      (begin-drag! store kind (:replicant/dom-event event-data)))
+    (let [[kind] args]
+      [[:effect/begin-drag kind :event/dom-event]])
+
+    :layout/resize
+    (let [[kind value] args]
+      [[:effect/update-in [:layout] resize-layout kind value]])
 
     nil))
 
-(defn dispatch!
-  ([event-data actions]
-   (doseq [action actions]
-     (execute-action! event-data action)))
-  ([_event-data]
-   nil))
-
-(defn toolbar-button [{:keys [store view label active-view]}]
+(defn toolbar-button [{:keys [view label active-view]}]
   [:button
    {:class (if (= view active-view)
              "toolbar-button is-active"
              "toolbar-button")
     :type "button"
-    :on {:click [[:layout/set-main-view store view]]}}
+    :on {:click [[:layout/set-main-view view]]}}
    label])
-
-(defn navbar [{:keys [store]}]
-  [:header.topbar
-   [:div.brand
-    [:span.brand-mark "EL"]
-    [:div
-     [:div.brand-title "Event Log"]
-     [:div.brand-subtitle "Replicant layout spike"]]]
-   [:div.topbar-actions
-    [:button.chrome-button
-     {:type "button"
-      :on {:click [[:layout/reset store]]}}
-     "Reset layout"]]])
 
 (defn panel-header [{:keys [title subtitle actions]}]
   [:div.panel-header
@@ -218,12 +186,12 @@
     :on {:click actions}}
    (icons/chevron-icon icon)])
 
-(defn main-toolbar [{:keys [store active-view]}]
+(defn main-toolbar [{:keys [active-view]}]
   [:div.main-toolbar
    [:div.toolbar-group
-    (toolbar-button {:store store :view :list :label "List" :active-view active-view})
-    (toolbar-button {:store store :view :chart :label "Chart" :active-view active-view})
-    (toolbar-button {:store store :view :split :label "Split" :active-view active-view})]
+    (toolbar-button {:view :list :label "List" :active-view active-view})
+    (toolbar-button {:view :chart :label "Chart" :active-view active-view})
+    (toolbar-button {:view :split :label "Split" :active-view active-view})]
    [:div.toolbar-status
     [:span.status-pill "Mock"]
     [:span.status-text (str "View: " (str/capitalize (name active-view)) "  " "dummy rows")]]])
@@ -234,26 +202,26 @@
     [:div.placeholder-pane
      [:div.placeholder-label (str "Missing view: " (name view-id))]]))
 
-(defn split-view [{:keys [store layout views]}]
+(defn split-view [{:keys [layout views]}]
   [:section.split-stack
    {:id "replicant-split-stack"
     :style (split-stack-style layout)}
    (render-view views :chart {:compact? true})
    [:div.splitter.splitter-inner
-    {:on {:pointerdown [[:layout/begin-drag store :split-chart]]}}]
+    {:on {:pointerdown [[:layout/begin-drag :split-chart]]}}]
    (render-view views :list {})])
 
-(defn main-panel [{:keys [store layout views]}]
+(defn main-panel [{:keys [layout views]}]
   (let [main-view (:main-view layout)]
     [:main.main-panel
-     (main-toolbar {:store store :active-view main-view})
+     (main-toolbar {:active-view main-view})
      [:div.main-body
       (case main-view
         :chart (render-view views :chart {:compact? false})
-        :split (split-view {:store store :layout layout :views views})
+        :split (split-view {:layout layout :views views})
         (render-view views :list {}))]]))
 
-(defn details-pane [{:keys [store views]}]
+(defn details-pane [{:keys [views]}]
   [:aside.side-panel
    (panel-header
     {:title "Details"
@@ -261,10 +229,10 @@
      :actions (pane-toggle-button
                {:title "Collapse details"
                 :icon :right
-                :actions [[:layout/toggle-pane store :right]]})})
+                :actions [[:layout/toggle-pane :right]]})})
    (render-view views :details {})])
 
-(defn search-pane [{:keys [store views]}]
+(defn search-pane [{:keys [views]}]
   [:section.bottom-panel
    (panel-header
     {:title "Search"
@@ -272,26 +240,26 @@
      :actions (pane-toggle-button
                {:title "Collapse search"
                 :icon :down
-                :actions [[:layout/toggle-pane store :bottom]]})})
+                :actions [[:layout/toggle-pane :bottom]]})})
    (render-view views :search {})])
 
-(defn collapsed-details-rail [{:keys [store]}]
+(defn collapsed-details-rail []
   [:button.collapsed-rail.collapsed-rail-vertical
    {:type "button"
     :title "Show details"
-    :on {:click [[:layout/toggle-pane store :right]]}}
+    :on {:click [[:layout/toggle-pane :right]]}}
    [:span.collapsed-rail-icon (icons/chevron-icon :left)]
    [:span.collapsed-rail-text "Details"]])
 
-(defn collapsed-search-rail [{:keys [store]}]
+(defn collapsed-search-rail []
   [:button.collapsed-rail.collapsed-rail-horizontal
    {:type "button"
     :title "Show search"
-    :on {:click [[:layout/toggle-pane store :bottom]]}}
+    :on {:click [[:layout/toggle-pane :bottom]]}}
    [:span.collapsed-rail-icon (icons/chevron-icon :up)]
    [:span.collapsed-rail-text "Search"]])
 
-(defn body-layout [{:keys [store state views]}]
+(defn body-layout [{:keys [state views]}]
   (let [{:keys [layout]} state]
     [:div.workspace
      [:div.workspace-main
@@ -301,22 +269,21 @@
        [:div.center-row
         {:id "replicant-center-row"
          :style (center-row-style layout)}
-        (main-panel {:store store :layout layout :views views})
+        (main-panel {:layout layout :views views})
         [:div.splitter.splitter-vertical
-         {:on {:pointerdown [[:layout/begin-drag store :right]]}}]
+         {:on {:pointerdown [[:layout/begin-drag :right]]}}]
         (if (:right-open? layout)
-          (details-pane {:store store :views views})
-          (collapsed-details-rail {:store store}))]
+          (details-pane {:views views})
+          (collapsed-details-rail))]
        [:div.splitter.splitter-horizontal
-        {:on {:pointerdown [[:layout/begin-drag store :bottom]]}}]
+        {:on {:pointerdown [[:layout/begin-drag :bottom]]}}]
        (if (:bottom-open? layout)
-         (search-pane {:store store :views views})
-         (collapsed-search-rail {:store store}))]]]))
+         (search-pane {:views views})
+         (collapsed-search-rail))]]]))
 
-(defn app-shell [{:keys [store state views]
+(defn app-shell [{:keys [state views]
                   :or {views dummy-content/default-views}}]
   (let [{:keys [layout]} state]
     [:div.app-shell
      {:style (root-style layout)}
-     (navbar {:store store})
-     (body-layout {:store store :state state :views views})]))
+     (body-layout {:state state :views views})]))

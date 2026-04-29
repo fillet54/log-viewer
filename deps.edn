@@ -13,11 +13,10 @@
         cljsjs/react-dom {:mvn/version "17.0.2-0"}}
  :aliases
  {:run {:main-opts ["-m" "eventlog.main"]}
-  :sample-core-event {:main-opts ["-m" "eventlog.sample.core-event"]}
+ :sample-core-event {:main-opts ["-m" "eventlog.sample.core-event"]}
   :build-cljs {:main-opts ["-m" "cljs.main" "-co" "cljs.edn" "-c" "eventlog.app"]}
   :watch-cljs {:main-opts ["-m" "cljs.main" "-co" "cljs.edn" "-w" "src/cljs" "-c" "eventlog.app"]}
-  :build-reagent-cljs {:main-opts ["-m" "cljs.main" "-co" "reagent.cljs.edn" "-c" "eventlog.reagent.app"]}
-  :watch-reagent-cljs {:main-opts ["-m" "cljs.main" "-co" "reagent.cljs.edn" "-w" "src/cljs" "-c" "eventlog.reagent.app"]}
   :portfolio {:extra-deps {no.cjohansen/portfolio {:mvn/version "2026.03.1"}}}
-  :build-portfolio-cljs {:main-opts ["-m" "cljs.main" "-co" "portfolio.cljs.edn" "-c" "eventlog.portfolio"]}
-  :watch-portfolio-cljs {:main-opts ["-m" "cljs.main" "-co" "portfolio.cljs.edn" "-w" "src/cljs" "-c" "eventlog.portfolio"]}}}
+  :figwheel {:extra-deps {com.bhauman/figwheel-main {:mvn/version "0.2.20"}
+                          no.cjohansen/portfolio {:mvn/version "2026.03.1"}}
+             :main-opts ["-m" "figwheel.main"]}}}

@@ -43,20 +43,24 @@
 
 (defn histogram-domain [events]
   (let [set-events (vec (set-events events))
-        times (keep event-base/event-time-ms set-events)]
+        times (vec (keep event-base/event-time-ms set-events))
+        [min-time max-time] (if (seq times)
+                              [(apply min times) (apply max times)]
+                              [0 0])]
     {:events set-events
-     :min-time (or (apply min times) 0)
-     :max-time (or (apply max times) 0)}))
+     :min-time min-time
+     :max-time max-time}))
 
 (defn bin-width [{:keys [min-time max-time]}]
   (max 1 (/ (max 1 (- max-time min-time)) histogram-bin-count)))
 
 (defn event->bin-index [{:keys [min-time max-time] :as domain} event]
-  (let [width (bin-width domain)
-        idx (int (js/Math.floor (/ (- (event-base/event-time-ms event) min-time) width)))]
-    (-> idx
-        (max 0)
-        (min (dec histogram-bin-count)))))
+  (when-let [event-time (event-base/event-time-ms event)]
+    (let [width (bin-width domain)
+          idx (int (js/Math.floor (/ (- event-time min-time) width)))]
+      (-> idx
+          (max 0)
+          (min (dec histogram-bin-count))))))
 
 (defn empty-bin [index start end]
   {:index index
@@ -80,8 +84,9 @@
                 (empty-bin idx start end)))]
     (reduce
      (fn [acc event]
-       (let [idx (event->bin-index domain event)]
-         (update-in acc [idx :counts (:severity event)] (fnil inc 0))))
+       (if-let [idx (event->bin-index domain event)]
+         (update-in acc [idx :counts (:severity event)] (fnil inc 0))
+         acc))
      bins
      events)))
 

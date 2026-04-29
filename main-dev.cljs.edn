@@ -1,0 +1,10 @@
+^{:watch-dirs ["src/cljs"]
+  :css-dirs ["resources/public/css"]
+  :connect-url "ws://[[config-hostname]]:[[server-port]]/figwheel-connect"
+  :reload-dependents true
+  :open-url "http://localhost:3000/"}
+{:main eventlog.app
+ :output-to "resources/public/js/app.js"
+ :output-dir "resources/public/js/out"
+ :asset-path "/js/out"
+ :source-map true}
