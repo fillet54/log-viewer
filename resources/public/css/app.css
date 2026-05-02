@@ -31,14 +31,15 @@
 
 html,
 body,
+#eventlog-app,
 #app,
 #replicant-app {
   margin: 0;
-  min-height: 100vh;
   height: 100%;
 }
 
 body {
+  min-height: 100vh;
   font-family: var(--font-sans);
   background:
     radial-gradient(circle at top left, rgba(30, 111, 217, 0.12), transparent 28%),
@@ -52,11 +53,15 @@ input {
   font: inherit;
 }
 
+.page {
+  height: 100%;
+}
+
 .app-shell {
-  height: 100vh;
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -155,13 +160,9 @@ input {
 .workspace {
   min-height: 0;
   height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
   padding: 0;
-  overflow: hidden;
-}
-
-.workspace-main {
-  min-height: 0;
-  height: 100%;
   overflow: hidden;
 }
 
@@ -175,6 +176,7 @@ input {
 
 .center-row {
   min-height: 0;
+  height: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto var(--right-pane-width);
   overflow: hidden;
@@ -192,15 +194,22 @@ input {
 
 .main-panel {
   display: grid;
+  height: 100%;
   grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
 }
 
 .side-panel {
+  display: grid;
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
 }
 
 .bottom-panel {
+  display: grid;
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -288,8 +297,20 @@ input {
 .main-body {
   min-height: 0;
   height: 100%;
+  display: grid;
   padding: 0;
   overflow: hidden;
+}
+
+.main-body > * {
+  min-height: 0;
+  height: 100%;
+}
+
+.side-panel > :last-child,
+.bottom-panel > :last-child {
+  min-height: 0;
+  height: 100%;
 }
 
 .content-card,
@@ -466,6 +487,18 @@ input {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.engraved-pane-label {
+  color: color-mix(in srgb, var(--color-text-faint) 82%, #8b9097);
+  font-size: clamp(1.8rem, 3.2vw, 3rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.72),
+    0 -1px 0 rgba(78, 86, 97, 0.18);
+  user-select: none;
 }
 
 .log-list {

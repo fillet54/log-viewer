@@ -75,7 +75,7 @@
   (clamp (- (:client-y event) (:top bounds)) 120 520))
 
 (def pane-configs
-  {:right {:bounds-id "replicant-center-row"
+  {:right {:bounds-id "eventviewer-center-row"
            :calc-value calc-right-size
            :collapse-threshold 170
            :min-size 240
@@ -83,7 +83,7 @@
            :open-key :right-open?
            :size-key :right-size
            :last-size-key :right-last-size}
-   :bottom {:bounds-id "replicant-center-stack"
+   :bottom {:bounds-id "eventviewer-center-stack"
             :calc-value calc-bottom-size
             :collapse-threshold 96
             :min-size 140
@@ -91,7 +91,7 @@
             :open-key :bottom-open?
             :size-key :bottom-size
             :last-size-key :bottom-last-size}
-   :split-chart {:bounds-id "replicant-split-stack"
+   :split-chart {:bounds-id "eventviewer-split-stack"
                  :calc-value calc-split-chart-size
                  :min-size 120
                  :max-size 520
@@ -204,7 +204,7 @@
 
 (defn split-view [{:keys [layout views]}]
   [:section.split-stack
-   {:id "replicant-split-stack"
+   {:id "eventviewer-split-stack"
     :style (split-stack-style layout)}
    (render-view views :chart {:compact? true})
    [:div.splitter.splitter-inner
@@ -262,24 +262,23 @@
 (defn body-layout [{:keys [state views]}]
   (let [{:keys [layout]} state]
     [:div.workspace
-     [:div.workspace-main
-      [:div.center-stack
-       {:id "replicant-center-stack"
-        :style (center-stack-style layout)}
-       [:div.center-row
-        {:id "replicant-center-row"
-         :style (center-row-style layout)}
-        (main-panel {:layout layout :views views})
-        [:div.splitter.splitter-vertical
-         {:on {:pointerdown [[:layout/begin-drag :right]]}}]
-        (if (:right-open? layout)
-          (details-pane {:views views})
-          (collapsed-details-rail))]
-       [:div.splitter.splitter-horizontal
-        {:on {:pointerdown [[:layout/begin-drag :bottom]]}}]
-       (if (:bottom-open? layout)
-         (search-pane {:views views})
-         (collapsed-search-rail))]]]))
+     [:div.center-stack
+      {:id "eventviewer-center-stack"
+       :style (center-stack-style layout)}
+      [:div.center-row
+       {:id "eventviewer-center-row"
+        :style (center-row-style layout)}
+       (main-panel {:layout layout :views views})
+       [:div.splitter.splitter-vertical
+        {:on {:pointerdown [[:layout/begin-drag :right]]}}]
+       (if (:right-open? layout)
+         (details-pane {:views views})
+         (collapsed-details-rail))]
+      [:div.splitter.splitter-horizontal
+       {:on {:pointerdown [[:layout/begin-drag :bottom]]}}]
+      (if (:bottom-open? layout)
+        (search-pane {:views views})
+        (collapsed-search-rail))]]))
 
 (defn app-shell [{:keys [state views]
                   :or {views dummy-content/default-views}}]

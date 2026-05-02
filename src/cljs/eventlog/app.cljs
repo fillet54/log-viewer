@@ -12,7 +12,7 @@
       (.getElementById js/document "replicant-app")))
 
 (defn render-ui [state]
-  [:div
+  [:div.page
     (navbar state)
     (shell/app-shell {:state state})])
 
