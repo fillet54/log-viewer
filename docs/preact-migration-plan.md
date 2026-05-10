@@ -128,8 +128,8 @@ Suggested directory layout:
 src/eventlog2/static/
   preact/
     runtime.js
-    app-root.js
     context.js
+    mount.js
     hooks/
       use-app-services.js
       use-bus.js

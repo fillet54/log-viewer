@@ -1,5 +1,6 @@
 (function () {
   const globalObject = window;
+  const existingUi = globalObject.EventLog2UI || {};
   const preactApi = globalObject.preact || {};
   const hooksApi = globalObject.preactHooks || {};
   const htmApi = globalObject.htm || {};
@@ -23,10 +24,12 @@
   };
 
   globalObject.EventLog2UI = {
+    ...existingUi,
     html: bindHtml(),
     render: typeof preactApi.render === "function" ? preactApi.render.bind(preactApi) : noopRender,
     hydrate: typeof preactApi.hydrate === "function" ? preactApi.hydrate.bind(preactApi) : noopRender,
     createElement: typeof preactApi.createElement === "function" ? preactApi.createElement.bind(preactApi) : preactApi.h,
+    createContext: typeof preactApi.createContext === "function" ? preactApi.createContext.bind(preactApi) : null,
     Fragment: preactApi.Fragment || null,
     hooks: {
       useState: hooksApi.useState || null,
