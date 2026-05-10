@@ -27,6 +27,7 @@ SCRIPT_PATHS = [
     "static/preact/mount.js",
     "static/preact/components/detail-panel.js",
     "static/preact/components/layout-shell.js",
+    "static/preact/components/main-view-shell.js",
     "static/preact/components/search-panel.js",
     "static/services/search.js",
     "static/services/app-services.js",

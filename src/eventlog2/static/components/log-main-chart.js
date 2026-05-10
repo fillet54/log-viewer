@@ -66,15 +66,15 @@ LogMainViewChart.mount = (root, services) => {
 
   const chartRegion = queryById(root, "chart-region");
   const chartPanelHost = queryById(root, "chart-panel-host");
-  const chartTypeSelect = queryById(root, "chart-type-select");
-  const commandBar = queryById(root, "chart-command-bar");
-  if (!chartRegion || !chartPanelHost || !chartTypeSelect || !commandBar) return null;
+  if (!chartRegion || !chartPanelHost) return null;
 
   const activePluginId = String(plugin?.id || logData?.pluginId || "").trim() || null;
   const mountedPanels = new Map();
   let activeType = null;
   let activePanel = null;
   let cleanupCommands = null;
+  let chartTypeSelect = null;
+  let commandBar = null;
 
   const listTypes = () =>
     Array.from(LogMainViewChart.registry.values()).filter((type) => !type.pluginId || type.pluginId === activePluginId);
@@ -117,10 +117,56 @@ LogMainViewChart.mount = (root, services) => {
     return record;
   };
 
+  const clearCommandBar = () => {
+    if (cleanupCommands) {
+      cleanupCommands();
+      cleanupCommands = null;
+    }
+    if (commandBar) commandBar.innerHTML = "";
+  };
+
+  const renderToolbarState = () => {
+    if (!chartTypeSelect) return;
+    const types = controller.listTypes();
+    chartTypeSelect.disabled = !types.length;
+    if (!types.length) {
+      chartTypeSelect.innerHTML = "";
+      return;
+    }
+    chartTypeSelect.innerHTML = types
+      .map((type) => `<option value="${type.id}">${type.label}</option>`)
+      .join("");
+    chartTypeSelect.value = controller.currentType;
+  };
+
+  const renderNoTypesMessage = () => {
+    if (!commandBar) return;
+    commandBar.innerHTML = '<div class="chart-command-hint">No charts registered for this plugin.</div>';
+  };
+
+  const renderCommands = (type, panelRecord) => {
+    clearCommandBar();
+    if (!commandBar || !type || !panelRecord) return;
+    const buildCommands = type.buildCommands || type.renderControls;
+    if (typeof buildCommands !== "function") return;
+    cleanupCommands =
+      buildCommands(
+        commandBar,
+        buildContext({
+          type,
+          panel: panelRecord.panel,
+          panelController: panelRecord.controller || null,
+        })
+      ) || null;
+  };
+
   const controller = {
     currentType: "timeline",
     chart: null,
     listTypes,
+    getCurrentType() {
+      return controller.currentType;
+    },
     getActivePanel() {
       return activePanel;
     },
@@ -134,12 +180,14 @@ LogMainViewChart.mount = (root, services) => {
         availableTypes.find((entry) => entry.id === typeId) ||
         availableTypes.find((entry) => entry.id === controller.currentType) ||
         fallbackType;
-      if (!type) return;
-
-      if (cleanupCommands) {
-        cleanupCommands();
-        cleanupCommands = null;
+      if (!type) {
+        controller.currentType = "";
+        renderToolbarState();
+        renderNoTypesMessage();
+        return;
       }
+
+      clearCommandBar();
 
       if (activePanel?.controller && typeof activePanel.controller.deactivate === "function") {
         activePanel.controller.deactivate(buildContext({ type: activeType, panel: activePanel.panel }));
@@ -166,8 +214,7 @@ LogMainViewChart.mount = (root, services) => {
         panel.classList.toggle("is-active", panelId === type.id);
       });
 
-      chartTypeSelect.value = type.id;
-      commandBar.innerHTML = "";
+      renderToolbarState();
 
       const context = buildContext({
         type,
@@ -180,25 +227,39 @@ LogMainViewChart.mount = (root, services) => {
         panelRecord.controller.activate(context);
       }
 
-      const buildCommands = type.buildCommands || type.renderControls;
-      if (typeof buildCommands === "function") {
-        cleanupCommands = buildCommands(commandBar, context) || null;
-      }
-
+      renderCommands(type, panelRecord);
       controller.resize();
     },
-    bindToolbar() {
+    attachToolbar({ selectEl = null, commandBarEl = null } = {}) {
+      chartTypeSelect = selectEl || chartTypeSelect;
+      commandBar = commandBarEl || commandBar;
+
+      if (chartTypeSelect) {
+        chartTypeSelect.onchange = () => controller.setType(chartTypeSelect.value);
+      }
+
       const types = controller.listTypes();
       if (!types.length) {
-        chartTypeSelect.innerHTML = "";
-        chartTypeSelect.disabled = true;
-        commandBar.innerHTML = '<div class="chart-command-hint">No charts registered for this plugin.</div>';
+        renderToolbarState();
+        renderNoTypesMessage();
         return;
       }
-      chartTypeSelect.disabled = false;
-      chartTypeSelect.innerHTML = types.map((type) => `<option value="${type.id}">${type.label}</option>`).join("");
-      chartTypeSelect.addEventListener("change", () => controller.setType(chartTypeSelect.value));
-      controller.setType(types.some((type) => type.id === controller.currentType) ? controller.currentType : types[0].id);
+
+      renderToolbarState();
+      if (activeType && activePanel) {
+        renderCommands(activeType, activePanel);
+      }
+    },
+    bindToolbar() {
+      controller.attachToolbar({
+        selectEl: queryById(root, "chart-type-select"),
+        commandBarEl: queryById(root, "chart-command-bar"),
+      });
+      const types = controller.listTypes();
+      if (!types.length) return;
+      controller.setType(
+        types.some((type) => type.id === controller.currentType) ? controller.currentType : types[0].id
+      );
     },
     resize() {
       if (activePanel?.controller && typeof activePanel.controller.resize === "function") {
@@ -212,7 +273,7 @@ LogMainViewChart.mount = (root, services) => {
       }
     },
     destroy() {
-      if (cleanupCommands) cleanupCommands();
+      clearCommandBar();
       mountedPanels.forEach(({ controller: panelController, panel, type }) => {
         const context = buildContext({ type, panel, panelController });
         if (panelController && typeof panelController.destroy === "function") {
@@ -221,6 +282,7 @@ LogMainViewChart.mount = (root, services) => {
       });
       mountedPanels.clear();
       chartPanelHost.innerHTML = "";
+      if (chartTypeSelect) chartTypeSelect.onchange = null;
       controller.chart = null;
       activePanel = null;
       activeType = null;

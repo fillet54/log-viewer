@@ -3,189 +3,67 @@ class LogMainViewElement extends LogAppComponentElement {
     super();
     this.state = null;
     this.pendingFilter = 0;
-    this.viewMode = localStorage.getItem(STORAGE_KEYS.mainViewMode) || "split";
-    this.chartSplit = loadSizes(STORAGE_KEYS.mainViewSplit, [36, 64]);
-    this.chartInstance = null;
     this.resizeObserver = null;
-    this.viewSplit = null;
   }
 
-  getById(id) {
-    return this.queryById(id);
+  captureRowTemplate() {
+    if (this._rowTemplate) return this._rowTemplate;
+    const template = this.querySelector('template[data-role="row-template"]');
+    this._rowTemplate = template ? template.cloneNode(true) : null;
+    return this._rowTemplate;
   }
 
   getRowTemplate() {
-    return this.querySelector('template[data-role="row-template"]');
-  }
-
-  renderShell() {
-    const rowTemplate = this.getRowTemplate();
-    this.innerHTML = `
-      <div class="main-view-shell">
-        <div class="main-view-toolbar">
-          <div class="chart-type-picker">
-            <select id="chart-type-select" class="text-input text-input-small chart-type-select" aria-label="Chart type"></select>
-          </div>
-          <div id="chart-command-bar" class="chart-command-bar"></div>
-          <div class="view-mode-toggle" role="tablist" aria-label="Main view layout">
-            <button id="view-mode-split" class="button button-ghost button-xs view-mode-button" role="tab" aria-selected="false" title="Show chart and log">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="tool-icon" aria-hidden="true">
-                <rect x="4" y="5" width="16" height="6" rx="1.5" />
-                <rect x="4" y="13" width="16" height="6" rx="1.5" />
-              </svg>
-              <span class="sr-only">Chart and log</span>
-            </button>
-            <button id="view-mode-chart" class="button button-ghost button-xs view-mode-button" role="tab" aria-selected="false" title="Show chart only">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="tool-icon" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V9m5 7V5m5 11v-4" />
-              </svg>
-              <span class="sr-only">Chart only</span>
-            </button>
-            <button id="view-mode-list" class="button button-ghost button-xs view-mode-button" role="tab" aria-selected="false" title="Show log only">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="tool-icon" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h13M7 12h13M7 17h13" />
-                <circle cx="4" cy="7" r="1" fill="currentColor" stroke="none" />
-                <circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" />
-                <circle cx="4" cy="17" r="1" fill="currentColor" stroke="none" />
-              </svg>
-              <span class="sr-only">Log only</span>
-            </button>
-          </div>
-        </div>
-        <div class="main-view-stack" id="main-view-stack">
-          <section class="main-view-region main-view-chart-region" id="chart-region">
-            <div class="chart-band">
-              <div id="chart-panel-host" class="chart-panel-host"></div>
-            </div>
-          </section>
-          <section class="main-view-region main-view-log-region" id="log-region">
-            <div class="pane-body log-body" id="log-body">
-              <div id="log-spacer"></div>
-              <div class="mono-block" id="log-list"></div>
-            </div>
-          </section>
-        </div>
-      </div>
-    `;
-    if (rowTemplate) this.appendChild(rowTemplate);
-  }
-
-  setViewMode(mode) {
-    const allowed = new Set(["split", "chart", "list"]);
-    this.viewMode = allowed.has(mode) ? mode : "split";
-    localStorage.setItem(STORAGE_KEYS.mainViewMode, this.viewMode);
-    this.applyViewLayout();
-  }
-
-  applyViewLayout() {
-    const stack = this.getById("main-view-stack");
-    const chartRegion = this.getById("chart-region");
-    const logRegion = this.getById("log-region");
-    if (!stack || !chartRegion || !logRegion) return;
-
-    stack.dataset.mode = this.viewMode;
-    const buttons = {
-      split: this.getById("view-mode-split"),
-      chart: this.getById("view-mode-chart"),
-      list: this.getById("view-mode-list"),
-    };
-    Object.entries(buttons).forEach(([mode, button]) => {
-      if (!button) return;
-      const active = mode === this.viewMode;
-      button.classList.toggle("is-active", active);
-      button.setAttribute("aria-selected", String(active));
-    });
-
-    if (this.viewMode === "split") {
-      chartRegion.style.flex = "";
-      logRegion.style.flex = "";
-      if (!this.viewSplit && typeof Split === "function") {
-        this.viewSplit = Split([chartRegion, logRegion], {
-          direction: "vertical",
-          sizes: this.chartSplit,
-          minSize: [170, 220],
-          gutterSize: 10,
-          elementStyle: (dimension, size, gutterSizeValue) => ({
-            "flex-basis": `calc(${size}% - ${gutterSizeValue}px)`,
-          }),
-          gutterStyle: (dimension, gutterSizeValue) => ({
-            "flex-basis": `${gutterSizeValue}px`,
-          }),
-          onDragEnd: (sizes) => {
-            this.chartSplit = sizes;
-            saveSizes(STORAGE_KEYS.mainViewSplit, sizes);
-            if (this.chartInstance?.resize) this.chartInstance.resize();
-            if (this.state) {
-              this.state.lastRange = [0, 0];
-              this.updateVirtual();
-            }
-          },
-        });
-      } else if (this.viewSplit?.setSizes) {
-        this.viewSplit.setSizes(this.chartSplit);
-      }
-    } else {
-      if (this.viewSplit?.destroy) {
-        this.viewSplit.destroy();
-        this.viewSplit = null;
-      }
-      chartRegion.style.height = "";
-      logRegion.style.height = "";
-      chartRegion.style.width = "";
-      logRegion.style.width = "";
-      chartRegion.style.flex = this.viewMode === "chart" ? "1 1 auto" : "0 0 0";
-      logRegion.style.flex = this.viewMode === "list" ? "1 1 auto" : "0 0 0";
-    }
-
-    requestAnimationFrame(() => {
-      if (this.chartInstance?.resize) this.chartInstance.resize();
-      if (this.state) {
-        this.state.lastRange = [0, 0];
-        this.updateVirtual();
-      }
-    });
-  }
-
-  initializeViewModeControls() {
-    const splitButton = this.getById("view-mode-split");
-    const chartButton = this.getById("view-mode-chart");
-    const listButton = this.getById("view-mode-list");
-    if (!splitButton || !chartButton || !listButton) return;
-
-    splitButton.addEventListener("click", () => this.setViewMode("split"));
-    chartButton.addEventListener("click", () => this.setViewMode("chart"));
-    listButton.addEventListener("click", () => this.setViewMode("list"));
-
-    this.applyViewLayout();
-  }
-
-  initializeResizeHandling() {
-    if (this.resizeObserver || typeof ResizeObserver !== "function") return;
-    const logBody = this.getById("log-body");
-    const schedule = () => {
-      requestAnimationFrame(() => {
-        if (!this.state) return;
-        this.state.lastRange = [0, 0];
-        this.updateVirtual();
-      });
-    };
-
-    this.resizeObserver = new ResizeObserver(() => schedule());
-    this.resizeObserver.observe(this);
-    if (logBody) this.resizeObserver.observe(logBody);
+    return this.captureRowTemplate();
   }
 
   getServices() {
     return {
       bus: this.getBus(),
       logData: this.getLogData(),
+      plugin: this.getPlugin(),
       view: this.getView(),
       rowTemplate: this.getRowTemplate(),
       searchWorker: this.getSearchWorker(),
       bookmarks: this.getBookmarks(),
       comments: this.getComments(),
     };
+  }
+
+  renderMountError(message) {
+    this.innerHTML = `<div class="empty-panel-message">${String(message || "Unable to load main view.")}</div>`;
+  }
+
+  mountWithPreact() {
+    const ui = window.EventLog2UI || {};
+    const Component = ui.components?.LogMainViewShell || null;
+
+    if (!ui.available) {
+      this.renderMountError("Local Preact runtime is required for the main view.");
+      return false;
+    }
+
+    if (typeof ui.createMountController !== "function" || typeof Component !== "function") {
+      this.renderMountError("Main view component is not registered.");
+      return false;
+    }
+
+    if (!this._mountController) {
+      this._mountController = ui.createMountController({
+        host: this,
+        Component,
+        getProps: () => ({
+          shellVersion: this._shellVersion || 0,
+        }),
+        getServices: () => this.getServices(),
+        onError: (error) => {
+          console.error(error);
+          this.renderMountError(error?.message || "Unable to load main view.");
+        },
+      });
+    }
+
+    return this._mountController.render();
   }
 
   buildLogRow(event) {
@@ -229,13 +107,13 @@ class LogMainViewElement extends LogAppComponentElement {
   }
 
   setSpacer() {
-    const logSpacer = this.getById("log-spacer");
+    const logSpacer = this.queryById("log-spacer");
     if (!logSpacer || !this.state) return;
     logSpacer.style.height = `${this.state.filtered.length * this.state.rowStride}px`;
   }
 
   renderRange(startIndex, endIndex) {
-    const logList = this.getById("log-list");
+    const logList = this.queryById("log-list");
     if (!logList || !this.state) return;
     logList.style.transform = `translateY(${startIndex * this.state.rowStride}px)`;
     logList.innerHTML = "";
@@ -252,7 +130,7 @@ class LogMainViewElement extends LogAppComponentElement {
   }
 
   updateVirtual() {
-    const logBody = this.getById("log-body");
+    const logBody = this.queryById("log-body");
     if (!logBody || !this.state) return;
     const startIndex = Math.max(0, Math.floor(logBody.scrollTop / this.state.rowStride) - this.state.overscan);
     const visibleCount = Math.min(
@@ -305,8 +183,8 @@ class LogMainViewElement extends LogAppComponentElement {
   }
 
   scrollToIndex(index, duration = 180) {
-    const logBody = this.getById("log-body");
-    const logList = this.getById("log-list");
+    const logBody = this.queryById("log-body");
+    const logList = this.queryById("log-list");
     const { bus } = this.getServices();
     if (index == null || !logBody || !logList || !this.state) return null;
     const targetTop = index * this.state.rowStride - logBody.clientHeight / 2 + this.state.rowStride / 2;
@@ -344,20 +222,35 @@ class LogMainViewElement extends LogAppComponentElement {
   }
 
   ensureRowVisible(rowId) {
-    const searchInput = this.getById("log-search");
     if (!this.state.indexByRowId.has(String(rowId))) {
       this.applyFilterQueries([]);
-      if (searchInput) searchInput.value = "";
     }
     return this.scrollToIndex(this.state.indexByRowId.get(String(rowId)));
   }
 
+  initializeResizeHandling() {
+    if (this.resizeObserver || typeof ResizeObserver !== "function") return;
+    const logBody = this.queryById("log-body");
+    const schedule = () => {
+      requestAnimationFrame(() => {
+        if (!this.state) return;
+        this.state.lastRange = [0, 0];
+        this.updateVirtual();
+      });
+    };
+
+    this.resizeObserver = new ResizeObserver(() => schedule());
+    this.resizeObserver.observe(this);
+    if (logBody) this.resizeObserver.observe(logBody);
+  }
+
   initializeMainView() {
+    if (this.state) return;
+
     const { logData, bus, bookmarks, comments } = this.getServices();
-    const logBody = this.getById("log-body");
-    const logList = this.getById("log-list");
-    const logSpacer = this.getById("log-spacer");
-    const searchInput = this.getById("log-search");
+    const logBody = this.queryById("log-body");
+    const logList = this.queryById("log-list");
+    const logSpacer = this.queryById("log-spacer");
     const rowTemplate = this.getRowTemplate();
 
     if (!logBody || !logList || !logSpacer || !logData || !rowTemplate) return;
@@ -407,14 +300,6 @@ class LogMainViewElement extends LogAppComponentElement {
       });
     });
 
-    if (searchInput) {
-      let debounce = null;
-      searchInput.addEventListener("input", (event) => {
-        if (debounce) window.clearTimeout(debounce);
-        debounce = window.setTimeout(() => this.applyFilterQueries([event.target.value]), 150);
-      });
-    }
-
     this.rebuildIndex();
     this.setSpacer();
     this.updateVirtual();
@@ -444,24 +329,21 @@ class LogMainViewElement extends LogAppComponentElement {
       });
     }
 
-    this.chartInstance = LogMainViewChart.mount(this, {
-      bus,
-      logData,
-      bookmarks,
-      comments,
-    });
-    if (this.chartInstance?.bindToolbar) this.chartInstance.bindToolbar();
-    this.initializeViewModeControls();
     this.initializeResizeHandling();
   }
 
   connectedCallback() {
     this.connectToApp(() => {
-      if (!this.querySelector("#log-body")) {
-        this.renderShell();
-      }
+      this.captureRowTemplate();
+      if (!this.mountWithPreact()) return;
       this.initializeMainView();
     });
+  }
+
+  disconnectedCallback() {
+    this._mountController?.destroy?.();
+    this.resizeObserver?.disconnect?.();
+    this.resizeObserver = null;
   }
 }
 
