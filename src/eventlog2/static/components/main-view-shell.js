@@ -11,7 +11,6 @@
   const VIEW_MODE_SPLIT = "split";
   const VIEW_MODE_CHART = "chart";
   const VIEW_MODE_LIST = "list";
-
   const buildEventByRowId = (events) => {
     const map = new Map();
     events.forEach((event) => {
@@ -87,7 +86,8 @@
           if (services?.viewerStore) services.viewerStore.setSelectedEvent(linkedEvent);
           else services.bus.emit("event:selected", linkedEvent);
         }
-        services.bus.emit("log:jump", { rowId: linkedRowId });
+        if (services?.viewerStore) services.viewerStore.setLogJump({ rowId: linkedRowId });
+        else services.bus.emit("log:jump", { rowId: linkedRowId });
       });
     });
 
@@ -328,6 +328,7 @@
     const activeFilterQueries = viewerStore?.activeFilterQueries?.value || [];
     const selectedEvent = viewerStore?.selectedEvent?.value || null;
     const filteredEvents = viewerStore?.filteredEvents?.value || events;
+    const jumpTarget = viewerStore?.logJump?.value || null;
     const rootRef = useRef ? useRef(null) : { current: null };
     const chartRegionRef = useRef ? useRef(null) : { current: null };
     const logRegionRef = useRef ? useRef(null) : { current: null };
@@ -344,10 +345,7 @@
     const indexByRowIdRef = useRef ? useRef(buildIndexByRowId(events)) : { current: buildIndexByRowId(events) };
     const eventByRowIdRef = useRef ? useRef(buildEventByRowId(events)) : { current: buildEventByRowId(events) };
 
-    const [viewMode, setViewMode] = ui.appHooks.useLocalStorageState(STORAGE_KEYS.mainViewMode, VIEW_MODE_SPLIT, {
-      parse: (raw) => String(raw || VIEW_MODE_SPLIT),
-      serialize: (value) => String(value || VIEW_MODE_SPLIT),
-    });
+    const viewMode = viewerStore?.mainViewMode?.value || VIEW_MODE_SPLIT;
     const [chartSplit, setChartSplit] = useState ? useState(() => loadSizes(STORAGE_KEYS.mainViewSplit, [36, 64])) : [[36, 64], () => {}];
     const [chartTypes, setChartTypes] = useState ? useState([]) : [[], () => {}];
     const [selectedChartType, setSelectedChartType] = useState ? useState("") : ["", () => {}];
@@ -485,10 +483,6 @@
 
     const visibleItems = filteredEvents.slice(virtual.startIndex, virtual.endIndex);
 
-    ui.appHooks.useBusSubscription("log:jump", (payload) => {
-      handleLogJump(payload);
-    }, [services, events.length, rowStride]);
-
     ui.appHooks.useBusSubscription("bookmarks:changed", () => {
       setBookmarkVersion((value) => value + 1);
     });
@@ -515,11 +509,15 @@
           };
         }
 
-        const fallbackType = types.some((type) => type.id === controller.getCurrentType())
-          ? controller.getCurrentType()
-          : types[0].id;
-        setSelectedChartType(fallbackType);
-        controller.setType(fallbackType);
+        const preferredType = viewerStore?.chartType?.value || "";
+        const nextType = types.some((type) => type.id === preferredType)
+          ? preferredType
+          : types.some((type) => type.id === controller.getCurrentType())
+            ? controller.getCurrentType()
+            : types[0].id;
+        setSelectedChartType(nextType);
+        viewerStore?.setChartType(nextType);
+        controller.setType(nextType);
 
         return () => {
           controller.destroy?.();
@@ -575,7 +573,7 @@
       }, [viewerStore, events, activeFilterQueries.join("\u0000")]);
 
       useEffect(() => {
-        const pendingJump = pendingJumpRef.current;
+        const pendingJump = pendingJumpRef.current || jumpTarget;
         if (!pendingJump) return;
 
         if (pendingJump.rowId != null) {
@@ -595,7 +593,7 @@
           pendingJumpRef.current = null;
           smoothScrollToIndex(findClosestIndexBySeconds(filteredEvents, pendingJump.seconds));
         }
-      }, [filteredEvents, rowStride]);
+      }, [filteredEvents, rowStride, jumpTarget?.nonce ?? 0]);
 
       useEffect(() => {
         const container = logBodyRef.current;
@@ -641,8 +639,13 @@
           selectedChartType=${selectedChartType}
           commandBarRef=${commandBarRef}
           viewMode=${safeViewMode}
-          onChartTypeChange=${(nextType) => setSelectedChartType(nextType)}
-          onViewModeChange=${(nextMode) => setViewMode(nextMode)}
+          onChartTypeChange=${(nextType) => {
+            setSelectedChartType(nextType);
+            viewerStore?.setChartType(nextType);
+          }}
+          onViewModeChange=${(nextMode) => {
+            viewerStore?.setMainViewMode(nextMode);
+          }}
         />
         <div class="main-view-stack" id="main-view-stack" data-mode=${safeViewMode}>
           <section

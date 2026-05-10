@@ -262,14 +262,16 @@
           if (services?.viewerStore) services.viewerStore.setSelectedEvent(linkedEvent);
           else services.bus.emit("event:selected", linkedEvent);
         }
-        services.bus.emit("log:jump", { rowId: linkedRowId });
+        if (services?.viewerStore) services.viewerStore.setLogJump({ rowId: linkedRowId });
+        else services.bus.emit("log:jump", { rowId: linkedRowId });
       });
     });
 
     row.addEventListener("click", () => {
       if (services?.viewerStore) services.viewerStore.setSelectedEvent(event);
       else if (services?.bus) services.bus.emit("event:selected", event);
-      if (services?.bus) services.bus.emit("log:jump", { rowId: event.row_id });
+      if (services?.viewerStore) services.viewerStore.setLogJump({ rowId: event.row_id });
+      else if (services?.bus) services.bus.emit("log:jump", { rowId: event.row_id });
     });
 
     return row;

@@ -61,7 +61,7 @@ if (window.EventLog2?._pendingViewRegistrations?.length) {
 }
 
 LogMainViewChart.mount = (root, services) => {
-  const { logData, bus, bookmarks, comments, plugin } = services;
+  const { logData, bus, bookmarks, comments, plugin, viewerStore } = services;
   if (!logData) return null;
 
   const chartRegion = queryById(root, "chart-region");
@@ -73,7 +73,6 @@ LogMainViewChart.mount = (root, services) => {
   let activeType = null;
   let activePanel = null;
   let cleanupCommands = null;
-  let chartTypeSelect = null;
   let commandBar = null;
 
   const listTypes = () =>
@@ -83,6 +82,7 @@ LogMainViewChart.mount = (root, services) => {
     root,
     plugin,
     bus,
+    viewerStore,
     logData,
     bookmarks,
     comments,
@@ -123,20 +123,6 @@ LogMainViewChart.mount = (root, services) => {
       cleanupCommands = null;
     }
     if (commandBar) commandBar.innerHTML = "";
-  };
-
-  const renderToolbarState = () => {
-    if (!chartTypeSelect) return;
-    const types = controller.listTypes();
-    chartTypeSelect.disabled = !types.length;
-    if (!types.length) {
-      chartTypeSelect.innerHTML = "";
-      return;
-    }
-    chartTypeSelect.innerHTML = types
-      .map((type) => `<option value="${type.id}">${type.label}</option>`)
-      .join("");
-    chartTypeSelect.value = controller.currentType;
   };
 
   const renderNoTypesMessage = () => {
@@ -182,7 +168,6 @@ LogMainViewChart.mount = (root, services) => {
         fallbackType;
       if (!type) {
         controller.currentType = "";
-        renderToolbarState();
         renderNoTypesMessage();
         return;
       }
@@ -214,8 +199,6 @@ LogMainViewChart.mount = (root, services) => {
         panel.classList.toggle("is-active", panelId === type.id);
       });
 
-      renderToolbarState();
-
       const context = buildContext({
         type,
         panel: panelRecord.panel,
@@ -230,29 +213,21 @@ LogMainViewChart.mount = (root, services) => {
       renderCommands(type, panelRecord);
       controller.resize();
     },
-    attachToolbar({ selectEl = null, commandBarEl = null } = {}) {
-      chartTypeSelect = selectEl || chartTypeSelect;
+    attachToolbar({ commandBarEl = null } = {}) {
       commandBar = commandBarEl || commandBar;
-
-      if (chartTypeSelect) {
-        chartTypeSelect.onchange = () => controller.setType(chartTypeSelect.value);
-      }
 
       const types = controller.listTypes();
       if (!types.length) {
-        renderToolbarState();
         renderNoTypesMessage();
         return;
       }
 
-      renderToolbarState();
       if (activeType && activePanel) {
         renderCommands(activeType, activePanel);
       }
     },
     bindToolbar() {
       controller.attachToolbar({
-        selectEl: queryById(root, "chart-type-select"),
         commandBarEl: queryById(root, "chart-command-bar"),
       });
       const types = controller.listTypes();
@@ -282,7 +257,6 @@ LogMainViewChart.mount = (root, services) => {
       });
       mountedPanels.clear();
       chartPanelHost.innerHTML = "";
-      if (chartTypeSelect) chartTypeSelect.onchange = null;
       controller.chart = null;
       activePanel = null;
       activeType = null;
@@ -545,12 +519,20 @@ const createTimelineChartController = (panel, context) => {
         });
         if (hit) {
           const selected = allEvents.find((entry) => String(entry.row_id) === String(hit.rowId));
-          if (selected) context.bus.emit("event:selected", selected);
-          context.bus.emit("log:jump", { rowId: hit.rowId });
+          if (selected) {
+            if (context.viewerStore) context.viewerStore.setSelectedEvent(selected);
+            else context.bus.emit("event:selected", selected);
+          }
+          if (context.viewerStore) context.viewerStore.setLogJump({ rowId: hit.rowId });
+          else context.bus.emit("log:jump", { rowId: hit.rowId });
           return;
         }
         const seconds = chart.scales.x.getValueForPixel(pos.x);
-        if (Number.isFinite(seconds)) context.bus.emit("log:jump", { seconds: Math.max(0, Math.floor(seconds)) });
+        if (Number.isFinite(seconds)) {
+          const payload = { seconds: Math.max(0, Math.floor(seconds)) };
+          if (context.viewerStore) context.viewerStore.setLogJump(payload);
+          else context.bus.emit("log:jump", payload);
+        }
       },
       onHover(event) {
         const pos = Chart.helpers.getRelativePosition(event, chart);

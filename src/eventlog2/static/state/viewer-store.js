@@ -2,6 +2,7 @@
   const ui = window.EventLog2UI || {};
   const signalFactory = ui.signals?.signal || ((initialValue) => ({ value: initialValue }));
   const computedFactory = ui.signals?.computed || null;
+  const effectFactory = ui.signals?.effect || null;
 
   window.EventLog2 = window.EventLog2 || {};
 
@@ -61,6 +62,22 @@
     return Array.from(byQuery.values());
   };
 
+  const normalizeJumpTarget = (payload, nonce = 0) => {
+    if (!payload || typeof payload !== "object") return null;
+    const rowId =
+      payload.rowId == null || payload.rowId === ""
+        ? null
+        : String(payload.rowId);
+    const secondsValue = Number(payload.seconds);
+    const seconds = Number.isFinite(secondsValue) ? Math.max(0, Math.floor(secondsValue)) : null;
+    if (rowId == null && seconds == null) return null;
+    return {
+      rowId,
+      seconds,
+      nonce,
+    };
+  };
+
   const mergeFilterQueries = (currentFilters, queries) => {
     const normalizedQueries = normalizeFilters(queries).map((filter) => filter.query);
     const enabled = new Set(normalizedQueries);
@@ -92,12 +109,39 @@
     };
   };
 
+  const BOOLEAN_STORAGE = {
+    parse: (raw) => raw === true || raw === "true",
+    serialize: (value) => (value ? "true" : "false"),
+  };
+
+  const STRING_STORAGE = {
+    parse: (raw) => {
+      if (typeof raw !== "string") return String(raw || "");
+      try {
+        const parsed = JSON.parse(raw);
+        return typeof parsed === "string" ? parsed : String(parsed || "");
+      } catch (error) {
+        return String(raw || "");
+      }
+    },
+    serialize: (value) => String(value || ""),
+  };
+
+  const syncSignalToStorage = (key, signalValue, options = {}) => {
+    if (typeof effectFactory !== "function" || !signalValue) return false;
+    effectFactory(() => {
+      writeStorage(key, signalValue.value, options);
+    });
+    return true;
+  };
+
   window.EventLog2.createViewerStore = ({ logData, bus }) => {
     const allEvents = Array.isArray(logData?.events) ? logData.events : [];
     const suppress = {
       selectedEvent: 0,
       searchFilters: 0,
       filteredEvents: 0,
+      logJump: 0,
     };
 
     const searchFilters = signalFactory(
@@ -105,15 +149,58 @@
     );
     const selectedEvent = signalFactory(null);
     const filteredEvents = signalFactory(allEvents);
+    const logJump = signalFactory(null);
+    const detailCollapsed = signalFactory(
+      readStorage(STORAGE_KEYS.detailCollapsed, false, BOOLEAN_STORAGE)
+    );
+    const bottomCollapsed = signalFactory(
+      readStorage(STORAGE_KEYS.bottomCollapsed, false, BOOLEAN_STORAGE)
+    );
+    const mainViewMode = signalFactory(
+      readStorage(STORAGE_KEYS.mainViewMode, "split", STRING_STORAGE) || "split"
+    );
+    const chartType = signalFactory(
+      readStorage(STORAGE_KEYS.chartType, "", STRING_STORAGE)
+    );
     const activeFilterQueries = createComputed(() =>
       normalizeFilters(searchFilters.value)
         .filter((filter) => filter.enabled)
         .map((filter) => filter.query)
     );
+    let jumpNonce = 0;
 
     const persistFilters = () => {
       writeStorage(STORAGE_KEYS.searchFilters, normalizeFilters(searchFilters.value));
     };
+
+    const persistBooleanSignal = (key, signalValue) => {
+      writeStorage(key, Boolean(signalValue.value), BOOLEAN_STORAGE);
+    };
+
+    const persistStringSignal = (key, signalValue) => {
+      writeStorage(key, String(signalValue.value || ""), STRING_STORAGE);
+    };
+
+    const autoSyncDetailCollapsed = syncSignalToStorage(
+      STORAGE_KEYS.detailCollapsed,
+      detailCollapsed,
+      BOOLEAN_STORAGE
+    );
+    const autoSyncBottomCollapsed = syncSignalToStorage(
+      STORAGE_KEYS.bottomCollapsed,
+      bottomCollapsed,
+      BOOLEAN_STORAGE
+    );
+    const autoSyncMainViewMode = syncSignalToStorage(
+      STORAGE_KEYS.mainViewMode,
+      mainViewMode,
+      STRING_STORAGE
+    );
+    const autoSyncChartType = syncSignalToStorage(
+      STORAGE_KEYS.chartType,
+      chartType,
+      STRING_STORAGE
+    );
 
     const setSelectedEvent = (event, options = {}) => {
       const nextEvent = event || null;
@@ -168,6 +255,61 @@
       return resolvedEvents;
     };
 
+    const setLogJump = (nextPayload, options = {}) => {
+      const normalized = normalizeJumpTarget(nextPayload, ++jumpNonce);
+      if (!normalized) return null;
+      logJump.value = normalized;
+
+      if (options.emitBus === false || !bus) return normalized;
+
+      suppress.logJump += 1;
+      try {
+        bus.emit("log:jump", {
+          rowId: normalized.rowId,
+          seconds: normalized.seconds,
+        });
+      } finally {
+        suppress.logJump -= 1;
+      }
+      return normalized;
+    };
+
+    const setDetailCollapsed = (nextValue) => {
+      const resolved = typeof nextValue === "function" ? nextValue(Boolean(detailCollapsed.value)) : nextValue;
+      detailCollapsed.value = Boolean(resolved);
+      if (!autoSyncDetailCollapsed) {
+        persistBooleanSignal(STORAGE_KEYS.detailCollapsed, detailCollapsed);
+      }
+      return detailCollapsed.value;
+    };
+
+    const setBottomCollapsed = (nextValue) => {
+      const resolved = typeof nextValue === "function" ? nextValue(Boolean(bottomCollapsed.value)) : nextValue;
+      bottomCollapsed.value = Boolean(resolved);
+      if (!autoSyncBottomCollapsed) {
+        persistBooleanSignal(STORAGE_KEYS.bottomCollapsed, bottomCollapsed);
+      }
+      return bottomCollapsed.value;
+    };
+
+    const setMainViewMode = (nextValue) => {
+      const resolved = typeof nextValue === "function" ? nextValue(String(mainViewMode.value || "split")) : nextValue;
+      mainViewMode.value = String(resolved || "split");
+      if (!autoSyncMainViewMode) {
+        persistStringSignal(STORAGE_KEYS.mainViewMode, mainViewMode);
+      }
+      return mainViewMode.value;
+    };
+
+    const setChartType = (nextValue) => {
+      const resolved = typeof nextValue === "function" ? nextValue(String(chartType.value || "")) : nextValue;
+      chartType.value = String(resolved || "");
+      if (!autoSyncChartType) {
+        persistStringSignal(STORAGE_KEYS.chartType, chartType);
+      }
+      return chartType.value;
+    };
+
     if (bus) {
       bus.on("event:selected", (event) => {
         if (suppress.selectedEvent) return;
@@ -181,6 +323,13 @@
         searchFilters.value = mergeFilterQueries(searchFilters.value, queries || []);
         persistFilters();
       });
+
+      bus.on("log:jump", (payload) => {
+        if (suppress.logJump) return;
+        const normalized = normalizeJumpTarget(payload, ++jumpNonce);
+        if (!normalized) return;
+        logJump.value = normalized;
+      });
     }
 
     return {
@@ -189,9 +338,19 @@
       searchFilters,
       activeFilterQueries,
       filteredEvents,
+      logJump,
+      detailCollapsed,
+      bottomCollapsed,
+      mainViewMode,
+      chartType,
       setSelectedEvent,
       setSearchFilters,
       setFilteredEvents,
+      setLogJump,
+      setDetailCollapsed,
+      setBottomCollapsed,
+      setMainViewMode,
+      setChartType,
     };
   };
 })();

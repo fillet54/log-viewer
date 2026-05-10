@@ -43,19 +43,15 @@
   `;
 
   const LayoutShell = () => {
+    const services = ui.appHooks.useAppServices();
+    const viewerStore = services?.viewerStore || null;
     const rootRef = useRef ? useRef(null) : { current: null };
     const topPaneRef = useRef ? useRef(null) : { current: null };
     const bottomPaneRef = useRef ? useRef(null) : { current: null };
     const centerPaneRef = useRef ? useRef(null) : { current: null };
     const rightPaneRef = useRef ? useRef(null) : { current: null };
-    const [detailCollapsed, setDetailCollapsed] = ui.appHooks.useLocalStorageState(
-      STORAGE_KEYS.detailCollapsed,
-      false
-    );
-    const [bottomCollapsed, setBottomCollapsed] = ui.appHooks.useLocalStorageState(
-      STORAGE_KEYS.bottomCollapsed,
-      false
-    );
+    const detailCollapsed = Boolean(viewerStore?.detailCollapsed?.value);
+    const bottomCollapsed = Boolean(viewerStore?.bottomCollapsed?.value);
     const [bottomHeaderHeight, setBottomHeaderHeight] = useState ? useState(34) : [34, () => {}];
 
     const loadRootSizes = () => {
@@ -175,13 +171,13 @@
         target.closest("#pane-bottom .pane-header") && bottomCollapsed;
 
       if (toggleBottom || collapsedSearchHeader) {
-        setBottomCollapsed((current) => !current);
+        viewerStore?.setBottomCollapsed((current) => !current);
         return;
       }
 
       const toggleDetail = target.closest("#toggle-detail, #toggle-detail-restore");
       if (toggleDetail) {
-        setDetailCollapsed((current) => !current);
+        viewerStore?.setDetailCollapsed((current) => !current);
       }
     };
 

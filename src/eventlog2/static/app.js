@@ -9,6 +9,7 @@ const STORAGE_KEYS = {
   searchPinned: "loglayout.search.pinned",
   searchFilters: "loglayout.search.filters",
   chartTooltips: "loglayout.chart.tooltips",
+  chartType: "loglayout.chart.type",
   mainViewMode: "loglayout.mainview.mode",
   mainViewSplit: "loglayout.mainview.split",
   bookmarks: "loglayout.bookmarks",
