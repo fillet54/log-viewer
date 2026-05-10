@@ -12,6 +12,11 @@ from .plugin_manager import build_page_data_documents_from_path, build_page_data
 SCRIPT_PATHS = [
     "static/vendor/chart.umd.min.js",
     "static/vendor/split.min.js",
+    "static/vendor/preact.min.js",
+    "static/vendor/preact-hooks.min.js",
+    "static/vendor/htm.min.js",
+    "static/vendor/preact-signals.min.js",
+    "static/preact/runtime.js",
     "static/services/search.js",
     "static/services/app-services.js",
     "static/app.js",
