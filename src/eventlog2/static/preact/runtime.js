@@ -54,8 +54,15 @@
     },
     available:
       typeof preactApi.h === "function" &&
+      typeof preactApi.createContext === "function" &&
       typeof preactApi.render === "function" &&
-      typeof htmApi.bind === "function",
+      typeof htmApi.bind === "function" &&
+      typeof hooksApi.useContext === "function" &&
+      typeof hooksApi.useEffect === "function" &&
+      typeof hooksApi.useLayoutEffect === "function" &&
+      typeof hooksApi.useMemo === "function" &&
+      typeof hooksApi.useRef === "function" &&
+      typeof hooksApi.useState === "function",
     signalsAvailable: typeof signalsApi.signal === "function",
   };
 
