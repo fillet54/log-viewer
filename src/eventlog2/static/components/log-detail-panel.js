@@ -31,32 +31,13 @@ class LogDetailPanelElement extends LogAppComponentElement {
   }
 
   mountWithPreact() {
-    const ui = window.EventLog2UI || {};
-    const Component = ui.components?.LogDetailPanel || null;
-
-    if (!ui.available) {
-      this.renderMountError("Local Preact runtime is required for the detail panel.");
-      return false;
-    }
-
-    if (typeof ui.createMountController !== "function" || typeof Component !== "function") {
-      this.renderMountError("Detail panel component is not registered.");
-      return false;
-    }
-
-    if (!this._mountController) {
-      this._mountController = ui.createMountController({
-        host: this,
-        Component,
-        getServices: () => this.getServices(),
-        onError: (error) => {
-          console.error(error);
-          this.renderMountError(error?.message || "Unable to load detail panel.");
-        },
-      });
-    }
-
-    return this._mountController.render();
+    return this.mountPreactComponent({
+      componentName: "LogDetailPanel",
+      unavailableMessage: "Local Preact runtime is required for the detail panel.",
+      missingComponentMessage: "Detail panel component is not registered.",
+      mountErrorMessage: "Unable to load detail panel.",
+      getServices: () => this.getServices(),
+    });
   }
 
   connectedCallback() {
@@ -66,7 +47,7 @@ class LogDetailPanelElement extends LogAppComponentElement {
   }
 
   disconnectedCallback() {
-    this._mountController?.destroy?.();
+    this.destroyMountedComponent();
   }
 }
 

@@ -306,9 +306,62 @@ class LogAppComponentElement extends HTMLElement {
     return window.EventLog2.resolveRowRenderer(this.getPlugin());
   }
 
+  captureTemplate(selector, cacheKey = "_capturedTemplate") {
+    if (this[cacheKey]) return this[cacheKey];
+    const template = this.querySelector(selector);
+    this[cacheKey] = template ? template.cloneNode(true) : null;
+    return this[cacheKey];
+  }
+
+  captureRowTemplate() {
+    return this.captureTemplate('template[data-role="row-template"]', "_rowTemplate");
+  }
+
   buildRow(event, templateEl, options = {}) {
     const renderRow = this.getRowRenderer();
     if (typeof renderRow !== "function") return null;
     return renderRow(event, templateEl, options);
+  }
+
+  mountPreactComponent({
+    componentName,
+    unavailableMessage = "Local Preact runtime is required.",
+    missingComponentMessage = "Preact component is not registered.",
+    mountErrorMessage = "Unable to load component.",
+    getProps = () => ({}),
+    getServices = () => null,
+  } = {}) {
+    const ui = window.EventLog2UI || {};
+    const Component = ui.components?.[componentName] || null;
+
+    if (!ui.available) {
+      this.renderMountError(unavailableMessage);
+      return false;
+    }
+
+    if (typeof ui.createMountController !== "function" || typeof Component !== "function") {
+      this.renderMountError(missingComponentMessage);
+      return false;
+    }
+
+    if (!this._mountController || this._mountedComponentName !== componentName) {
+      this._mountedComponentName = componentName;
+      this._mountController = ui.createMountController({
+        host: this,
+        Component,
+        getProps,
+        getServices,
+        onError: (error) => {
+          console.error(error);
+          this.renderMountError(error?.message || mountErrorMessage);
+        },
+      });
+    }
+
+    return this._mountController.render();
+  }
+
+  destroyMountedComponent() {
+    this._mountController?.destroy?.();
   }
 }

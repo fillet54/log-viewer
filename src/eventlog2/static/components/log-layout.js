@@ -19,35 +19,16 @@ class LogLayoutElement extends LogAppComponentElement {
   }
 
   mountWithPreact() {
-    const ui = window.EventLog2UI || {};
-    const Component = ui.components?.LogLayoutShell || null;
-
-    if (!ui.available) {
-      this.renderMountError("Local Preact runtime is required for the layout shell.");
-      return false;
-    }
-
-    if (typeof ui.createMountController !== "function" || typeof Component !== "function") {
-      this.renderMountError("Layout shell component is not registered.");
-      return false;
-    }
-
-    if (!this._mountController) {
-      this._mountController = ui.createMountController({
-        host: this,
-        Component,
-        getProps: () => ({
-          ...this.captureChildNodes(),
-          searchReadyVersion: this._searchReadyVersion || 0,
-        }),
-        onError: (error) => {
-          console.error(error);
-          this.renderMountError(error?.message || "Unable to load layout shell.");
-        },
-      });
-    }
-
-    return this._mountController.render();
+    return this.mountPreactComponent({
+      componentName: "LogLayoutShell",
+      unavailableMessage: "Local Preact runtime is required for the layout shell.",
+      missingComponentMessage: "Layout shell component is not registered.",
+      mountErrorMessage: "Unable to load layout shell.",
+      getProps: () => ({
+        ...this.captureChildNodes(),
+        searchReadyVersion: this._searchReadyVersion || 0,
+      }),
+    });
   }
 
   connectedCallback() {
@@ -66,7 +47,7 @@ class LogLayoutElement extends LogAppComponentElement {
   }
 
   disconnectedCallback() {
-    this._mountController?.destroy?.();
+    this.destroyMountedComponent();
   }
 }
 

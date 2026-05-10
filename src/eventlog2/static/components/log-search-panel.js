@@ -1,11 +1,4 @@
 class LogSearchPanelElement extends LogAppComponentElement {
-  captureRowTemplate() {
-    if (this._rowTemplate) return this._rowTemplate;
-    const template = this.querySelector('template[data-role="row-template"]');
-    this._rowTemplate = template ? template.cloneNode(true) : null;
-    return this._rowTemplate;
-  }
-
   getServices() {
     return {
       bus: this.getBus(),
@@ -39,32 +32,13 @@ class LogSearchPanelElement extends LogAppComponentElement {
   }
 
   mountWithPreact() {
-    const ui = window.EventLog2UI || {};
-    const Component = ui.components?.LogSearchPanel || null;
-
-    if (!ui.available) {
-      this.renderMountError("Local Preact runtime is required for the search panel.");
-      return false;
-    }
-
-    if (typeof ui.createMountController !== "function" || typeof Component !== "function") {
-      this.renderMountError("Search panel component is not registered.");
-      return false;
-    }
-
-    if (!this._mountController) {
-      this._mountController = ui.createMountController({
-        host: this,
-        Component,
-        getServices: () => this.getServices(),
-        onError: (error) => {
-          console.error(error);
-          this.renderMountError(error?.message || "Unable to load search panel.");
-        },
-      });
-    }
-
-    return this._mountController.render();
+    return this.mountPreactComponent({
+      componentName: "LogSearchPanel",
+      unavailableMessage: "Local Preact runtime is required for the search panel.",
+      missingComponentMessage: "Search panel component is not registered.",
+      mountErrorMessage: "Unable to load search panel.",
+      getServices: () => this.getServices(),
+    });
   }
 
   connectedCallback() {
@@ -76,7 +50,7 @@ class LogSearchPanelElement extends LogAppComponentElement {
   }
 
   disconnectedCallback() {
-    this._mountController?.destroy?.();
+    this.destroyMountedComponent();
   }
 }
 
