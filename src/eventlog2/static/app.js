@@ -152,33 +152,6 @@ const attachServices = (root, services) => {
   return services;
 };
 
-const getAppRoot = (node) => {
-  if (!node || typeof node.closest !== "function") return null;
-  return node.closest("log-viewer-app");
-};
-
-const connectComponent = (element, setup) => {
-  if (!element || typeof setup !== "function") return;
-  const root = getAppRoot(element);
-  if (!root) return;
-
-  const initialize = () => {
-    if (element._initialized) return true;
-    if (typeof root.isReady !== "function" || !root.isReady()) return false;
-    setup();
-    element._initialized = true;
-    return true;
-  };
-
-  if (initialize()) return;
-
-  const onReady = () => {
-    if (!initialize()) return;
-    root.removeEventListener("logapp:ready", onReady);
-  };
-  root.addEventListener("logapp:ready", onReady);
-};
-
 class LogViewerAppElement extends HTMLElement {
   isReady() {
     return Boolean(this._services);
@@ -222,8 +195,43 @@ class LogViewerAppElement extends HTMLElement {
     return this._services?.view || null;
   }
 
+  captureRowTemplate(pageData) {
+    const fromDom = this.querySelector('template[data-role="row-template"]');
+    if (fromDom) return fromDom.cloneNode(true);
+    return cloneTemplateNode(pageData?.view?.rowTemplate) || null;
+  }
+
   renderStartupError(message) {
     this.innerHTML = `<div class="empty-panel-message">${String(message || "Unable to load event log viewer.")}</div>`;
+  }
+
+  mountWithPreact() {
+    const ui = window.EventLog2UI || {};
+    const Component = ui.components?.LogViewerRoot || null;
+
+    if (!ui.available) {
+      this.renderStartupError("Local Preact runtime is required for the log viewer.");
+      return false;
+    }
+
+    if (typeof ui.createMountController !== "function" || typeof Component !== "function") {
+      this.renderStartupError("Log viewer root component is not registered.");
+      return false;
+    }
+
+    if (!this._mountController) {
+      this._mountController = ui.createMountController({
+        host: this,
+        Component,
+        getServices: () => this._services,
+        onError: (error) => {
+          console.error(error);
+          this.renderStartupError(error?.message || "Unable to load event log viewer.");
+        },
+      });
+    }
+
+    return this._mountController.render();
   }
 
   initializeIfReady() {
@@ -237,8 +245,11 @@ class LogViewerAppElement extends HTMLElement {
       applyPageView(this, pageData);
       loadPageScripts(this, pageData);
       this._data = pageData;
+      const services = LogServices.createRootServices({ pageData });
+      services.rowTemplate = this.captureRowTemplate(pageData);
+      attachServices(this, services);
+      this.mountWithPreact();
       this._initialized = true;
-      attachServices(this, LogServices.createRootServices({ pageData }));
       this.dispatchEvent(new CustomEvent("logapp:ready", { bubbles: true, composed: true }));
     } catch (error) {
       console.error(error);
@@ -255,113 +266,12 @@ class LogViewerAppElement extends HTMLElement {
     }
     this.initializeIfReady();
   }
+
+  disconnectedCallback() {
+    this._mountController?.destroy?.();
+  }
 }
 
 if (!customElements.get("log-viewer-app")) {
   customElements.define("log-viewer-app", LogViewerAppElement);
-}
-
-class LogAppComponentElement extends HTMLElement {
-  queryById(id) {
-    return queryById(this, id);
-  }
-
-  connectToApp(setup) {
-    connectComponent(this, setup);
-  }
-
-  getAppRoot() {
-    return getAppRoot(this);
-  }
-
-  getBus() {
-    return this.getAppRoot()?.getBus() || null;
-  }
-
-  getLogData() {
-    return this.getAppRoot()?.getLogData() || null;
-  }
-
-  getSearchWorker() {
-    return this.getAppRoot()?.getSearchWorker() || null;
-  }
-
-  getBookmarks() {
-    return this.getAppRoot()?.getBookmarks() || null;
-  }
-
-  getComments() {
-    return this.getAppRoot()?.getComments() || null;
-  }
-
-  getPlugin() {
-    return this.getAppRoot()?.getPlugin() || null;
-  }
-
-  getView() {
-    return this.getAppRoot()?.getView() || null;
-  }
-
-  getRowRenderer() {
-    return window.EventLog2.resolveRowRenderer(this.getPlugin());
-  }
-
-  captureTemplate(selector, cacheKey = "_capturedTemplate") {
-    if (this[cacheKey]) return this[cacheKey];
-    const template = this.querySelector(selector);
-    this[cacheKey] = template ? template.cloneNode(true) : null;
-    return this[cacheKey];
-  }
-
-  captureRowTemplate() {
-    return this.captureTemplate('template[data-role="row-template"]', "_rowTemplate");
-  }
-
-  buildRow(event, templateEl, options = {}) {
-    const renderRow = this.getRowRenderer();
-    if (typeof renderRow !== "function") return null;
-    return renderRow(event, templateEl, options);
-  }
-
-  mountPreactComponent({
-    componentName,
-    unavailableMessage = "Local Preact runtime is required.",
-    missingComponentMessage = "Preact component is not registered.",
-    mountErrorMessage = "Unable to load component.",
-    getProps = () => ({}),
-    getServices = () => null,
-  } = {}) {
-    const ui = window.EventLog2UI || {};
-    const Component = ui.components?.[componentName] || null;
-
-    if (!ui.available) {
-      this.renderMountError(unavailableMessage);
-      return false;
-    }
-
-    if (typeof ui.createMountController !== "function" || typeof Component !== "function") {
-      this.renderMountError(missingComponentMessage);
-      return false;
-    }
-
-    if (!this._mountController || this._mountedComponentName !== componentName) {
-      this._mountedComponentName = componentName;
-      this._mountController = ui.createMountController({
-        host: this,
-        Component,
-        getProps,
-        getServices,
-        onError: (error) => {
-          console.error(error);
-          this.renderMountError(error?.message || mountErrorMessage);
-        },
-      });
-    }
-
-    return this._mountController.render();
-  }
-
-  destroyMountedComponent() {
-    this._mountController?.destroy?.();
-  }
 }

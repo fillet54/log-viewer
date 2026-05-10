@@ -566,8 +566,7 @@ button {
 }
 
 .viewer-page,
-log-viewer-app,
-log-layout {
+log-viewer-app {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -705,6 +704,17 @@ log-layout {
 .pane {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.layout-pane-child {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
 }

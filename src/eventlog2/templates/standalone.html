@@ -34,15 +34,7 @@
       <main class="app-content app-content-viewer">
         <div class="viewer-page">
           <log-viewer-app>
-            <log-layout>
-              <log-main-view>
-                {{ row_template|safe }}
-              </log-main-view>
-              <log-detail-panel></log-detail-panel>
-              <log-search-panel search-help-url="{{ help_url }}">
-                {{ row_template|safe }}
-              </log-search-panel>
-            </log-layout>
+            {{ row_template|safe }}
           </log-viewer-app>
         </div>
       </main>

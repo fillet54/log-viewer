@@ -68,15 +68,9 @@ Do not rely on CDNs. Preact must always be loaded from local static files served
 
 ### Mount strategy
 
-Keep the current custom elements temporarily as mount shells:
+Use a single top-level Preact mount rooted at `log-viewer-app`.
 
-- `log-viewer-app`
-- `log-layout`
-- `log-main-view`
-- `log-detail-panel`
-- `log-search-panel`
-
-Each element can transition from “renders HTML directly” to “creates a Preact root and renders a component”.
+During migration it was acceptable to use temporary custom-element mount shells for major panes, but the desired end state is one Preact tree that renders layout, main view, detail, and search directly.
 
 This avoids a big-bang template rewrite and lets us migrate one panel at a time.
 
@@ -126,23 +120,22 @@ Suggested directory layout:
 
 ```text
 src/eventlog2/static/
-  preact/
-    runtime.js
-    context.js
-    mount.js
-    hooks/
-      use-app-services.js
-      use-bus.js
-      use-local-storage.js
-      use-split.js
-      use-virtual-list.js
-    components/
-      layout-shell.js
-      detail-panel.js
-      search-panel.js
-      main-view.js
-      chart-host.js
-      plugin-row-bridge.js
+  runtime.js
+  context.js
+  mount.js
+  hooks/
+    use-app-services.js
+    use-bus.js
+    use-local-storage.js
+    use-split.js
+    use-virtual-list.js
+  components/
+    viewer-root.js
+    layout-shell.js
+    detail-panel.js
+    search-panel.js
+    main-view-shell.js
+    log-main-chart.js
 ```
 
 ## Migration Phases
@@ -182,7 +175,7 @@ Steps:
 1. Add vendored runtime files under `src/eventlog2/static/vendor/`.
 2. Add script tags to `src/eventlog2/templates/base.html`.
 3. Add the same files to `SCRIPT_PATHS` in `src/eventlog2/standalone.py`.
-4. Add `src/eventlog2/static/preact/runtime.js` that exposes a stable global helper, for example:
+4. Add `src/eventlog2/static/runtime.js` that exposes a stable global helper, for example:
    - `window.EventLog2UI.html`
    - `window.EventLog2UI.render`
    - `window.EventLog2UI.hooks`

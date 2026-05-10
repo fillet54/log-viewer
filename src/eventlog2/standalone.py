@@ -3,7 +3,6 @@ from __future__ import annotations
 from importlib.resources import files
 from pathlib import Path
 import json
-from urllib.parse import quote
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -17,26 +16,23 @@ SCRIPT_PATHS = [
     "static/vendor/htm.min.js",
     "static/vendor/preact-signals-core.min.js",
     "static/vendor/preact-signals.min.js",
-    "static/preact/runtime.js",
-    "static/preact/context.js",
-    "static/preact/hooks/use-app-services.js",
-    "static/preact/hooks/use-bus.js",
-    "static/preact/hooks/use-local-storage.js",
-    "static/preact/hooks/use-split.js",
-    "static/preact/hooks/use-virtual-list.js",
-    "static/preact/mount.js",
-    "static/preact/components/detail-panel.js",
-    "static/preact/components/layout-shell.js",
-    "static/preact/components/main-view-shell.js",
-    "static/preact/components/search-panel.js",
+    "static/runtime.js",
+    "static/context.js",
+    "static/hooks/use-app-services.js",
+    "static/hooks/use-bus.js",
+    "static/hooks/use-local-storage.js",
+    "static/hooks/use-split.js",
+    "static/hooks/use-virtual-list.js",
+    "static/mount.js",
+    "static/components/detail-panel.js",
+    "static/components/layout-shell.js",
+    "static/components/main-view-shell.js",
+    "static/components/search-panel.js",
+    "static/components/viewer-root.js",
     "static/services/search.js",
     "static/services/app-services.js",
-    "static/app.js",
-    "static/components/log-layout.js",
     "static/components/log-main-chart.js",
-    "static/components/log-main-view.js",
-    "static/components/log-detail-panel.js",
-    "static/components/log-search-panel.js",
+    "static/app.js",
 ]
 
 TEMPLATE_ENV = Environment(
@@ -47,12 +43,6 @@ TEMPLATE_ENV = Environment(
 
 def _read_package_text(relative_path: str) -> str:
     return files("eventlog2").joinpath(relative_path).read_text(encoding="utf-8")
-
-
-def _build_search_help_data_url() -> str:
-    help_html = _read_package_text("static/search_syntax.html")
-    encoded = quote(help_html, safe="")
-    return f"data:text/html;charset=utf-8,{encoded}"
 
 def build_page_data_script(page_data: dict[str, object]) -> str:
     payload = json.dumps(page_data, separators=(",", ":"), sort_keys=True)
@@ -70,13 +60,11 @@ def _build_inline_scripts(data_script: str) -> list[str]:
 def build_standalone_html(data_script: str, title: str = "HTML Log Viewer") -> str:
     styles = _read_package_text("static/styles.css")
     row_template = _read_package_text("templates/components/shared/log_row_template.html")
-    help_url = _build_search_help_data_url()
     script_blocks = _build_inline_scripts(data_script)
     return TEMPLATE_ENV.get_template("standalone.html").render(
         title=title,
         styles=styles,
         row_template=row_template,
-        help_url=help_url,
         script_blocks=script_blocks,
     )
 

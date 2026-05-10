@@ -1,7 +1,6 @@
 (function () {
   const ui = window.EventLog2UI || {};
   const html = ui.html;
-  const useEffect = ui.hooks?.useEffect || null;
   const useLayoutEffect = ui.hooks?.useLayoutEffect || null;
   const useRef = ui.hooks?.useRef || null;
   const useState = ui.hooks?.useState || null;
@@ -10,49 +9,40 @@
 
   const TOP_SPLIT_DEFAULT = [72, 28];
   const ROOT_SPLIT_DEFAULT = [70, 30];
-
-  const MountedPaneChild = ({
-    node,
-    hostId,
-    hostRef = null,
-    hostClassName = "",
-    hostStyle = {},
-    childClassName = "",
-  }) => {
-    const localHostRef = useRef ? useRef(null) : { current: null };
-    const targetHostRef = hostRef || localHostRef;
-
-    useLayoutEffect(() => {
-      const host = targetHostRef.current;
-      if (!host || !node) return undefined;
-
-      node.classList.add("layout-mounted-child");
-      if (childClassName) node.classList.add(...childClassName.split(/\s+/).filter(Boolean));
-      node.style.display = "flex";
-      node.style.flexDirection = "column";
-      node.style.flex = "1 1 auto";
-      node.style.width = "100%";
-      node.style.height = "100%";
-      node.style.minWidth = "0";
-      node.style.minHeight = "0";
-      node.style.overflow = "hidden";
-
-      if (node.parentNode !== host) {
-        host.appendChild(node);
-      }
-
-      return undefined;
-    }, [node, childClassName, targetHostRef]);
-
-    return html`<div id=${hostId} ref=${targetHostRef} class=${hostClassName} style=${hostStyle}></div>`;
+  const MainViewShell = () => {
+    const Component = ui.components?.LogMainViewShell || null;
+    return typeof Component === "function"
+      ? html`<${Component} />`
+      : html`<div class="empty-panel-message">Main view component is not registered.</div>`;
   };
 
-  const LayoutShell = ({
-    mainViewNode,
-    detailPanelNode,
-    searchPanelNode,
-    searchReadyVersion = 0,
-  }) => {
+  const DetailPanel = () => {
+    const Component = ui.components?.LogDetailPanel || null;
+    return typeof Component === "function"
+      ? html`<${Component} />`
+      : html`<div class="empty-panel-message">Detail panel component is not registered.</div>`;
+  };
+
+  const SearchPanel = () => {
+    const Component = ui.components?.LogSearchPanel || null;
+    return typeof Component === "function"
+      ? html`<${Component} />`
+      : html`<div class="empty-panel-message">Search panel component is not registered.</div>`;
+  };
+
+  const LayoutPane = ({
+    hostId,
+    hostRef = null,
+    hostClassName = "pane",
+    hostStyle = {},
+    children = null,
+  }) => html`
+    <div id=${hostId} ref=${hostRef} class=${hostClassName} style=${hostStyle}>
+      <div class="layout-pane-child">${children}</div>
+    </div>
+  `;
+
+  const LayoutShell = () => {
     const rootRef = useRef ? useRef(null) : { current: null };
     const topPaneRef = useRef ? useRef(null) : { current: null };
     const bottomPaneRef = useRef ? useRef(null) : { current: null };
@@ -127,11 +117,9 @@
         const header = bottomPane?.querySelector(".pane-header");
         const nextHeight = header ? header.offsetHeight : 34;
         if (nextHeight > 0) setBottomHeaderHeight(nextHeight);
-      }, [bottomCollapsed, searchReadyVersion]);
-    }
+      }, [bottomCollapsed]);
 
-    if (typeof useEffect === "function") {
-      useEffect(() => {
+      useLayoutEffect(() => {
         const root = rootRef.current;
         if (!root) return;
 
@@ -176,7 +164,7 @@
         }
 
         requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
-      }, [detailCollapsed, bottomCollapsed, searchReadyVersion]);
+      }, [detailCollapsed, bottomCollapsed]);
     }
 
     const handleShellClick = (event) => {
@@ -214,21 +202,21 @@
             id="split-top"
             class=${`layout-top-inner${detailCollapsed ? " detail-collapsed" : ""}`}
           >
-            <${MountedPaneChild}
-              node=${mainViewNode}
+            <${LayoutPane}
               hostId="pane-center"
               hostRef=${centerPaneRef}
               hostClassName="pane"
-              childClassName="layout-pane-child"
-            />
-            <${MountedPaneChild}
-              node=${detailPanelNode}
+            >
+              <${MainViewShell} />
+            </${LayoutPane}>
+            <${LayoutPane}
               hostId="pane-right"
               hostRef=${rightPaneRef}
               hostClassName="pane"
               hostStyle=${detailCollapsed ? { display: "none", flex: "0 0 0" } : {}}
-              childClassName="layout-pane-child"
-            />
+            >
+              <${DetailPanel} />
+            </${LayoutPane}>
           </div>
           <button
             id="toggle-detail-restore"
@@ -246,14 +234,14 @@
             </span>
           </button>
         </section>
-        <${MountedPaneChild}
-          node=${searchPanelNode}
+        <${LayoutPane}
           hostId="pane-bottom"
           hostRef=${bottomPaneRef}
           hostClassName="pane"
           hostStyle=${bottomCollapsed ? { flex: `0 0 ${bottomHeaderHeight}px` } : {}}
-          childClassName="layout-pane-child"
-        />
+        >
+          <${SearchPanel} />
+        </${LayoutPane}>
       </div>
     `;
   };
