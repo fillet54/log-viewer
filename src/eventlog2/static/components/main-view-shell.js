@@ -83,13 +83,17 @@
         const linkedRowId = button.dataset.linkedRowId;
         if (!linkedRowId || !services?.bus) return;
         const linkedEvent = eventByRowId.get(String(linkedRowId)) || null;
-        if (linkedEvent) services.bus.emit("event:selected", linkedEvent);
+        if (linkedEvent) {
+          if (services?.viewerStore) services.viewerStore.setSelectedEvent(linkedEvent);
+          else services.bus.emit("event:selected", linkedEvent);
+        }
         services.bus.emit("log:jump", { rowId: linkedRowId });
       });
     });
 
     row.addEventListener("click", () => {
-      services?.bus?.emit("event:selected", event);
+      if (services?.viewerStore) services.viewerStore.setSelectedEvent(event);
+      else services?.bus?.emit("event:selected", event);
     });
 
     return row;
@@ -319,7 +323,11 @@
 
   const MainViewShell = () => {
     const services = ui.appHooks.useAppServices();
+    const viewerStore = services?.viewerStore || null;
     const events = Array.isArray(services?.logData?.events) ? services.logData.events : [];
+    const activeFilterQueries = viewerStore?.activeFilterQueries?.value || [];
+    const selectedEvent = viewerStore?.selectedEvent?.value || null;
+    const filteredEvents = viewerStore?.filteredEvents?.value || events;
     const rootRef = useRef ? useRef(null) : { current: null };
     const chartRegionRef = useRef ? useRef(null) : { current: null };
     const logRegionRef = useRef ? useRef(null) : { current: null };
@@ -343,13 +351,12 @@
     const [chartSplit, setChartSplit] = useState ? useState(() => loadSizes(STORAGE_KEYS.mainViewSplit, [36, 64])) : [[36, 64], () => {}];
     const [chartTypes, setChartTypes] = useState ? useState([]) : [[], () => {}];
     const [selectedChartType, setSelectedChartType] = useState ? useState("") : ["", () => {}];
-    const [filteredEvents, setFilteredEvents] = useState ? useState(() => events) : [events, () => {}];
     const [rowStride, setRowStride] = useState ? useState(38) : [38, () => {}];
-    const [selectedRowId, setSelectedRowId] = useState ? useState(null) : [null, () => {}];
     const [bookmarkVersion, setBookmarkVersion] = useState ? useState(0) : [0, () => {}];
     const [highlightState, setHighlightState] = useState ? useState({ rowId: null, nonce: 0 }) : [{ rowId: null, nonce: 0 }, () => {}];
 
     filteredRef.current = filteredEvents;
+    const selectedRowId = selectedEvent?.row_id ?? null;
 
     ui.appHooks.useSplit({
       refs: [chartRegionRef, logRegionRef],
@@ -397,7 +404,10 @@
         });
       });
 
-      if (services?.bus && selected) services.bus.emit("event:selected", selected);
+      if (selected) {
+        if (viewerStore) viewerStore.setSelectedEvent(selected);
+        else if (services?.bus) services.bus.emit("event:selected", selected);
+      }
       return selected;
     };
 
@@ -406,7 +416,7 @@
       const requestId = ++pendingFilterRef.current;
 
       if (!terms.length) {
-        setFilteredEvents(events);
+        viewerStore?.setFilteredEvents(events);
         return;
       }
 
@@ -414,13 +424,13 @@
       if (services?.searchWorker) {
         LogSearch.runQuery(services.searchWorker, query, (indices) => {
           if (requestId !== pendingFilterRef.current) return;
-          setFilteredEvents(indices.map((index) => events[index]).filter(Boolean));
+          viewerStore?.setFilteredEvents(indices.map((index) => events[index]).filter(Boolean));
         });
         return;
       }
 
       const predicates = terms.map((term) => LogSearch.getQueryPredicate(term));
-      setFilteredEvents(
+      viewerStore?.setFilteredEvents(
         events.filter((event) => predicates.some((predicate) => predicate(event)))
       );
     };
@@ -437,7 +447,7 @@
 
         pendingFilterRef.current += 1;
         pendingJumpRef.current = { rowId: payload.rowId, seconds: payload.seconds ?? null };
-        setFilteredEvents(events);
+        viewerStore?.setFilteredEvents(events);
         return;
       }
 
@@ -475,17 +485,9 @@
 
     const visibleItems = filteredEvents.slice(virtual.startIndex, virtual.endIndex);
 
-    ui.appHooks.useBusSubscription("filters:apply", (queries) => {
-      applyFilterQueries(queries || []);
-    }, [services, events.length]);
-
     ui.appHooks.useBusSubscription("log:jump", (payload) => {
       handleLogJump(payload);
     }, [services, events.length, rowStride]);
-
-    ui.appHooks.useBusSubscription("event:selected", (event) => {
-      setSelectedRowId(event?.row_id ?? null);
-    });
 
     ui.appHooks.useBusSubscription("bookmarks:changed", () => {
       setBookmarkVersion((value) => value + 1);
@@ -558,9 +560,6 @@
       useEffect(() => {
         eventByRowIdRef.current = buildEventByRowId(events);
         indexByRowIdRef.current = buildIndexByRowId(events);
-        filteredRef.current = events;
-        setFilteredEvents(events);
-        setSelectedRowId(null);
         pendingFilterRef.current += 1;
         pendingJumpRef.current = null;
       }, [events]);
@@ -571,8 +570,9 @@
       }, [filteredEvents]);
 
       useEffect(() => {
-        services?.bus?.emit("log:filtered", filteredEvents);
-      }, [filteredEvents, services]);
+        if (!viewerStore) return;
+        applyFilterQueries(activeFilterQueries);
+      }, [viewerStore, events, activeFilterQueries.join("\u0000")]);
 
       useEffect(() => {
         const pendingJump = pendingJumpRef.current;

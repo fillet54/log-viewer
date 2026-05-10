@@ -33,4 +33,5 @@
   ui.appHooks.useAppSearchWorker = selectService((services) => services?.searchWorker || null);
   ui.appHooks.useAppBookmarks = selectService((services) => services?.bookmarks || null);
   ui.appHooks.useAppComments = selectService((services) => services?.comments || null);
+  ui.appHooks.useAppViewerStore = selectService((services) => services?.viewerStore || null);
 })();

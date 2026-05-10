@@ -23,6 +23,7 @@ SCRIPT_PATHS = [
     "static/hooks/use-local-storage.js",
     "static/hooks/use-split.js",
     "static/hooks/use-virtual-list.js",
+    "static/state/viewer-store.js",
     "static/mount.js",
     "static/components/detail-panel.js",
     "static/components/layout-shell.js",

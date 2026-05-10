@@ -303,7 +303,8 @@
 
   const DetailPanelApp = () => {
     const services = ui.appHooks.useAppServices();
-    const [selectedEvent] = ui.appHooks.useBusState("event:selected", null);
+    const viewerStore = services?.viewerStore || null;
+    const selectedEvent = viewerStore?.selectedEvent?.value || null;
     const [activeReply, setActiveReply] = useState ? useState(null) : [null, () => {}];
     const [commentBody, setCommentBody] = useState ? useState("") : ["", () => {}];
     const [collapsedPaths, setCollapsedPaths] = useState ? useState(() => new Set()) : [new Set(), () => {}];

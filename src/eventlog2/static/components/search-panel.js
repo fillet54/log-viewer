@@ -258,13 +258,17 @@
         const linkedRowId = button.dataset.linkedRowId;
         if (!linkedRowId || !services?.bus) return;
         const linkedEvent = events.find((entry) => String(entry.row_id) === String(linkedRowId)) || null;
-        if (linkedEvent) services.bus.emit("event:selected", linkedEvent);
+        if (linkedEvent) {
+          if (services?.viewerStore) services.viewerStore.setSelectedEvent(linkedEvent);
+          else services.bus.emit("event:selected", linkedEvent);
+        }
         services.bus.emit("log:jump", { rowId: linkedRowId });
       });
     });
 
     row.addEventListener("click", () => {
-      if (services?.bus) services.bus.emit("event:selected", event);
+      if (services?.viewerStore) services.viewerStore.setSelectedEvent(event);
+      else if (services?.bus) services.bus.emit("event:selected", event);
       if (services?.bus) services.bus.emit("log:jump", { rowId: event.row_id });
     });
 
@@ -608,6 +612,7 @@
 
   const SearchPanelApp = () => {
     const services = ui.appHooks.useAppServices();
+    const viewerStore = services?.viewerStore || null;
     const events = Array.isArray(services?.logData?.events) ? services.logData.events : [];
     const activityEnabled =
       services?.bookmarks?.enabled !== false || services?.comments?.enabled !== false;
@@ -620,7 +625,7 @@
     const [commentVersion, setCommentVersion] = useState ? useState(0) : [0, () => {}];
     const [history, setHistory] = ui.appHooks.useLocalStorageState(STORAGE_KEYS.searchHistory, []);
     const [pinned, setPinned] = ui.appHooks.useLocalStorageState(STORAGE_KEYS.searchPinned, []);
-    const [filters, setFilters] = ui.appHooks.useLocalStorageState(STORAGE_KEYS.searchFilters, []);
+    const filters = viewerStore?.searchFilters?.value || [];
 
     const pendingSearchRef = useRef ? useRef(0) : { current: 0 };
     const initializedRef = useRef ? useRef(false) : { current: false };
@@ -676,13 +681,6 @@
     });
 
     if (typeof useEffect === "function") {
-      useEffect(() => {
-        services?.bus?.emit(
-          "filters:apply",
-          filters.filter((item) => item.enabled).map((item) => item.query)
-        );
-      }, [filters, services]);
-
       useEffect(() => {
         if (!initializedRef.current) {
           initializedRef.current = true;
@@ -757,7 +755,7 @@
 
     const promoteFilter = (searchQuery) => {
       if (!searchQuery) return;
-      setFilters((currentFilters) => {
+      viewerStore?.setSearchFilters((currentFilters) => {
         const existingIndex = currentFilters.findIndex((item) => item.query === searchQuery);
         if (existingIndex >= 0) {
           return currentFilters.map((item, index) =>
@@ -826,7 +824,7 @@
     };
 
     const toggleFilter = (targetQuery) => {
-      setFilters((currentFilters) =>
+      viewerStore?.setSearchFilters((currentFilters) =>
         currentFilters.map((item) =>
           item.query === targetQuery ? { ...item, enabled: !item.enabled } : item
         )
@@ -834,7 +832,7 @@
     };
 
     const removeFilter = (targetQuery) => {
-      setFilters((currentFilters) =>
+      viewerStore?.setSearchFilters((currentFilters) =>
         currentFilters.filter((item) => item.query !== targetQuery)
       );
     };

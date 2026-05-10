@@ -218,12 +218,17 @@ LogServices.createRootServices = ({ pageData }) => {
       ? pageData.view
       : {};
   const events = Array.isArray(logData?.events) ? logData.events : [];
+  const viewerStore =
+    typeof window.EventLog2?.createViewerStore === "function"
+      ? window.EventLog2.createViewerStore({ logData, bus })
+      : null;
   const standalone = LogServices.isStandalone();
   return {
     plugin,
     view,
     bus,
     logData,
+    viewerStore,
     searchWorker: LogSearch.createWorker(events),
     bookmarks: standalone
       ? LogServices.createDisabledBookmarkService()
