@@ -1,5 +1,6 @@
 window.LogMainViewChart = window.LogMainViewChart || {};
 window.LogMainViewTimeline = window.LogMainViewTimeline || {};
+const signalEffect = window.EventLog2UI?.signals?.effect || null;
 
 LogMainViewChart.registry = LogMainViewChart.registry || new Map();
 LogMainViewTimeline.registry = LogMainViewTimeline.registry || new Map();
@@ -375,9 +376,11 @@ const buildTimelineDatasets = (view, context) => {
 
 const createTimelineChartController = (panel, context) => {
   const allEvents = Array.isArray(context.logData?.events) ? context.logData.events : [];
-  let filteredEvents = allEvents;
-  let selectedRowId = null;
-  let currentViewId = localStorage.getItem("loglayout.timeline.view") || "events";
+  let filteredEvents = Array.isArray(context.viewerStore?.filteredEvents?.value)
+    ? context.viewerStore.filteredEvents.value
+    : allEvents;
+  let selectedRowId = context.viewerStore?.selectedEvent?.value?.row_id ?? null;
+  let currentViewId = context.viewerStore?.timelineView?.value || "events";
   let resizeObserver = null;
   const debugTimeline =
     window.localStorage?.getItem("loglayout.debug.timeline") === "true" ||
@@ -509,7 +512,6 @@ const createTimelineChartController = (panel, context) => {
         },
       },
       onClick(event) {
-        if (!context.bus) return;
         const pos = Chart.helpers.getRelativePosition(event, chart);
         const markers = chart.$timelineMarkers || [];
         const hit = markers.find((marker) => {
@@ -637,7 +639,7 @@ const createTimelineChartController = (panel, context) => {
     const view = listViews().find((entry) => entry.id === viewId) || ensureCurrentView();
     if (!view) return;
     currentViewId = view.id;
-    localStorage.setItem("loglayout.timeline.view", currentViewId);
+    context.viewerStore?.setTimelineView?.(currentViewId);
 
     const timelineContext = {
       allEvents,
@@ -699,7 +701,54 @@ const createTimelineChartController = (panel, context) => {
   };
 
   const off = [];
-  if (context.bus) {
+  if (context.viewerStore && typeof signalEffect === "function") {
+    off.push(
+      signalEffect(() => {
+        filteredEvents = Array.isArray(context.viewerStore.filteredEvents?.value)
+          ? context.viewerStore.filteredEvents.value
+          : allEvents;
+        applyView(currentViewId);
+      })
+    );
+    off.push(
+      signalEffect(() => {
+        const payload = context.viewerStore.logScroll?.value || null;
+        chart.$scrollSeconds =
+          payload && typeof payload.seconds === "number" ? payload.seconds : undefined;
+        chart.update("none");
+        syncHoverOverlay();
+      })
+    );
+    off.push(
+      signalEffect(() => {
+        context.viewerStore.bookmarkVersion?.value;
+        chart.update("none");
+        syncHoverOverlay();
+      })
+    );
+    off.push(
+      signalEffect(() => {
+        context.viewerStore.commentVersion?.value;
+        chart.update("none");
+        syncHoverOverlay();
+      })
+    );
+    off.push(
+      signalEffect(() => {
+        selectedRowId = context.viewerStore.selectedEvent?.value?.row_id ?? null;
+        chart.update("none");
+        syncHoverOverlay();
+      })
+    );
+    off.push(
+      signalEffect(() => {
+        const nextViewId = context.viewerStore.timelineView?.value || currentViewId;
+        if (nextViewId !== currentViewId) {
+          applyView(nextViewId);
+        }
+      })
+    );
+  } else if (context.bus) {
     off.push(
       context.bus.on("log:filtered", (filtered) => {
         filteredEvents = Array.isArray(filtered) ? filtered : allEvents;

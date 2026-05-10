@@ -18,12 +18,13 @@ LogServices.createEventBus = () => {
   };
 };
 
-LogServices.createBookmarkService = ({ logData, bus }) => {
+LogServices.createBookmarkService = ({ logData, bus, viewerStore }) => {
   const events = Array.isArray(logData?.events) ? logData.events : [];
   const validIds = new Set(events.map((event) => String(event.row_id)));
   let bookmarks = {};
 
   const notify = () => {
+    viewerStore?.bumpBookmarkVersion?.();
     if (bus) bus.emit("bookmarks:changed", getAllWithColors());
   };
 
@@ -84,12 +85,13 @@ LogServices.createBookmarkService = ({ logData, bus }) => {
   return { cycle, setColor, getColor, isBookmarked, getAll, getAllWithColors };
 };
 
-LogServices.createCommentService = ({ logData, bus }) => {
+LogServices.createCommentService = ({ logData, bus, viewerStore }) => {
   const events = Array.isArray(logData?.events) ? logData.events : [];
   const validIds = new Set(events.map((event) => String(event.row_id)));
   let comments = [];
 
   const notify = () => {
+    viewerStore?.bumpCommentVersion?.();
     if (bus) bus.emit("comments:changed", getByRowId());
   };
 
@@ -232,9 +234,9 @@ LogServices.createRootServices = ({ pageData }) => {
     searchWorker: LogSearch.createWorker(events),
     bookmarks: standalone
       ? LogServices.createDisabledBookmarkService()
-      : LogServices.createBookmarkService({ logData, bus }),
+      : LogServices.createBookmarkService({ logData, bus, viewerStore }),
     comments: standalone
       ? LogServices.createDisabledCommentService()
-      : LogServices.createCommentService({ logData, bus }),
+      : LogServices.createCommentService({ logData, bus, viewerStore }),
   };
 };

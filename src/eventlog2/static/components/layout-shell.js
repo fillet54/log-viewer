@@ -52,15 +52,15 @@
     const rightPaneRef = useRef ? useRef(null) : { current: null };
     const detailCollapsed = Boolean(viewerStore?.detailCollapsed?.value);
     const bottomCollapsed = Boolean(viewerStore?.bottomCollapsed?.value);
+    const topSplitSizes = viewerStore?.topSplitSizes?.value || TOP_SPLIT_DEFAULT;
+    const rootSplitSizes = viewerStore?.rootSplitSizes?.value || ROOT_SPLIT_DEFAULT;
+    const rootExpandedSizes = viewerStore?.rootExpandedSizes?.value || ROOT_SPLIT_DEFAULT;
     const [bottomHeaderHeight, setBottomHeaderHeight] = useState ? useState(34) : [34, () => {}];
 
     const loadRootSizes = () => {
-      const rootSizes = loadSizes(STORAGE_KEYS.root, ROOT_SPLIT_DEFAULT);
-      const savedExpanded = loadSizes(STORAGE_KEYS.rootExpanded, ROOT_SPLIT_DEFAULT);
-      const safeSizes =
-        rootSizes[1] > 6 ? rootSizes : savedExpanded[1] > 6 ? savedExpanded : ROOT_SPLIT_DEFAULT;
-      saveSizes(STORAGE_KEYS.root, safeSizes);
-      return safeSizes;
+      const rootSizes = rootSplitSizes;
+      const savedExpanded = rootExpandedSizes;
+      return rootSizes[1] > 6 ? rootSizes : savedExpanded[1] > 6 ? savedExpanded : ROOT_SPLIT_DEFAULT;
     };
 
     ui.appHooks.useSplit({
@@ -68,7 +68,7 @@
       enabled: !detailCollapsed,
       options: {
         direction: "horizontal",
-        sizes: loadSizes(STORAGE_KEYS.top, TOP_SPLIT_DEFAULT),
+        sizes: topSplitSizes,
         minSize: [420, 240],
         gutterSize: 10,
         elementStyle: (dimension, size, gutterSizeValue) => ({
@@ -78,10 +78,10 @@
           "flex-basis": `${gutterSizeValue}px`,
         }),
         onDragEnd: (sizes) => {
-          saveSizes(STORAGE_KEYS.top, sizes);
+          viewerStore?.setTopSplitSizes?.(sizes);
         },
       },
-      dependencies: [detailCollapsed],
+      dependencies: [detailCollapsed, topSplitSizes[0], topSplitSizes[1]],
     });
 
     ui.appHooks.useSplit({
@@ -99,11 +99,11 @@
           "flex-basis": `${gutterSizeValue}px`,
         }),
         onDragEnd: (sizes) => {
-          saveSizes(STORAGE_KEYS.root, sizes);
-          if (sizes[1] > 6) saveSizes(STORAGE_KEYS.rootExpanded, sizes);
+          viewerStore?.setRootSplitSizes?.(sizes);
+          if (sizes[1] > 6) viewerStore?.setRootExpandedSizes?.(sizes);
         },
       },
-      dependencies: [bottomCollapsed],
+      dependencies: [bottomCollapsed, rootSplitSizes[0], rootSplitSizes[1], rootExpandedSizes[0], rootExpandedSizes[1]],
     });
 
     if (typeof useLayoutEffect === "function") {

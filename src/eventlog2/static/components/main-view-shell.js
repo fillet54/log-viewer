@@ -73,14 +73,13 @@
       const next = services?.bookmarks?.cycle(event.row_id) || 0;
       row.classList.toggle("is-bookmarked", next > 0);
       row.dataset.bookmarkColor = String(next);
-      services?.bus?.emit("bookmarks:changed", services?.bookmarks?.getAllWithColors() || {});
     });
 
     row.querySelectorAll(".match-link").forEach((button) => {
       button.addEventListener("click", (eventClick) => {
         eventClick.stopPropagation();
         const linkedRowId = button.dataset.linkedRowId;
-        if (!linkedRowId || !services?.bus) return;
+        if (!linkedRowId) return;
         const linkedEvent = eventByRowId.get(String(linkedRowId)) || null;
         if (linkedEvent) {
           if (services?.viewerStore) services.viewerStore.setSelectedEvent(linkedEvent);
@@ -329,6 +328,7 @@
     const selectedEvent = viewerStore?.selectedEvent?.value || null;
     const filteredEvents = viewerStore?.filteredEvents?.value || events;
     const jumpTarget = viewerStore?.logJump?.value || null;
+    const bookmarkVersion = viewerStore?.bookmarkVersion?.value || 0;
     const rootRef = useRef ? useRef(null) : { current: null };
     const chartRegionRef = useRef ? useRef(null) : { current: null };
     const logRegionRef = useRef ? useRef(null) : { current: null };
@@ -346,11 +346,10 @@
     const eventByRowIdRef = useRef ? useRef(buildEventByRowId(events)) : { current: buildEventByRowId(events) };
 
     const viewMode = viewerStore?.mainViewMode?.value || VIEW_MODE_SPLIT;
-    const [chartSplit, setChartSplit] = useState ? useState(() => loadSizes(STORAGE_KEYS.mainViewSplit, [36, 64])) : [[36, 64], () => {}];
+    const chartSplit = viewerStore?.mainViewSplitSizes?.value || [36, 64];
     const [chartTypes, setChartTypes] = useState ? useState([]) : [[], () => {}];
-    const [selectedChartType, setSelectedChartType] = useState ? useState("") : ["", () => {}];
+    const selectedChartType = viewerStore?.chartType?.value || "";
     const [rowStride, setRowStride] = useState ? useState(38) : [38, () => {}];
-    const [bookmarkVersion, setBookmarkVersion] = useState ? useState(0) : [0, () => {}];
     const [highlightState, setHighlightState] = useState ? useState({ rowId: null, nonce: 0 }) : [{ rowId: null, nonce: 0 }, () => {}];
 
     filteredRef.current = filteredEvents;
@@ -371,8 +370,7 @@
           "flex-basis": `${gutterSizeValue}px`,
         }),
         onDragEnd: (sizes) => {
-          setChartSplit(sizes);
-          saveSizes(STORAGE_KEYS.mainViewSplit, sizes);
+          viewerStore?.setMainViewSplitSizes?.(sizes);
           chartControllerRef.current?.resize?.();
           requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
         },
@@ -457,7 +455,7 @@
     const emitScrollState = () => {
       const container = logBodyRef.current;
       const list = filteredRef.current;
-      if (!container || !list.length || !services?.bus) return;
+      if (!container || !list.length) return;
 
       const index = Math.max(
         0,
@@ -468,7 +466,7 @@
       );
       const current = list[index] || null;
       if (current) {
-        services.bus.emit("log:scroll", { seconds: current.norm_time, rowId: current.row_id });
+        viewerStore?.setLogScroll?.({ seconds: current.norm_time, rowId: current.row_id });
       }
     };
 
@@ -482,10 +480,6 @@
     });
 
     const visibleItems = filteredEvents.slice(virtual.startIndex, virtual.endIndex);
-
-    ui.appHooks.useBusSubscription("bookmarks:changed", () => {
-      setBookmarkVersion((value) => value + 1);
-    });
 
     if (typeof useLayoutEffect === "function") {
       useLayoutEffect(() => {
@@ -502,7 +496,7 @@
         setChartTypes(types);
 
         if (!types.length) {
-          setSelectedChartType("");
+          viewerStore?.setChartType("");
           return () => {
             controller.destroy?.();
             chartControllerRef.current = null;
@@ -515,7 +509,6 @@
           : types.some((type) => type.id === controller.getCurrentType())
             ? controller.getCurrentType()
             : types[0].id;
-        setSelectedChartType(nextType);
         viewerStore?.setChartType(nextType);
         controller.setType(nextType);
 
@@ -640,7 +633,6 @@
           commandBarRef=${commandBarRef}
           viewMode=${safeViewMode}
           onChartTypeChange=${(nextType) => {
-            setSelectedChartType(nextType);
             viewerStore?.setChartType(nextType);
           }}
           onViewModeChange=${(nextMode) => {

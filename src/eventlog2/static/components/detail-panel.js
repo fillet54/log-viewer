@@ -305,24 +305,16 @@
     const services = ui.appHooks.useAppServices();
     const viewerStore = services?.viewerStore || null;
     const selectedEvent = viewerStore?.selectedEvent?.value || null;
+    const bookmarkVersion = viewerStore?.bookmarkVersion?.value || 0;
+    const commentVersion = viewerStore?.commentVersion?.value || 0;
     const [activeReply, setActiveReply] = useState ? useState(null) : [null, () => {}];
     const [commentBody, setCommentBody] = useState ? useState("") : ["", () => {}];
     const [collapsedPaths, setCollapsedPaths] = useState ? useState(() => new Set()) : [new Set(), () => {}];
-    const [, setBookmarkVersion] = useState ? useState(0) : [0, () => {}];
-    const [, setCommentVersion] = useState ? useState(0) : [0, () => {}];
 
     const bookmarks = services?.bookmarks || null;
     const comments = services?.comments || null;
-    const bus = services?.bus || null;
     const bookmarksEnabled = bookmarks?.enabled !== false;
     const commentsEnabled = comments?.enabled !== false;
-
-    ui.appHooks.useBusSubscription("bookmarks:changed", () => {
-      setBookmarkVersion((value) => value + 1);
-    });
-    ui.appHooks.useBusSubscription("comments:changed", () => {
-      setCommentVersion((value) => value + 1);
-    });
 
     if (typeof useEffect === "function") {
       useEffect(() => {
@@ -351,7 +343,6 @@
     const setBookmarkColor = (nextColor) => {
       if (!event) return;
       bookmarks?.setColor(event.row_id, Number(nextColor) || 1);
-      if (bus) bus.emit("bookmarks:changed", bookmarks?.getAllWithColors() || {});
     };
 
     const submitComment = async () => {

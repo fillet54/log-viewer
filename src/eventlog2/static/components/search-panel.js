@@ -249,14 +249,13 @@
       const next = services?.bookmarks?.cycle(event.row_id) || 0;
       row.classList.toggle("is-bookmarked", next > 0);
       row.dataset.bookmarkColor = String(next);
-      services?.bus?.emit("bookmarks:changed", services?.bookmarks?.getAllWithColors() || {});
     });
 
     row.querySelectorAll(".match-link").forEach((button) => {
       button.addEventListener("click", (eventClick) => {
         eventClick.stopPropagation();
         const linkedRowId = button.dataset.linkedRowId;
-        if (!linkedRowId || !services?.bus) return;
+        if (!linkedRowId) return;
         const linkedEvent = events.find((entry) => String(entry.row_id) === String(linkedRowId)) || null;
         if (linkedEvent) {
           if (services?.viewerStore) services.viewerStore.setSelectedEvent(linkedEvent);
@@ -618,16 +617,17 @@
     const events = Array.isArray(services?.logData?.events) ? services.logData.events : [];
     const activityEnabled =
       services?.bookmarks?.enabled !== false || services?.comments?.enabled !== false;
-    const [currentTab, setCurrentTab] = useState ? useState(SEARCH_TAB_HISTORY) : [SEARCH_TAB_HISTORY, () => {}];
+    const currentTab = viewerStore?.searchTab?.value || SEARCH_TAB_HISTORY;
     const [query, setQuery] = useState ? useState("") : ["", () => {}];
     const [results, setResults] = useState ? useState(() => events.slice(0, 200)) : [[], () => {}];
     const [rowStride, setRowStride] = useState ? useState(28) : [28, () => {}];
     const [resultsVersion, setResultsVersion] = useState ? useState(0) : [0, () => {}];
-    const [bookmarkVersion, setBookmarkVersion] = useState ? useState(0) : [0, () => {}];
-    const [commentVersion, setCommentVersion] = useState ? useState(0) : [0, () => {}];
-    const [history, setHistory] = ui.appHooks.useLocalStorageState(STORAGE_KEYS.searchHistory, []);
-    const [pinned, setPinned] = ui.appHooks.useLocalStorageState(STORAGE_KEYS.searchPinned, []);
+    const bookmarkVersion = viewerStore?.bookmarkVersion?.value || 0;
+    const commentVersion = viewerStore?.commentVersion?.value || 0;
+    const history = viewerStore?.searchHistory?.value || [];
+    const pinned = viewerStore?.searchPinned?.value || [];
     const filters = viewerStore?.searchFilters?.value || [];
+    const searchSplitSizes = viewerStore?.searchSplitSizes?.value || [28, 72];
 
     const pendingSearchRef = useRef ? useRef(0) : { current: 0 };
     const initializedRef = useRef ? useRef(false) : { current: false };
@@ -653,7 +653,7 @@
       refs: [splitLeftRef, splitRightRef],
       enabled: true,
       options: {
-        sizes: loadSizes(STORAGE_KEYS.search, [28, 72]),
+        sizes: searchSplitSizes,
         minSize: [160, 320],
         gutterSize: 8,
         elementStyle: (dimension, size, gutterSizeValue) => ({
@@ -662,8 +662,9 @@
         gutterStyle: (dimension, gutterSizeValue) => ({
           "flex-basis": `${gutterSizeValue}px`,
         }),
-        onDragEnd: (sizes) => saveSizes(STORAGE_KEYS.search, sizes),
+        onDragEnd: (sizes) => viewerStore?.setSearchSplitSizes?.(sizes),
       },
+      dependencies: [searchSplitSizes[0], searchSplitSizes[1]],
     });
 
     const virtual = ui.appHooks.useVirtualList({
@@ -675,17 +676,13 @@
       dependencies: [currentTab, rowVersion],
     });
 
-    ui.appHooks.useBusSubscription("bookmarks:changed", () => {
-      setBookmarkVersion((value) => value + 1);
-    });
-    ui.appHooks.useBusSubscription("comments:changed", () => {
-      setCommentVersion((value) => value + 1);
-    });
-
     if (typeof useEffect === "function") {
       useEffect(() => {
         if (!initializedRef.current) {
           initializedRef.current = true;
+          if (currentTab !== SEARCH_TAB_HISTORY) {
+            executeSearch(false, currentTab, query);
+          }
           return;
         }
         executeSearch(false, currentTab, query);
@@ -737,7 +734,7 @@
     const addHistory = (searchQuery, count, color) => {
       if (searchQuery === "" && !count) return;
       const item = normalizeHistoryItem(searchQuery, count, color);
-      setHistory((current) => {
+      viewerStore?.setSearchHistory((current) => {
         const next = current.filter((entry) => entry.query !== searchQuery);
         next.unshift(item);
         return next.slice(0, 50);
@@ -745,7 +742,7 @@
     };
 
     const togglePin = (searchQuery) => {
-      setPinned((currentPinned) => {
+      viewerStore?.setSearchPinned((currentPinned) => {
         const index = currentPinned.findIndex((item) => item.query === searchQuery);
         if (index >= 0) {
           return currentPinned.filter((item) => item.query !== searchQuery);
@@ -771,7 +768,7 @@
     const clearHistory = () => {
       const pinnedQueries = new Set(pinned.map((item) => item.query));
       const filterQueries = new Set(filters.map((item) => item.query));
-      setHistory((currentHistory) =>
+      viewerStore?.setSearchHistory((currentHistory) =>
         currentHistory.filter(
           (item) => pinnedQueries.has(item.query) || filterQueries.has(item.query)
         )
@@ -855,7 +852,9 @@
           currentTab=${currentTab}
           activityEnabled=${activityEnabled}
           onSelectTab=${(tab) =>
-            setCurrentTab(tab === SEARCH_TAB_BOOKMARKS && !activityEnabled ? SEARCH_TAB_HISTORY : tab)}
+            viewerStore?.setSearchTab(
+              tab === SEARCH_TAB_BOOKMARKS && !activityEnabled ? SEARCH_TAB_HISTORY : tab
+            )}
         />
         <div class="pane-body search-pane">
           <div id="search-split" class=${`search-split${currentTab === SEARCH_TAB_BOOKMARKS ? " search-single" : ""}`}>
