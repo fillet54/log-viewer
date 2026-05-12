@@ -62,7 +62,7 @@ if (window.EventLog2?._pendingViewRegistrations?.length) {
 }
 
 LogMainViewChart.mount = (root, services) => {
-  const { logData, bus, bookmarks, comments, plugin, viewerStore } = services;
+  const { logData, bookmarks, comments, plugin, viewerStore } = services;
   if (!logData) return null;
 
   const chartRegion = queryById(root, "chart-region");
@@ -82,7 +82,6 @@ LogMainViewChart.mount = (root, services) => {
   const buildContext = (extra = {}) => ({
     root,
     plugin,
-    bus,
     viewerStore,
     logData,
     bookmarks,
@@ -522,18 +521,15 @@ const createTimelineChartController = (panel, context) => {
         if (hit) {
           const selected = allEvents.find((entry) => String(entry.row_id) === String(hit.rowId));
           if (selected) {
-            if (context.viewerStore) context.viewerStore.setSelectedEvent(selected);
-            else context.bus.emit("event:selected", selected);
+            context.viewerStore?.setSelectedEvent(selected);
           }
-          if (context.viewerStore) context.viewerStore.setLogJump({ rowId: hit.rowId });
-          else context.bus.emit("log:jump", { rowId: hit.rowId });
+          context.viewerStore?.setLogJump({ rowId: hit.rowId });
           return;
         }
         const seconds = chart.scales.x.getValueForPixel(pos.x);
         if (Number.isFinite(seconds)) {
           const payload = { seconds: Math.max(0, Math.floor(seconds)) };
-          if (context.viewerStore) context.viewerStore.setLogJump(payload);
-          else context.bus.emit("log:jump", payload);
+          context.viewerStore?.setLogJump(payload);
         }
       },
       onHover(event) {
@@ -746,37 +742,6 @@ const createTimelineChartController = (panel, context) => {
         if (nextViewId !== currentViewId) {
           applyView(nextViewId);
         }
-      })
-    );
-  } else if (context.bus) {
-    off.push(
-      context.bus.on("log:filtered", (filtered) => {
-        filteredEvents = Array.isArray(filtered) ? filtered : allEvents;
-        applyView(currentViewId);
-      })
-    );
-    off.push(
-      context.bus.on("log:scroll", (payload) => {
-        if (payload && typeof payload.seconds === "number") {
-          chart.$scrollSeconds = payload.seconds;
-          chart.update("none");
-          syncHoverOverlay();
-        }
-      })
-    );
-    off.push(context.bus.on("bookmarks:changed", () => {
-      chart.update("none");
-      syncHoverOverlay();
-    }));
-    off.push(context.bus.on("comments:changed", () => {
-      chart.update("none");
-      syncHoverOverlay();
-    }));
-    off.push(
-      context.bus.on("event:selected", (event) => {
-        selectedRowId = event?.row_id ?? null;
-        chart.update("none");
-        syncHoverOverlay();
       })
     );
   }

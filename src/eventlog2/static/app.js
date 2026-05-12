@@ -170,10 +170,6 @@ class LogViewerAppElement extends HTMLElement {
     return this._services?.logData || this._data || null;
   }
 
-  getBus() {
-    return this._services?.bus || null;
-  }
-
   getLogData() {
     return this._services?.logData || null;
   }

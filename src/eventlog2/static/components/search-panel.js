@@ -258,19 +258,15 @@
         if (!linkedRowId) return;
         const linkedEvent = events.find((entry) => String(entry.row_id) === String(linkedRowId)) || null;
         if (linkedEvent) {
-          if (services?.viewerStore) services.viewerStore.setSelectedEvent(linkedEvent);
-          else services.bus.emit("event:selected", linkedEvent);
+          services?.viewerStore?.setSelectedEvent(linkedEvent);
         }
-        if (services?.viewerStore) services.viewerStore.setLogJump({ rowId: linkedRowId });
-        else services.bus.emit("log:jump", { rowId: linkedRowId });
+        services?.viewerStore?.setLogJump({ rowId: linkedRowId });
       });
     });
 
     row.addEventListener("click", () => {
-      if (services?.viewerStore) services.viewerStore.setSelectedEvent(event);
-      else if (services?.bus) services.bus.emit("event:selected", event);
-      if (services?.viewerStore) services.viewerStore.setLogJump({ rowId: event.row_id });
-      else if (services?.bus) services.bus.emit("log:jump", { rowId: event.row_id });
+      services?.viewerStore?.setSelectedEvent(event);
+      services?.viewerStore?.setLogJump({ rowId: event.row_id });
     });
 
     return row;

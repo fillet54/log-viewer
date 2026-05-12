@@ -3,6 +3,7 @@ window.EventLog2PluginViews.coreEvent = window.EventLog2PluginViews.coreEvent ||
 
 (function () {
   if (!window.EventLog2?.registerPluginChartType || !window.EventLog2?.registerPluginTimelineView) return;
+  const signalEffect = window.EventLog2UI?.signals?.effect || null;
 
   const getEvents = (logData) => (Array.isArray(logData?.events) ? logData.events : []);
 
@@ -112,14 +113,25 @@ window.EventLog2PluginViews.coreEvent = window.EventLog2PluginViews.coreEvent ||
     renderSystemStatus();
 
     const off = [];
-    if (context.bus) {
-      off.push(context.bus.on("log:scroll", (payload) => renderSystemStatus(payload?.rowId ?? null)));
-      off.push(context.bus.on("event:selected", (event) => renderSystemStatus(event?.row_id ?? null)));
+    const resolveCurrentRowId = () =>
+      context.viewerStore?.selectedEvent?.value?.row_id ??
+      context.viewerStore?.logScroll?.value?.rowId ??
+      events[0]?.row_id ??
+      null;
+
+    if (context.viewerStore && typeof signalEffect === "function") {
+      off.push(
+        signalEffect(() => {
+          const selectedRowId = context.viewerStore.selectedEvent?.value?.row_id ?? null;
+          const scrollRowId = context.viewerStore.logScroll?.value?.rowId ?? null;
+          renderSystemStatus(selectedRowId ?? scrollRowId ?? events[0]?.row_id ?? null);
+        })
+      );
     }
 
     return {
       activate() {
-        renderSystemStatus();
+        renderSystemStatus(resolveCurrentRowId());
       },
       destroy() {
         off.forEach((unsubscribe) => unsubscribe && unsubscribe());

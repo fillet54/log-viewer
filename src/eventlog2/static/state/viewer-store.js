@@ -118,22 +118,6 @@
       .filter(Boolean);
   };
 
-  const mergeFilterQueries = (currentFilters, queries) => {
-    const normalizedQueries = normalizeFilters(queries).map((filter) => filter.query);
-    const enabled = new Set(normalizedQueries);
-    const nextFilters = normalizeFilters(currentFilters).map((filter) => ({
-      ...filter,
-      enabled: enabled.has(filter.query),
-    }));
-
-    normalizedQueries.forEach((query) => {
-      if (nextFilters.some((filter) => filter.query === query)) return;
-      nextFilters.push({ query, enabled: true });
-    });
-
-    return nextFilters;
-  };
-
   const sameEvent = (left, right) => {
     if (left === right) return true;
     if (!left || !right) return false;
@@ -189,14 +173,8 @@
     return true;
   };
 
-  window.EventLog2.createViewerStore = ({ logData, bus }) => {
+  window.EventLog2.createViewerStore = ({ logData }) => {
     const allEvents = Array.isArray(logData?.events) ? logData.events : [];
-    const suppress = {
-      selectedEvent: 0,
-      searchFilters: 0,
-      filteredEvents: 0,
-      logJump: 0,
-    };
     const defaultTopSplit = [72, 28];
     const defaultRootSplit = [70, 30];
     const defaultSearchSplit = [28, 72];
@@ -336,75 +314,33 @@
       ARRAY_STORAGE
     );
 
-    const setSelectedEvent = (event, options = {}) => {
+    const setSelectedEvent = (event) => {
       const nextEvent = event || null;
       if (!sameEvent(selectedEvent.value, nextEvent)) {
         selectedEvent.value = nextEvent;
       }
-
-      if (options.emitBus === false || !bus) return nextEvent;
-
-      suppress.selectedEvent += 1;
-      try {
-        bus.emit("event:selected", nextEvent);
-      } finally {
-        suppress.selectedEvent -= 1;
-      }
       return nextEvent;
     };
 
-    const setSearchFilters = (nextValue, options = {}) => {
+    const setSearchFilters = (nextValue) => {
       const nextFilters = normalizeFilters(
         typeof nextValue === "function" ? nextValue(searchFilters.value) : nextValue
       );
       searchFilters.value = nextFilters;
       persistFilters();
-
-      if (options.emitBus === false || !bus) return nextFilters;
-
-      suppress.searchFilters += 1;
-      try {
-        bus.emit(
-          "filters:apply",
-          nextFilters.filter((filter) => filter.enabled).map((filter) => filter.query)
-        );
-      } finally {
-        suppress.searchFilters -= 1;
-      }
       return nextFilters;
     };
 
-    const setFilteredEvents = (nextEvents, options = {}) => {
+    const setFilteredEvents = (nextEvents) => {
       const resolvedEvents = Array.isArray(nextEvents) ? nextEvents : allEvents;
       filteredEvents.value = resolvedEvents;
-
-      if (options.emitBus === false || !bus) return resolvedEvents;
-
-      suppress.filteredEvents += 1;
-      try {
-        bus.emit("log:filtered", resolvedEvents);
-      } finally {
-        suppress.filteredEvents -= 1;
-      }
       return resolvedEvents;
     };
 
-    const setLogJump = (nextPayload, options = {}) => {
+    const setLogJump = (nextPayload) => {
       const normalized = normalizeJumpTarget(nextPayload, ++jumpNonce);
       if (!normalized) return null;
       logJump.value = normalized;
-
-      if (options.emitBus === false || !bus) return normalized;
-
-      suppress.logJump += 1;
-      try {
-        bus.emit("log:jump", {
-          rowId: normalized.rowId,
-          seconds: normalized.seconds,
-        });
-      } finally {
-        suppress.logJump -= 1;
-      }
       return normalized;
     };
 
@@ -553,28 +489,6 @@
       commentVersion.value = Number(commentVersion.value || 0) + 1;
       return commentVersion.value;
     };
-
-    if (bus) {
-      bus.on("event:selected", (event) => {
-        if (suppress.selectedEvent) return;
-        if (!sameEvent(selectedEvent.value, event || null)) {
-          selectedEvent.value = event || null;
-        }
-      });
-
-      bus.on("filters:apply", (queries) => {
-        if (suppress.searchFilters) return;
-        searchFilters.value = mergeFilterQueries(searchFilters.value, queries || []);
-        persistFilters();
-      });
-
-      bus.on("log:jump", (payload) => {
-        if (suppress.logJump) return;
-        const normalized = normalizeJumpTarget(payload, ++jumpNonce);
-        if (!normalized) return;
-        logJump.value = normalized;
-      });
-    }
 
     return {
       allEvents,

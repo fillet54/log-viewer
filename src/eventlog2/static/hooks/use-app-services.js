@@ -26,7 +26,6 @@
   };
 
   ui.appHooks.useAppServices = useAppServices;
-  ui.appHooks.useAppBus = selectService((services) => services?.bus || null);
   ui.appHooks.useAppLogData = selectService((services) => services?.logData || null);
   ui.appHooks.useAppView = selectService((services) => services?.view || null);
   ui.appHooks.useAppPlugin = selectService((services) => services?.plugin || null);

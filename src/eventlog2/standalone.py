@@ -19,7 +19,6 @@ SCRIPT_PATHS = [
     "static/runtime.js",
     "static/context.js",
     "static/hooks/use-app-services.js",
-    "static/hooks/use-bus.js",
     "static/hooks/use-local-storage.js",
     "static/hooks/use-split.js",
     "static/hooks/use-virtual-list.js",

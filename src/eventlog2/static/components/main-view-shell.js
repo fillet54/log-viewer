@@ -82,17 +82,14 @@
         if (!linkedRowId) return;
         const linkedEvent = eventByRowId.get(String(linkedRowId)) || null;
         if (linkedEvent) {
-          if (services?.viewerStore) services.viewerStore.setSelectedEvent(linkedEvent);
-          else services.bus.emit("event:selected", linkedEvent);
+          services?.viewerStore?.setSelectedEvent(linkedEvent);
         }
-        if (services?.viewerStore) services.viewerStore.setLogJump({ rowId: linkedRowId });
-        else services.bus.emit("log:jump", { rowId: linkedRowId });
+        services?.viewerStore?.setLogJump({ rowId: linkedRowId });
       });
     });
 
     row.addEventListener("click", () => {
-      if (services?.viewerStore) services.viewerStore.setSelectedEvent(event);
-      else services?.bus?.emit("event:selected", event);
+      services?.viewerStore?.setSelectedEvent(event);
     });
 
     return row;
@@ -401,8 +398,7 @@
       });
 
       if (selected) {
-        if (viewerStore) viewerStore.setSelectedEvent(selected);
-        else if (services?.bus) services.bus.emit("event:selected", selected);
+        viewerStore?.setSelectedEvent(selected);
       }
       return selected;
     };

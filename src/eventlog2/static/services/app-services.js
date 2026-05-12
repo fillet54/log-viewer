@@ -2,30 +2,13 @@ window.LogServices = window.LogServices || {};
 
 LogServices.isStandalone = () => document.body.classList.contains("app-body-standalone");
 
-LogServices.createEventBus = () => {
-  const listeners = new Map();
-  return {
-    on(event, handler) {
-      if (!listeners.has(event)) listeners.set(event, new Set());
-      listeners.get(event).add(handler);
-      return () => listeners.get(event)?.delete(handler);
-    },
-    emit(event, payload) {
-      const handlers = listeners.get(event);
-      if (!handlers) return;
-      handlers.forEach((handler) => handler(payload));
-    },
-  };
-};
-
-LogServices.createBookmarkService = ({ logData, bus, viewerStore }) => {
+LogServices.createBookmarkService = ({ logData, viewerStore }) => {
   const events = Array.isArray(logData?.events) ? logData.events : [];
   const validIds = new Set(events.map((event) => String(event.row_id)));
   let bookmarks = {};
 
   const notify = () => {
     viewerStore?.bumpBookmarkVersion?.();
-    if (bus) bus.emit("bookmarks:changed", getAllWithColors());
   };
 
   const load = () => {
@@ -85,14 +68,13 @@ LogServices.createBookmarkService = ({ logData, bus, viewerStore }) => {
   return { cycle, setColor, getColor, isBookmarked, getAll, getAllWithColors };
 };
 
-LogServices.createCommentService = ({ logData, bus, viewerStore }) => {
+LogServices.createCommentService = ({ logData, viewerStore }) => {
   const events = Array.isArray(logData?.events) ? logData.events : [];
   const validIds = new Set(events.map((event) => String(event.row_id)));
   let comments = [];
 
   const notify = () => {
     viewerStore?.bumpCommentVersion?.();
-    if (bus) bus.emit("comments:changed", getByRowId());
   };
 
   const load = () => {
@@ -201,7 +183,6 @@ LogServices.createDisabledCommentService = () => ({
 });
 
 LogServices.createRootServices = ({ pageData }) => {
-  const bus = LogServices.createEventBus();
   const pluginValue = pageData && typeof pageData === "object" ? pageData.plugin : null;
   const plugin =
     pluginValue && typeof pluginValue === "object"
@@ -222,21 +203,20 @@ LogServices.createRootServices = ({ pageData }) => {
   const events = Array.isArray(logData?.events) ? logData.events : [];
   const viewerStore =
     typeof window.EventLog2?.createViewerStore === "function"
-      ? window.EventLog2.createViewerStore({ logData, bus })
+      ? window.EventLog2.createViewerStore({ logData })
       : null;
   const standalone = LogServices.isStandalone();
   return {
     plugin,
     view,
-    bus,
     logData,
     viewerStore,
     searchWorker: LogSearch.createWorker(events),
     bookmarks: standalone
       ? LogServices.createDisabledBookmarkService()
-      : LogServices.createBookmarkService({ logData, bus, viewerStore }),
+      : LogServices.createBookmarkService({ logData, viewerStore }),
     comments: standalone
       ? LogServices.createDisabledCommentService()
-      : LogServices.createCommentService({ logData, bus, viewerStore }),
+      : LogServices.createCommentService({ logData, viewerStore }),
   };
 };
