@@ -60,8 +60,8 @@ SCRIPT_PATHS = [
     "static/logview/features/main/LogVirtualList.js",
     "static/logview/features/main/MainViewToolbar.js",
     "static/logview/features/main/MainViewShell.js",
-    "static/components/layout-shell.js",
-    "static/components/viewer-root.js",
+    "static/logview/features/layout/LayoutShell.js",
+    "static/logview/ViewerRoot.js",
     "static/app.js",
 ]
 
