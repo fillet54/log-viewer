@@ -11,311 +11,6 @@
   const VIEW_MODE_SPLIT = "split";
   const VIEW_MODE_CHART = "chart";
   const VIEW_MODE_LIST = "list";
-  const buildEventByRowId = (events) => {
-    const map = new Map();
-    events.forEach((event) => {
-      map.set(String(event.row_id), event);
-    });
-    return map;
-  };
-
-  const buildIndexByRowId = (events) => {
-    const map = new Map();
-    events.forEach((event, index) => {
-      map.set(String(event.row_id), index);
-    });
-    return map;
-  };
-
-  const findClosestIndexBySeconds = (events, targetSeconds) => {
-    if (!events.length) return null;
-    let lo = 0;
-    let hi = events.length - 1;
-
-    while (lo <= hi) {
-      const mid = Math.floor((lo + hi) / 2);
-      const seconds = events[mid].norm_time;
-      if (seconds === targetSeconds) return mid;
-      if (seconds < targetSeconds) lo = mid + 1;
-      else hi = mid - 1;
-    }
-
-    if (lo >= events.length) return events.length - 1;
-    if (hi < 0) return 0;
-    return Math.abs(events[lo].norm_time - targetSeconds) < Math.abs(events[hi].norm_time - targetSeconds)
-      ? lo
-      : hi;
-  };
-
-  const createRenderedLogRow = ({ event, services, selectedRowId }) => {
-    const rowTemplate = services?.rowTemplate || null;
-    const renderRow = window.EventLog2?.resolveRowRenderer
-      ? window.EventLog2.resolveRowRenderer(services?.plugin || null)
-      : null;
-
-    if (!rowTemplate || typeof renderRow !== "function") return null;
-
-    const row = renderRow(event, rowTemplate, {
-      bookmarks: services?.viewerStore || null,
-      view: services?.view || null,
-    });
-
-    if (!row) return null;
-    row.classList.toggle("log-selected", String(selectedRowId ?? "") === String(event.row_id));
-    return row;
-  };
-
-  const attachRenderedLogRow = ({ row, event, services, eventByRowId }) => {
-    if (!row) return null;
-
-    row.querySelector(".bookmark-toggle")?.addEventListener("click", (eventClick) => {
-      eventClick.stopPropagation();
-      const next = services?.viewerStore?.cycle(event.row_id) || 0;
-      row.classList.toggle("is-bookmarked", next > 0);
-      row.dataset.bookmarkColor = String(next);
-    });
-
-    row.querySelectorAll(".match-link").forEach((button) => {
-      button.addEventListener("click", (eventClick) => {
-        eventClick.stopPropagation();
-        const linkedRowId = button.dataset.linkedRowId;
-        if (!linkedRowId) return;
-        const linkedEvent = eventByRowId.get(String(linkedRowId)) || null;
-        if (linkedEvent) {
-          services?.viewerStore?.setSelectedEvent(linkedEvent);
-        }
-        services?.viewerStore?.setLogJump({ rowId: linkedRowId });
-      });
-    });
-
-    row.addEventListener("click", () => {
-      services?.viewerStore?.setSelectedEvent(event);
-    });
-
-    return row;
-  };
-
-  const ViewModeButton = ({ id, active, title, label, icon, onClick }) => html`
-    <button
-      id=${id}
-      class=${`button button-ghost button-xs view-mode-button${active ? " is-active" : ""}`}
-      role="tab"
-      aria-selected=${String(active)}
-      title=${title}
-      onClick=${onClick}
-    >
-      ${icon}
-      <span class="sr-only">${label}</span>
-    </button>
-  `;
-
-  const MainViewToolbar = ({
-    chartTypes,
-    selectedChartType,
-    commandBarRef,
-    viewMode,
-    onChartTypeChange,
-    onViewModeChange,
-  }) => html`
-    <div class="main-view-toolbar">
-      <div class="chart-type-picker">
-        <select
-          id="chart-type-select"
-          class="text-input text-input-small chart-type-select"
-          aria-label="Chart type"
-          value=${selectedChartType}
-          disabled=${chartTypes.length === 0}
-          onChange=${(event) => onChartTypeChange(event.currentTarget.value)}
-        >
-          ${chartTypes.map(
-            (type) => html`<option value=${type.id}>${type.label}</option>`
-          )}
-        </select>
-      </div>
-      <div id="chart-command-bar" ref=${commandBarRef} class="chart-command-bar"></div>
-      <div class="view-mode-toggle" role="tablist" aria-label="Main view layout">
-        <${ViewModeButton}
-          id="view-mode-split"
-          active=${viewMode === VIEW_MODE_SPLIT}
-          title="Show chart and log"
-          label="Chart and log"
-          onClick=${() => onViewModeChange(VIEW_MODE_SPLIT)}
-          icon=${html`
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="tool-icon" aria-hidden="true">
-              <rect x="4" y="5" width="16" height="6" rx="1.5" />
-              <rect x="4" y="13" width="16" height="6" rx="1.5" />
-            </svg>
-          `}
-        />
-        <${ViewModeButton}
-          id="view-mode-chart"
-          active=${viewMode === VIEW_MODE_CHART}
-          title="Show chart only"
-          label="Chart only"
-          onClick=${() => onViewModeChange(VIEW_MODE_CHART)}
-          icon=${html`
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="tool-icon" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V9m5 7V5m5 11v-4" />
-            </svg>
-          `}
-        />
-        <${ViewModeButton}
-          id="view-mode-list"
-          active=${viewMode === VIEW_MODE_LIST}
-          title="Show log only"
-          label="Log only"
-          onClick=${() => onViewModeChange(VIEW_MODE_LIST)}
-          icon=${html`
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="tool-icon" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h13M7 12h13M7 17h13" />
-              <circle cx="4" cy="7" r="1" fill="currentColor" stroke="none" />
-              <circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" />
-              <circle cx="4" cy="17" r="1" fill="currentColor" stroke="none" />
-            </svg>
-          `}
-        />
-      </div>
-    </div>
-  `;
-
-  const MainLogRow = ({
-    event,
-    services,
-    eventByRowId,
-    selectedRowId,
-    highlightRowId,
-    highlightNonce,
-    bookmarkState,
-  }) => {
-    const ref = useRef ? useRef(null) : { current: null };
-
-    if (typeof useLayoutEffect === "function") {
-      useLayoutEffect(() => {
-        const host = ref.current;
-        if (!host) return;
-
-        host.innerHTML = "";
-        const row = createRenderedLogRow({ event, services, selectedRowId });
-        if (!row) return;
-
-        if (String(highlightRowId ?? "") === String(event.row_id)) {
-          row.classList.remove("log-highlight");
-          void row.offsetWidth;
-          row.classList.add("log-highlight");
-        }
-
-        const mountedRow = attachRenderedLogRow({
-          row,
-          event,
-          services,
-          eventByRowId,
-        });
-
-        if (mountedRow) host.appendChild(mountedRow);
-      }, [
-        event?.row_id,
-        services,
-        eventByRowId,
-        selectedRowId,
-        highlightRowId,
-        highlightNonce,
-        bookmarkState,
-      ]);
-    }
-
-    return html`<div ref=${ref}></div>`;
-  };
-
-  const MainLogContent = ({
-    filteredEvents,
-    rowStride,
-    virtual,
-    visibleItems,
-    services,
-    eventByRowId,
-    selectedRowId,
-    highlightState,
-    bookmarkState,
-    logListRef,
-  }) => {
-    if (!filteredEvents.length) {
-      return html`
-        <div id="log-spacer"></div>
-        <div id="log-list" ref=${logListRef} class="mono-block">
-          <div class="no-results">No Results</div>
-        </div>
-      `;
-    }
-
-    return html`
-      <div id="log-spacer" style=${{ height: `${filteredEvents.length * rowStride}px` }}></div>
-      <div
-        id="log-list"
-        ref=${logListRef}
-        class="mono-block"
-        style=${{ transform: `translateY(${virtual.offsetY}px)` }}
-      >
-        ${visibleItems.map(
-          (event) => html`
-            <${MainLogRow}
-              event=${event}
-              services=${services}
-              eventByRowId=${eventByRowId}
-              selectedRowId=${selectedRowId}
-              highlightRowId=${highlightState.rowId}
-              highlightNonce=${highlightState.nonce}
-              bookmarkState=${bookmarkState}
-            />
-          `
-        )}
-      </div>
-    `;
-  };
-
-  const MainLogPane = ({
-    logRegionRef,
-    logBodyRef,
-    measureRef,
-    viewMode,
-    filteredEvents,
-    rowStride,
-    virtual,
-    visibleItems,
-    services,
-    eventByRowId,
-    selectedRowId,
-    highlightState,
-    bookmarkState,
-    logListRef,
-  }) => html`
-    <section
-      class="main-view-region main-view-log-region"
-      id="log-region"
-      ref=${logRegionRef}
-      style=${viewMode === VIEW_MODE_LIST
-        ? { flex: "1 1 auto" }
-        : viewMode === VIEW_MODE_CHART
-          ? { flex: "0 0 0" }
-          : {}}
-    >
-      <div class="pane-body log-body" id="log-body" ref=${logBodyRef}>
-        <${MainLogContent}
-          filteredEvents=${filteredEvents}
-          rowStride=${rowStride}
-          virtual=${virtual}
-          visibleItems=${visibleItems}
-          services=${services}
-          eventByRowId=${eventByRowId}
-          selectedRowId=${selectedRowId}
-          highlightState=${highlightState}
-          bookmarkState=${bookmarkState}
-          logListRef=${logListRef}
-        />
-      </div>
-      <div ref=${measureRef} style=${{ position: "absolute", visibility: "hidden", pointerEvents: "none" }}></div>
-    </section>
-  `;
 
   const MainViewShell = () => {
     const services = ui.appHooks.useAppServices();
@@ -326,6 +21,7 @@
     const filteredEvents = viewerStore?.filteredEvents?.value || events;
     const jumpTarget = viewerStore?.logJump?.value || null;
     const bookmarkState = viewerStore?.bookmarks?.value || null;
+    
     const rootRef = useRef ? useRef(null) : { current: null };
     const chartRegionRef = useRef ? useRef(null) : { current: null };
     const logRegionRef = useRef ? useRef(null) : { current: null };
@@ -338,6 +34,12 @@
     const pendingFilterRef = useRef ? useRef(0) : { current: 0 };
     const pendingJumpRef = useRef ? useRef(null) : { current: null };
     const highlightNonceRef = useRef ? useRef(0) : { current: 0 };
+    
+    const buildEventByRowId = ui.utils?.buildEventByRowId || (() => new Map());
+    const buildIndexByRowId = ui.utils?.buildIndexByRowId || (() => new Map());
+    const findClosestIndexBySeconds = ui.utils?.findClosestIndexBySeconds || (() => null);
+    const createRenderedLogRow = ui.utils?.createRenderedLogRow || (() => null);
+
     const filteredRef = useRef ? useRef(events) : { current: events };
     const indexByRowIdRef = useRef ? useRef(buildIndexByRowId(events)) : { current: buildIndexByRowId(events) };
     const eventByRowIdRef = useRef ? useRef(buildEventByRowId(events)) : { current: buildEventByRowId(events) };
@@ -425,27 +127,6 @@
       viewerStore?.setFilteredEvents(
         events.filter((event) => predicates.some((predicate) => predicate(event)))
       );
-    };
-
-    const handleLogJump = (payload) => {
-      if (!payload) return;
-
-      if (payload.rowId != null) {
-        const index = indexByRowIdRef.current.get(String(payload.rowId));
-        if (index != null) {
-          smoothScrollToIndex(index);
-          return;
-        }
-
-        pendingFilterRef.current += 1;
-        pendingJumpRef.current = { rowId: payload.rowId, seconds: payload.seconds ?? null };
-        viewerStore?.setFilteredEvents(events);
-        return;
-      }
-
-      if (payload.seconds != null) {
-        smoothScrollToIndex(findClosestIndexBySeconds(filteredRef.current, payload.seconds));
-      }
     };
 
     const emitScrollState = () => {
@@ -621,6 +302,9 @@
       }, [selectedChartType, chartTypes.length]);
     }
 
+    const MainViewToolbar = ui.components.MainViewToolbar;
+    const MainLogPane = ui.components.MainLogPane;
+
     return html`
       <div ref=${rootRef} class="main-view-shell">
         <${MainViewToolbar}
@@ -672,4 +356,8 @@
   };
 
   ui.components.LogMainViewShell = MainViewShell;
+  ui.constants = ui.constants || {};
+  ui.constants.VIEW_MODE_SPLIT = VIEW_MODE_SPLIT;
+  ui.constants.VIEW_MODE_CHART = VIEW_MODE_CHART;
+  ui.constants.VIEW_MODE_LIST = VIEW_MODE_LIST;
 })();
