@@ -235,7 +235,7 @@
     if (!rowTemplate || typeof renderRow !== "function") return null;
     return renderRow(event, rowTemplate, {
       extraClasses,
-      bookmarks: services?.bookmarks || null,
+      bookmarks: services?.viewerStore || null,
       view: services?.view || null,
     });
   };
@@ -246,7 +246,7 @@
     row.querySelector(".bookmark-toggle")?.addEventListener("click", (eventClick) => {
       if (!activityEnabled) return;
       eventClick.stopPropagation();
-      const next = services?.bookmarks?.cycle(event.row_id) || 0;
+      const next = services?.viewerStore?.cycle(event.row_id) || 0;
       row.classList.toggle("is-bookmarked", next > 0);
       row.dataset.bookmarkColor = String(next);
     });
@@ -272,7 +272,16 @@
     return row;
   };
 
-  const RenderedRow = ({ event, services, events, activityEnabled, version, className = "" }) => {
+  const RenderedRow = ({
+    event,
+    services,
+    events,
+    activityEnabled,
+    version,
+    bookmarkState,
+    commentState,
+    className = "",
+  }) => {
     const ref = useRef();
 
     useLayoutEffect(() => {
@@ -287,12 +296,21 @@
       if (!row) return;
       const mountedRow = attachRowActions({ row, event, services, events, activityEnabled });
       if (mountedRow) host.appendChild(mountedRow);
-    }, [event?.row_id, services, events, activityEnabled, version]);
+    }, [event?.row_id, services, events, activityEnabled, version, bookmarkState, commentState]);
 
     return html`<div ref=${ref} class=${className}></div>`;
   };
 
-  const ActivityItem = ({ event, services, events, comments, activityEnabled, version }) => {
+  const ActivityItem = ({
+    event,
+    services,
+    events,
+    comments,
+    activityEnabled,
+    version,
+    bookmarkState,
+    commentState,
+  }) => {
     const threads = comments?.buildThreads(event.row_id) || [];
     return html`
       <div class="activity-item">
@@ -302,6 +320,8 @@
           events=${events}
           activityEnabled=${activityEnabled}
           version=${version}
+          bookmarkState=${bookmarkState}
+          commentState=${commentState}
         />
         ${threads.length
           ? html`
@@ -391,6 +411,8 @@
     events,
     comments,
     rowVersion,
+    bookmarkState,
+    commentState,
   }) => html`
     <div
       id="search-bookmark-view"
@@ -408,6 +430,8 @@
                 comments=${comments}
                 activityEnabled=${activityEnabled}
                 version=${rowVersion}
+                bookmarkState=${bookmarkState}
+                commentState=${commentState}
               />
             `
           )}
@@ -428,6 +452,8 @@
     events,
     comments,
     rowVersion,
+    bookmarkState,
+    commentState,
     onTogglePin,
     onPromoteFilter,
     onSelectQuery,
@@ -459,6 +485,8 @@
         events=${events}
         comments=${comments}
         rowVersion=${rowVersion}
+        bookmarkState=${bookmarkState}
+        commentState=${commentState}
       />
     </aside>
   `;
@@ -512,6 +540,8 @@
     comments,
     activityEnabled,
     rowVersion,
+    bookmarkState,
+    commentState,
   }) => {
     if (currentTab === SEARCH_TAB_BOOKMARKS) {
       return html`
@@ -527,6 +557,8 @@
                     comments=${comments}
                     activityEnabled=${activityEnabled}
                     version=${rowVersion}
+                    bookmarkState=${bookmarkState}
+                    commentState=${commentState}
                   />
                 `
               )
@@ -551,6 +583,8 @@
                   events=${events}
                   activityEnabled=${activityEnabled}
                   version=${rowVersion}
+                  bookmarkState=${bookmarkState}
+                  commentState=${commentState}
                 />
               `
             )
@@ -578,6 +612,8 @@
     comments,
     activityEnabled,
     rowVersion,
+    bookmarkState,
+    commentState,
     measureRef,
   }) => html`
     <section id="search-results-pane" ref=${splitRightRef} class="search-results">
@@ -601,6 +637,8 @@
           comments=${comments}
           activityEnabled=${activityEnabled}
           rowVersion=${rowVersion}
+          bookmarkState=${bookmarkState}
+          commentState=${commentState}
         />
       </div>
       <div ref=${measureRef} style=${{ position: "absolute", visibility: "hidden", pointerEvents: "none" }}></div>
@@ -611,15 +649,14 @@
     const services = ui.appHooks.useAppServices();
     const viewerStore = services?.viewerStore || null;
     const events = Array.isArray(services?.logData?.events) ? services.logData.events : [];
-    const activityEnabled =
-      services?.bookmarks?.enabled !== false || services?.comments?.enabled !== false;
+    const activityEnabled = viewerStore?.activityEnabled !== false;
     const currentTab = viewerStore?.searchTab?.value || SEARCH_TAB_HISTORY;
     const [query, setQuery] = useState ? useState("") : ["", () => {}];
     const [results, setResults] = useState ? useState(() => events.slice(0, 200)) : [[], () => {}];
     const [rowStride, setRowStride] = useState ? useState(28) : [28, () => {}];
     const [resultsVersion, setResultsVersion] = useState ? useState(0) : [0, () => {}];
-    const bookmarkVersion = viewerStore?.bookmarkVersion?.value || 0;
-    const commentVersion = viewerStore?.commentVersion?.value || 0;
+    const bookmarkState = viewerStore?.bookmarks?.value || null;
+    const commentState = viewerStore?.comments?.value || [];
     const history = viewerStore?.searchHistory?.value || [];
     const pinned = viewerStore?.searchPinned?.value || [];
     const filters = viewerStore?.searchFilters?.value || [];
@@ -637,12 +674,12 @@
     const bookmarkEvents = activityEnabled
       ? getBookmarkEvents({
           events,
-          bookmarks: services?.bookmarks || null,
-          comments: services?.comments || null,
+          bookmarks: viewerStore || null,
+          comments: viewerStore || null,
         })
       : [];
 
-    const rowVersion = bookmarkVersion + commentVersion + resultsVersion;
+    const rowVersion = resultsVersion;
     const fields = getSearchFieldPaths(events);
 
     ui.appHooks.useSplit({
@@ -688,7 +725,7 @@
         if (currentTab === SEARCH_TAB_BOOKMARKS) {
           executeSearch(false, currentTab, query);
         }
-      }, [bookmarkVersion, commentVersion]);
+      }, [bookmarkState, commentState]);
 
       useEffect(() => {
         const host = measureRef.current;
@@ -864,8 +901,10 @@
               bookmarkEvents=${bookmarkEvents}
               services=${services}
               events=${events}
-              comments=${services?.comments || null}
+              comments=${viewerStore || null}
               rowVersion=${rowVersion}
+              bookmarkState=${bookmarkState}
+              commentState=${commentState}
               onTogglePin=${togglePin}
               onPromoteFilter=${promoteFilter}
               onSelectQuery=${selectStoredQuery}
@@ -889,9 +928,11 @@
               visibleItems=${visibleItems}
               services=${services}
               events=${events}
-              comments=${services?.comments || null}
+              comments=${viewerStore || null}
               activityEnabled=${activityEnabled}
               rowVersion=${rowVersion}
+              bookmarkState=${bookmarkState}
+              commentState=${commentState}
               measureRef=${measureRef}
             />
           </div>

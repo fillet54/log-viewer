@@ -305,16 +305,14 @@
     const services = ui.appHooks.useAppServices();
     const viewerStore = services?.viewerStore || null;
     const selectedEvent = viewerStore?.selectedEvent?.value || null;
-    const bookmarkVersion = viewerStore?.bookmarkVersion?.value || 0;
-    const commentVersion = viewerStore?.commentVersion?.value || 0;
     const [activeReply, setActiveReply] = useState ? useState(null) : [null, () => {}];
     const [commentBody, setCommentBody] = useState ? useState("") : ["", () => {}];
     const [collapsedPaths, setCollapsedPaths] = useState ? useState(() => new Set()) : [new Set(), () => {}];
 
-    const bookmarks = services?.bookmarks || null;
-    const comments = services?.comments || null;
-    const bookmarksEnabled = bookmarks?.enabled !== false;
-    const commentsEnabled = comments?.enabled !== false;
+    const bookmarks = viewerStore || null;
+    const comments = viewerStore || null;
+    const bookmarksEnabled = viewerStore?.bookmarksEnabled !== false;
+    const commentsEnabled = viewerStore?.commentsEnabled !== false;
 
     if (typeof useEffect === "function") {
       useEffect(() => {

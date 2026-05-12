@@ -62,7 +62,7 @@ if (window.EventLog2?._pendingViewRegistrations?.length) {
 }
 
 LogMainViewChart.mount = (root, services) => {
-  const { logData, bookmarks, comments, plugin, viewerStore } = services;
+  const { logData, plugin, viewerStore } = services;
   if (!logData) return null;
 
   const chartRegion = queryById(root, "chart-region");
@@ -84,8 +84,8 @@ LogMainViewChart.mount = (root, services) => {
     plugin,
     viewerStore,
     logData,
-    bookmarks,
-    comments,
+    bookmarks: viewerStore,
+    comments: viewerStore,
     chartRegion,
     chartPanelHost,
     controller,
@@ -717,14 +717,14 @@ const createTimelineChartController = (panel, context) => {
     );
     off.push(
       signalEffect(() => {
-        context.viewerStore.bookmarkVersion?.value;
+        context.viewerStore.bookmarks?.value;
         chart.update("none");
         syncHoverOverlay();
       })
     );
     off.push(
       signalEffect(() => {
-        context.viewerStore.commentVersion?.value;
+        context.viewerStore.comments?.value;
         chart.update("none");
         syncHoverOverlay();
       })

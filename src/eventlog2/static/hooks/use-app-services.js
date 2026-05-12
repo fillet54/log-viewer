@@ -30,7 +30,7 @@
   ui.appHooks.useAppView = selectService((services) => services?.view || null);
   ui.appHooks.useAppPlugin = selectService((services) => services?.plugin || null);
   ui.appHooks.useAppSearchWorker = selectService((services) => services?.searchWorker || null);
-  ui.appHooks.useAppBookmarks = selectService((services) => services?.bookmarks || null);
-  ui.appHooks.useAppComments = selectService((services) => services?.comments || null);
+  ui.appHooks.useAppBookmarks = selectService((services) => services?.viewerStore || null);
+  ui.appHooks.useAppComments = selectService((services) => services?.viewerStore || null);
   ui.appHooks.useAppViewerStore = selectService((services) => services?.viewerStore || null);
 })();

@@ -179,11 +179,11 @@ class LogViewerAppElement extends HTMLElement {
   }
 
   getBookmarks() {
-    return this._services?.bookmarks || null;
+    return this._services?.viewerStore || null;
   }
 
   getComments() {
-    return this._services?.comments || null;
+    return this._services?.viewerStore || null;
   }
 
   getPlugin() {

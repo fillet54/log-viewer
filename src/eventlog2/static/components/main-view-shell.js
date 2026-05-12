@@ -56,7 +56,7 @@
     if (!rowTemplate || typeof renderRow !== "function") return null;
 
     const row = renderRow(event, rowTemplate, {
-      bookmarks: services?.bookmarks || null,
+      bookmarks: services?.viewerStore || null,
       view: services?.view || null,
     });
 
@@ -70,7 +70,7 @@
 
     row.querySelector(".bookmark-toggle")?.addEventListener("click", (eventClick) => {
       eventClick.stopPropagation();
-      const next = services?.bookmarks?.cycle(event.row_id) || 0;
+      const next = services?.viewerStore?.cycle(event.row_id) || 0;
       row.classList.toggle("is-bookmarked", next > 0);
       row.dataset.bookmarkColor = String(next);
     });
@@ -186,7 +186,7 @@
     selectedRowId,
     highlightRowId,
     highlightNonce,
-    bookmarkVersion,
+    bookmarkState,
   }) => {
     const ref = useRef ? useRef(null) : { current: null };
 
@@ -220,7 +220,7 @@
         selectedRowId,
         highlightRowId,
         highlightNonce,
-        bookmarkVersion,
+        bookmarkState,
       ]);
     }
 
@@ -236,7 +236,7 @@
     eventByRowId,
     selectedRowId,
     highlightState,
-    bookmarkVersion,
+    bookmarkState,
     logListRef,
   }) => {
     if (!filteredEvents.length) {
@@ -265,7 +265,7 @@
               selectedRowId=${selectedRowId}
               highlightRowId=${highlightState.rowId}
               highlightNonce=${highlightState.nonce}
-              bookmarkVersion=${bookmarkVersion}
+              bookmarkState=${bookmarkState}
             />
           `
         )}
@@ -286,7 +286,7 @@
     eventByRowId,
     selectedRowId,
     highlightState,
-    bookmarkVersion,
+    bookmarkState,
     logListRef,
   }) => html`
     <section
@@ -309,7 +309,7 @@
           eventByRowId=${eventByRowId}
           selectedRowId=${selectedRowId}
           highlightState=${highlightState}
-          bookmarkVersion=${bookmarkVersion}
+          bookmarkState=${bookmarkState}
           logListRef=${logListRef}
         />
       </div>
@@ -325,7 +325,7 @@
     const selectedEvent = viewerStore?.selectedEvent?.value || null;
     const filteredEvents = viewerStore?.filteredEvents?.value || events;
     const jumpTarget = viewerStore?.logJump?.value || null;
-    const bookmarkVersion = viewerStore?.bookmarkVersion?.value || 0;
+    const bookmarkState = viewerStore?.bookmarks?.value || null;
     const rootRef = useRef ? useRef(null) : { current: null };
     const chartRegionRef = useRef ? useRef(null) : { current: null };
     const logRegionRef = useRef ? useRef(null) : { current: null };
@@ -472,7 +472,7 @@
       rowHeight: rowStride,
       overscan: 10,
       maxVisible: 180,
-      dependencies: [bookmarkVersion],
+      dependencies: [bookmarkState],
     });
 
     const visibleItems = filteredEvents.slice(virtual.startIndex, virtual.endIndex);
@@ -663,7 +663,7 @@
             eventByRowId=${eventByRowIdRef.current}
             selectedRowId=${selectedRowId}
             highlightState=${highlightState}
-            bookmarkVersion=${bookmarkVersion}
+            bookmarkState=${bookmarkState}
             logListRef=${logListRef}
           />
         </div>
