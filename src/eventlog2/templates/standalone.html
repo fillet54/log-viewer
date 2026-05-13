@@ -58,10 +58,16 @@
         syncLabel();
       })();
     </script>
-    {% for script_block in script_blocks %}
+    {% for script in global_scripts %}
     <script>
-{{ script_block|replace('</script', '<\\/script')|safe }}
+{{ script|replace('</script', '<\\/script')|safe }}
     </script>
     {% endfor %}
+    {% if entry_point_path %}
+    <script type="module">
+      import "/static/runtime.js";
+      import "{{ entry_point_path }}";
+    </script>
+    {% endif %}
   </body>
 </html>

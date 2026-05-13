@@ -8,6 +8,9 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 
 from .plugin_manager import build_page_data_documents_from_path, build_page_data_from_path
 
+import base64
+import json
+
 SCRIPT_PATHS = [
     "static/vendor/chart.umd.min.js",
     "static/vendor/split.min.js",
@@ -67,6 +70,23 @@ SCRIPT_PATHS = [
     "static/app.js",
 ]
 
+GLOBAL_SCRIPTS = [
+    "static/vendor/chart.umd.min.js",
+    "static/vendor/split.min.js",
+]
+
+BARE_MODULES = {
+    "preact": "static/vendor/preact.mjs",
+    "preact/hooks": "static/vendor/hooks.mjs",
+    "preact/signals": "static/vendor/signals.mjs",
+    "@preact/signals-core": "static/vendor/signals-core.mjs",
+    "htm": "static/vendor/htm-core.mjs",
+    "htm/preact": "static/vendor/htm-preact.mjs",
+    "logview/lib": "static/logview/lib.js",
+}
+
+ENTRY_POINT = "static/app.js"
+
 TEMPLATE_ENV = Environment(
     loader=PackageLoader("eventlog2"),
     autoescape=select_autoescape(["html", "xml"]),
@@ -76,28 +96,48 @@ TEMPLATE_ENV = Environment(
 def _read_package_text(relative_path: str) -> str:
     return files("eventlog2").joinpath(relative_path).read_text(encoding="utf-8")
 
+def _to_data_uri(content: str, mime_type: str = "text/javascript") -> str:
+    b64 = base64.b64encode(content.encode("utf-8")).decode("utf-8")
+    return f"data:{mime_type};base64,{b64}"
+
 def build_page_data_script(page_data: dict[str, object]) -> str:
     payload = json.dumps(page_data, separators=(",", ":"), sort_keys=True)
     safe_payload = payload.replace("</script", "<\\/script")
     return f"window.EVENTLOG2_PAGE_DATA = {safe_payload};"
 
 
-def _build_inline_scripts(data_script: str) -> list[str]:
-    blocks: list[str] = [data_script]
-    for path in SCRIPT_PATHS:
-        blocks.append(_read_package_text(path))
-    return blocks
-
-
 def build_standalone_html(data_script: str, title: str = "HTML Log Viewer") -> str:
     styles = _read_package_text("static/styles.css")
     row_template = _read_package_text("templates/components/shared/log_row_template.html")
-    script_blocks = _build_inline_scripts(data_script)
+    
+    global_scripts = [data_script]
+    for path in GLOBAL_SCRIPTS:
+        global_scripts.append(_read_package_text(path))
+    
+    import_map_dict = {"imports": {}}
+    
+    # 1. Map bare modules
+    for name, path in BARE_MODULES.items():
+        content = _read_package_text(path)
+        import_map_dict["imports"][name] = _to_data_uri(content)
+    
+    # 2. Map all scripts as their absolute-ish paths to support relative imports
+    for path in SCRIPT_PATHS:
+        if path in GLOBAL_SCRIPTS:
+            continue
+        logical_path = f"/{path}"
+        content = _read_package_text(path)
+        import_map_dict["imports"][logical_path] = _to_data_uri(content)
+    
+    import_map = json.dumps(import_map_dict, indent=2)
+
     return TEMPLATE_ENV.get_template("standalone.html").render(
         title=title,
         styles=styles,
         row_template=row_template,
-        script_blocks=script_blocks,
+        global_scripts=global_scripts,
+        import_map=import_map,
+        entry_point_path=f"/{ENTRY_POINT}",
     )
 
 

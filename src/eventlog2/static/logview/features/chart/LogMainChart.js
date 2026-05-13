@@ -2,7 +2,11 @@ import { queryById } from "../../../shared.js";
 
 const LogMainViewChart = window.LogMainViewChart || (window.LogMainViewChart = {});
 const LogMainViewTimeline = window.LogMainViewTimeline || (window.LogMainViewTimeline = {});
-const signalEffect = window.EventLog2UI?.signals?.effect || null;
+import { signals } from "logview/lib";
+
+const signalEffect = signals?.effect || null;
+
+const normalizePluginId = (id) => String(id || "").trim().toLowerCase().replace(/_/g, "-") || null;
 
 LogMainViewChart.registry = LogMainViewChart.registry || new Map();
 LogMainViewTimeline.registry = LogMainViewTimeline.registry || new Map();
@@ -71,7 +75,7 @@ LogMainViewChart.mount = (root, services) => {
   const chartPanelHost = queryById(root, "chart-panel-host");
   if (!chartRegion || !chartPanelHost) return null;
 
-  const activePluginId = String(plugin?.id || logData?.pluginId || "").trim() || null;
+  const activePluginId = normalizePluginId(plugin?.id || logData?.pluginId);
   const mountedPanels = new Map();
   let activeType = null;
   let activePanel = null;
@@ -79,7 +83,9 @@ LogMainViewChart.mount = (root, services) => {
   let commandBar = null;
 
   const listTypes = () =>
-    Array.from(LogMainViewChart.registry.values()).filter((type) => !type.pluginId || type.pluginId === activePluginId);
+    Array.from(LogMainViewChart.registry.values()).filter(
+      (type) => !type.pluginId || normalizePluginId(type.pluginId) === activePluginId
+    );
 
   const buildContext = (extra = {}) => ({
     root,
@@ -387,10 +393,12 @@ const createTimelineChartController = (panel, context) => {
     window.localStorage?.getItem("loglayout.debug.timeline") === "true" ||
     window.EVENTLOG2_DEBUG_TIMELINE === true;
 
-  const listViews = () =>
-    Array.from(LogMainViewTimeline.registry.values()).filter(
-      (view) => !view.pluginId || view.pluginId === (String(context.plugin?.id || context.logData?.pluginId || "").trim() || null)
+  const listViews = () => {
+    const activeId = normalizePluginId(context.plugin?.id || context.logData?.pluginId);
+    return Array.from(LogMainViewTimeline.registry.values()).filter(
+      (view) => !view.pluginId || normalizePluginId(view.pluginId) === activeId
     );
+  };
 
   const ensureCurrentView = () => {
     const views = listViews();

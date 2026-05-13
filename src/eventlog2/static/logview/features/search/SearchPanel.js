@@ -1,17 +1,12 @@
-import { appHooks } from "logview/lib";
+import { html, Fragment, hooks, appHooks } from "logview/lib";
 import { SearchPanelHeader, SEARCH_TAB_HISTORY, SEARCH_TAB_BOOKMARKS } from "./SearchPanelHeader.js";
 import { SearchSidebar } from "./SearchSidebar.js";
 import { SearchResultsPane } from "./SearchResultsPane.js";
 import { SearchHelpDialog } from "./SearchHelpDialog.js";
 import { createRenderedRow } from "./RenderedRow.js";
 
-const ui = window.EventLog2UI || {};
 const LogSearch = window.LogSearch || null;
-const html = ui.html;
-const Fragment = ui.Fragment;
-const useEffect = ui.hooks?.useEffect || null;
-const useRef = ui.hooks?.useRef || null;
-const useState = ui.hooks?.useState || null;
+const { useEffect, useRef, useState } = hooks;
 
 const getSearchFieldPaths = (events) => {
     const source = Array.isArray(events) ? events : [];
@@ -63,14 +58,14 @@ export const SearchPanel = () => {
           .join("\u0000")
       : "";
 
-    const pendingSearchRef = useRef ? useRef(0) : { current: 0 };
-    const initializedRef = useRef ? useRef(false) : { current: false };
-    const splitLeftRef = useRef ? useRef(null) : { current: null };
-    const splitRightRef = useRef ? useRef(null) : { current: null };
-    const resultsRef = useRef ? useRef(null) : { current: null };
-    const measureRef = useRef ? useRef(null) : { current: null };
-    const helpDialogRef = useRef ? useRef(null) : { current: null };
-    const queryInputRef = useRef ? useRef(null) : { current: null };
+    const pendingSearchRef = useRef(0);
+    const initializedRef = useRef(false);
+    const splitLeftRef = useRef(null);
+    const splitRightRef = useRef(null);
+    const resultsRef = useRef(null);
+    const measureRef = useRef(null);
+    const helpDialogRef = useRef(null);
+    const queryInputRef = useRef(null);
 
     const bookmarkEvents = activityEnabled
       ? getBookmarkEvents({

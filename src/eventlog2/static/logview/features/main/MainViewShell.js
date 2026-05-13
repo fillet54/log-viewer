@@ -1,6 +1,5 @@
 import { smoothScrollTo } from "../../../shared.js";
 import "../chart/LogMainChart.js";
-import { appHooks } from "logview/lib";
 import {
   MainLogPane,
   buildEventByRowId,
@@ -9,15 +8,11 @@ import {
   createRenderedLogRow,
 } from "./LogVirtualList.js";
 import { MainViewToolbar } from "./MainViewToolbar.js";
+import { html, hooks, appHooks } from "logview/lib";
 
-const ui = window.EventLog2UI || {};
 const LogSearch = window.LogSearch || null;
 const LogMainViewChart = window.LogMainViewChart || null;
-const html = ui.html;
-const useEffect = ui.hooks?.useEffect || null;
-const useLayoutEffect = ui.hooks?.useLayoutEffect || null;
-const useRef = ui.hooks?.useRef || null;
-const useState = ui.hooks?.useState || null;
+const { useEffect, useLayoutEffect, useRef, useState } = hooks;
 
 const VIEW_MODE_SPLIT = "split";
 const VIEW_MODE_CHART = "chart";
@@ -33,29 +28,29 @@ export const MainViewShell = () => {
     const jumpTarget = viewerStore?.logJump?.value || null;
     const bookmarkState = viewerStore?.bookmarks?.value || null;
     
-    const rootRef = useRef ? useRef(null) : { current: null };
-    const chartRegionRef = useRef ? useRef(null) : { current: null };
-    const logRegionRef = useRef ? useRef(null) : { current: null };
-    const logBodyRef = useRef ? useRef(null) : { current: null };
-    const logListRef = useRef ? useRef(null) : { current: null };
-    const measureRef = useRef ? useRef(null) : { current: null };
-    const commandBarRef = useRef ? useRef(null) : { current: null };
-    const chartControllerRef = useRef ? useRef(null) : { current: null };
-    const scrollFrameRef = useRef ? useRef(0) : { current: 0 };
-    const pendingFilterRef = useRef ? useRef(0) : { current: 0 };
-    const pendingJumpRef = useRef ? useRef(null) : { current: null };
-    const highlightNonceRef = useRef ? useRef(0) : { current: 0 };
+    const rootRef = useRef(null);
+    const chartRegionRef = useRef(null);
+    const logRegionRef = useRef(null);
+    const logBodyRef = useRef(null);
+    const logListRef = useRef(null);
+    const measureRef = useRef(null);
+    const commandBarRef = useRef(null);
+    const chartControllerRef = useRef(null);
+    const scrollFrameRef = useRef(0);
+    const pendingFilterRef = useRef(0);
+    const pendingJumpRef = useRef(null);
+    const highlightNonceRef = useRef(0);
     
-    const filteredRef = useRef ? useRef(events) : { current: events };
-    const indexByRowIdRef = useRef ? useRef(buildIndexByRowId(events)) : { current: buildIndexByRowId(events) };
-    const eventByRowIdRef = useRef ? useRef(buildEventByRowId(events)) : { current: buildEventByRowId(events) };
+    const filteredRef = useRef(events);
+    const indexByRowIdRef = useRef(buildIndexByRowId(events));
+    const eventByRowIdRef = useRef(buildEventByRowId(events));
 
     const viewMode = viewerStore?.mainViewMode?.value || VIEW_MODE_SPLIT;
     const chartSplit = viewerStore?.mainViewSplitSizes?.value || [36, 64];
-    const [chartTypes, setChartTypes] = useState ? useState([]) : [[], () => {}];
+    const [chartTypes, setChartTypes] = useState([]);
     const selectedChartType = viewerStore?.chartType?.value || "";
-    const [rowStride, setRowStride] = useState ? useState(38) : [38, () => {}];
-    const [highlightState, setHighlightState] = useState ? useState({ rowId: null, nonce: 0 }) : [{ rowId: null, nonce: 0 }, () => {}];
+    const [rowStride, setRowStride] = useState(38);
+    const [highlightState, setHighlightState] = useState({ rowId: null, nonce: 0 });
 
     filteredRef.current = filteredEvents;
     const selectedRowId = selectedEvent?.row_id ?? null;

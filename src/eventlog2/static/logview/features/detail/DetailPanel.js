@@ -4,16 +4,15 @@ import { DetailPanelHeader } from "./DetailPanelHeader.js";
 import { EmptyDetailState } from "./EmptyDetailState.js";
 import { DetailEventContent } from "./DetailEventContent.js";
 
-const useEffect = hooks.useEffect || null;
-const useState = hooks.useState || null;
+const { useEffect, useState } = hooks;
 
 export const DetailPanel = () => {
   const services = appHooks.useAppServices();
   const viewerStore = services?.viewerStore || null;
   const selectedEvent = viewerStore?.selectedEvent?.value || null;
-  const [activeReply, setActiveReply] = useState ? useState(null) : [null, () => {}];
-  const [commentBody, setCommentBody] = useState ? useState("") : ["", () => {}];
-  const [collapsedPaths, setCollapsedPaths] = useState ? useState(() => new Set()) : [new Set(), () => {}];
+  const [activeReply, setActiveReply] = useState(null);
+  const [commentBody, setCommentBody] = useState("");
+  const [collapsedPaths, setCollapsedPaths] = useState(() => new Set());
 
   const bookmarks = viewerStore || null;
   const comments = viewerStore || null;
