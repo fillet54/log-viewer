@@ -1,15 +1,10 @@
 import { render, createElement } from 'preact';
+import { AppServicesContext } from './context.js';
 
 const buildTree = (Component, props, services) => {
   const componentNode = createElement(Component, props || {});
-  
-  // Bridge for now until context.js is refactored
-  const ui = window.EventLog2UI || {};
-  const Provider = ui.context?.AppServicesContext?.Provider || null;
-  
-  if (!Provider) return componentNode;
 
-  return createElement(Provider, { value: services ?? null }, componentNode);
+  return createElement(AppServicesContext.Provider, { value: services ?? null }, componentNode);
 };
 
 export const mountComponent = ({ host, Component, props = {}, services = null } = {}) => {

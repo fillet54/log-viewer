@@ -29,7 +29,3 @@ export const CommentThread = ({ threads, depth = 0, onReply }) => {
     </div>
   `;
 };
-
-window.EventLog2UI = window.EventLog2UI || {};
-window.EventLog2UI.components = window.EventLog2UI.components || {};
-window.EventLog2UI.components.CommentThread = CommentThread;

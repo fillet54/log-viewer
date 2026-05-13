@@ -23,7 +23,3 @@ export const SearchFilterView = ({ currentTab, filters, onToggleFilter, onRemove
       </div>
     `;
   };
-
-window.EventLog2UI = window.EventLog2UI || {};
-window.EventLog2UI.components = window.EventLog2UI.components || {};
-window.EventLog2UI.components.SearchFilterView = SearchFilterView;

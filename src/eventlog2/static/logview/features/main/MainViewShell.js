@@ -1,4 +1,6 @@
 import { smoothScrollTo } from "../../../shared.js";
+import "../chart/LogMainChart.js";
+import { appHooks } from "logview/lib";
 import {
   MainLogPane,
   buildEventByRowId,
@@ -17,14 +19,12 @@ const useLayoutEffect = ui.hooks?.useLayoutEffect || null;
 const useRef = ui.hooks?.useRef || null;
 const useState = ui.hooks?.useState || null;
 
-ui.components = ui.components || {};
-
 const VIEW_MODE_SPLIT = "split";
 const VIEW_MODE_CHART = "chart";
 const VIEW_MODE_LIST = "list";
 
 export const MainViewShell = () => {
-    const services = ui.appHooks.useAppServices();
+    const services = appHooks.useAppServices();
     const viewerStore = services?.viewerStore || null;
     const events = Array.isArray(services?.logData?.events) ? services.logData.events : [];
     const activeFilterQueries = viewerStore?.activeFilterQueries?.value || [];
@@ -60,7 +60,7 @@ export const MainViewShell = () => {
     filteredRef.current = filteredEvents;
     const selectedRowId = selectedEvent?.row_id ?? null;
 
-    ui.appHooks.useSplit({
+    appHooks.useSplit({
       refs: [chartRegionRef, logRegionRef],
       enabled: viewMode === VIEW_MODE_SPLIT,
       options: {
@@ -159,7 +159,7 @@ export const MainViewShell = () => {
       }
     };
 
-    const virtual = ui.appHooks.useVirtualList({
+    const virtual = appHooks.useVirtualList({
       containerRef: logBodyRef,
       itemCount: filteredEvents.length,
       rowHeight: rowStride,
@@ -362,10 +362,4 @@ export const MainViewShell = () => {
         </div>
       </div>
     `;
-  };
-
-ui.components.LogMainViewShell = MainViewShell;
-ui.constants = ui.constants || {};
-ui.constants.VIEW_MODE_SPLIT = VIEW_MODE_SPLIT;
-ui.constants.VIEW_MODE_CHART = VIEW_MODE_CHART;
-ui.constants.VIEW_MODE_LIST = VIEW_MODE_LIST;
+};

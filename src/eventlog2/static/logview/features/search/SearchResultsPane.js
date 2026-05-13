@@ -55,7 +55,3 @@ export const SearchResultsPane = ({
       </section>
     `;
   };
-
-window.EventLog2UI = window.EventLog2UI || {};
-window.EventLog2UI.components = window.EventLog2UI.components || {};
-window.EventLog2UI.components.SearchResultsPane = SearchResultsPane;

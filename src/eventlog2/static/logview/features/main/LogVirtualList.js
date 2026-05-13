@@ -229,14 +229,3 @@ export const MainLogPane = ({
       </section>
     `;
 };
-
-window.EventLog2UI = window.EventLog2UI || {};
-window.EventLog2UI.components = window.EventLog2UI.components || {};
-window.EventLog2UI.utils = window.EventLog2UI.utils || {};
-window.EventLog2UI.components.MainLogRow = MainLogRow;
-window.EventLog2UI.components.MainLogContent = MainLogContent;
-window.EventLog2UI.components.MainLogPane = MainLogPane;
-window.EventLog2UI.utils.buildEventByRowId = buildEventByRowId;
-window.EventLog2UI.utils.buildIndexByRowId = buildIndexByRowId;
-window.EventLog2UI.utils.findClosestIndexBySeconds = findClosestIndexBySeconds;
-window.EventLog2UI.utils.createRenderedLogRow = createRenderedLogRow;

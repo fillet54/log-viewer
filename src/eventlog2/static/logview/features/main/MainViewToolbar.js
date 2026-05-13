@@ -89,8 +89,3 @@ export const MainViewToolbar = ({
       </div>
     `;
 };
-
-window.EventLog2UI = window.EventLog2UI || {};
-window.EventLog2UI.components = window.EventLog2UI.components || {};
-window.EventLog2UI.components.ViewModeButton = ViewModeButton;
-window.EventLog2UI.components.MainViewToolbar = MainViewToolbar;

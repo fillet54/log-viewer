@@ -18,7 +18,3 @@ export const BookmarkSection = ({ event, colorIndex, onSetColor }) => html`
     </div>
   </div>
 `;
-
-window.EventLog2UI = window.EventLog2UI || {};
-window.EventLog2UI.components = window.EventLog2UI.components || {};
-window.EventLog2UI.components.BookmarkSection = BookmarkSection;

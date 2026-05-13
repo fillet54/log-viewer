@@ -33,7 +33,3 @@ export const SearchItemRow = ({ item, isPinned, onPinToggle, onPromote, onSelect
       <span class="search-time">${item.count}</span>
     </div>
 `;
-
-window.EventLog2UI = window.EventLog2UI || {};
-window.EventLog2UI.components = window.EventLog2UI.components || {};
-window.EventLog2UI.components.SearchItemRow = SearchItemRow;

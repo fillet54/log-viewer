@@ -16,7 +16,3 @@ export const FilterItemRow = ({ filter, onToggle, onRemove }) => html`
       </button>
     </div>
 `;
-
-window.EventLog2UI = window.EventLog2UI || {};
-window.EventLog2UI.components = window.EventLog2UI.components || {};
-window.EventLog2UI.components.FilterItemRow = FilterItemRow;

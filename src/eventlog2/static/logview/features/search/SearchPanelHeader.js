@@ -37,11 +37,3 @@ export const SearchPanelHeader = ({ currentTab, activityEnabled, onSelectTab }) 
       </button>
     </div>
 `;
-
-window.EventLog2UI = window.EventLog2UI || {};
-window.EventLog2UI.components = window.EventLog2UI.components || {};
-window.EventLog2UI.constants = window.EventLog2UI.constants || {};
-window.EventLog2UI.components.SearchPanelHeader = SearchPanelHeader;
-window.EventLog2UI.constants.SEARCH_TAB_HISTORY = SEARCH_TAB_HISTORY;
-window.EventLog2UI.constants.SEARCH_TAB_FILTERS = SEARCH_TAB_FILTERS;
-window.EventLog2UI.constants.SEARCH_TAB_BOOKMARKS = SEARCH_TAB_BOOKMARKS;

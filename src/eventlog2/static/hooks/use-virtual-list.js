@@ -1,18 +1,15 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const useEffect = ui.hooks?.useEffect || null;
-  const useLayoutEffect = ui.hooks?.useLayoutEffect || null;
-  const useRef = ui.hooks?.useRef || null;
-  const useState = ui.hooks?.useState || null;
+const ui = window.EventLog2UI || {};
+const useEffect = ui.hooks?.useEffect || null;
+const useLayoutEffect = ui.hooks?.useLayoutEffect || null;
+const useRef = ui.hooks?.useRef || null;
+const useState = ui.hooks?.useState || null;
 
-  ui.appHooks = ui.appHooks || {};
+const requireHook = (hookName, hookValue) => {
+  if (typeof hookValue === "function") return hookValue;
+  throw new Error(`EventLog2UI.${hookName} requires a working local Preact runtime.`);
+};
 
-  const requireHook = (hookName, hookValue) => {
-    if (typeof hookValue === "function") return hookValue;
-    throw new Error(`EventLog2UI.${hookName} requires a working local Preact runtime.`);
-  };
-
-  const buildRange = ({ scrollTop, clientHeight, itemCount, rowHeight, overscan, maxVisible }) => {
+const buildRange = ({ scrollTop, clientHeight, itemCount, rowHeight, overscan, maxVisible }) => {
     const safeRowHeight = Math.max(1, Number(rowHeight) || 1);
     const safeOverscan = Math.max(0, Number(overscan) || 0);
     const safeMaxVisible = Math.max(1, Number(maxVisible) || itemCount || 1);
@@ -29,25 +26,25 @@
       offsetY: startIndex * safeRowHeight,
       totalHeight: itemCount * safeRowHeight,
     };
-  };
+};
 
-  const sameRange = (left, right) => {
+const sameRange = (left, right) => {
     return (
       left.startIndex === right.startIndex &&
       left.endIndex === right.endIndex &&
       left.offsetY === right.offsetY &&
       left.totalHeight === right.totalHeight
     );
-  };
+};
 
-  const useVirtualList = ({
+export const useVirtualList = ({
     containerRef,
     itemCount = 0,
     rowHeight = 28,
     overscan = 4,
     maxVisible = 80,
     dependencies = [],
-  } = {}) => {
+} = {}) => {
     const useStateHook = requireHook("appHooks.useVirtualList", useState);
     const useEffectHook = requireHook("appHooks.useVirtualList", useEffect);
     const useLayoutEffectHook = requireHook("appHooks.useVirtualList", useLayoutEffect);
@@ -140,7 +137,7 @@
         schedule();
       },
     };
-  };
+};
 
-  ui.appHooks.useVirtualList = useVirtualList;
-})();
+ui.appHooks = ui.appHooks || {};
+ui.appHooks.useVirtualList = useVirtualList;

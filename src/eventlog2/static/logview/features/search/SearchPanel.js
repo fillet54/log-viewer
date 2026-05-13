@@ -1,3 +1,4 @@
+import { appHooks } from "logview/lib";
 import { SearchPanelHeader, SEARCH_TAB_HISTORY, SEARCH_TAB_BOOKMARKS } from "./SearchPanelHeader.js";
 import { SearchSidebar } from "./SearchSidebar.js";
 import { SearchResultsPane } from "./SearchResultsPane.js";
@@ -11,8 +12,6 @@ const Fragment = ui.Fragment;
 const useEffect = ui.hooks?.useEffect || null;
 const useRef = ui.hooks?.useRef || null;
 const useState = ui.hooks?.useState || null;
-
-ui.components = ui.components || {};
 
 const getSearchFieldPaths = (events) => {
     const source = Array.isArray(events) ? events : [];
@@ -29,10 +28,12 @@ const getSearchFieldPaths = (events) => {
       .sort((left, right) => left.name.localeCompare(right.name));
   };
 
-const getBookmarkEvents = ({ events, bookmarks, comments }) => {
-    const bookmarkIds = new Set(bookmarks?.getAll() || []);
-    const commentRows = comments?.getByRowId() || new Map();
-    const ids = new Set([...bookmarkIds, ...Array.from(commentRows.keys())]);
+const getBookmarkEvents = ({ events, bookmarkState, commentState }) => {
+    const bookmarkIds = Object.keys(bookmarkState || {});
+    const commentRowIds = Array.isArray(commentState)
+      ? commentState.map((item) => String(item?.row_id ?? ""))
+      : [];
+    const ids = new Set([...bookmarkIds, ...commentRowIds.filter(Boolean)]);
     return Array.from(ids)
       .map((id) => events.find((entry) => String(entry.row_id) === String(id)))
       .filter(Boolean)
@@ -40,7 +41,7 @@ const getBookmarkEvents = ({ events, bookmarks, comments }) => {
   };
 
 export const SearchPanel = () => {
-    const services = ui.appHooks.useAppServices();
+    const services = appHooks.useAppServices();
     const viewerStore = services?.viewerStore || null;
     const events = Array.isArray(services?.logData?.events) ? services.logData.events : [];
     const activityEnabled = viewerStore?.activityEnabled !== false;
@@ -55,6 +56,12 @@ export const SearchPanel = () => {
     const pinned = viewerStore?.searchPinned?.value || [];
     const filters = viewerStore?.searchFilters?.value || [];
     const searchSplitSizes = viewerStore?.searchSplitSizes?.value || [28, 72];
+    const bookmarkRevision = Object.keys(bookmarkState || {}).sort().join("\u0000");
+    const commentRevision = Array.isArray(commentState)
+      ? commentState
+          .map((item) => `${item?.id || ""}:${item?.row_id || ""}:${item?.parent_id || ""}`)
+          .join("\u0000")
+      : "";
 
     const pendingSearchRef = useRef ? useRef(0) : { current: 0 };
     const initializedRef = useRef ? useRef(false) : { current: false };
@@ -68,15 +75,15 @@ export const SearchPanel = () => {
     const bookmarkEvents = activityEnabled
       ? getBookmarkEvents({
           events,
-          bookmarks: viewerStore || null,
-          comments: viewerStore || null,
+          bookmarkState,
+          commentState,
         })
       : [];
 
     const rowVersion = resultsVersion;
     const fields = getSearchFieldPaths(events);
 
-    ui.appHooks.useSplit({
+    appHooks.useSplit({
       refs: [splitLeftRef, splitRightRef],
       enabled: true,
       options: {
@@ -94,7 +101,7 @@ export const SearchPanel = () => {
       dependencies: [searchSplitSizes[0], searchSplitSizes[1]],
     });
 
-    const virtual = ui.appHooks.useVirtualList({
+    const virtual = appHooks.useVirtualList({
       containerRef: resultsRef,
       itemCount: currentTab === SEARCH_TAB_BOOKMARKS ? 0 : results.length,
       rowHeight: rowStride,
@@ -167,7 +174,7 @@ export const SearchPanel = () => {
         if (currentTab === SEARCH_TAB_BOOKMARKS) {
           executeSearch(false, currentTab, query);
         }
-      }, [bookmarkState, commentState]);
+      }, [currentTab, bookmarkRevision, commentRevision, query, events]);
 
       useEffect(() => {
         const host = measureRef.current;
@@ -335,6 +342,4 @@ export const SearchPanel = () => {
         <${SearchHelpDialog} dialogRef=${helpDialogRef} fields=${fields} onSelectExample=${onSelectExample} />
       </${Fragment}>
     `;
-  };
-
-ui.components.LogSearchPanel = SearchPanel;
+};

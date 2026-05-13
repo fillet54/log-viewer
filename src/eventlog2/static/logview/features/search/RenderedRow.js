@@ -78,9 +78,3 @@ export const RenderedRow = ({
 
     return html`<div ref=${ref} class=${className}></div>`;
 };
-
-window.EventLog2UI = window.EventLog2UI || {};
-window.EventLog2UI.components = window.EventLog2UI.components || {};
-window.EventLog2UI.utils = window.EventLog2UI.utils || {};
-window.EventLog2UI.components.RenderedRow = RenderedRow;
-window.EventLog2UI.utils.createRenderedRow = createRenderedRow;

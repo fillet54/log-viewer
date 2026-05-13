@@ -1,6 +1,7 @@
 // app.js - Main entry point
 import { createMountController } from './mount.js';
 import { STORAGE_KEYS, queryById, smoothScrollTo } from './shared.js';
+import { ViewerRoot } from './logview/ViewerRoot.js';
 
 const loadPageData = () => {
   return window.EVENTLOG2_PAGE_DATA || null;
@@ -67,8 +68,7 @@ class LogViewerAppElement extends HTMLElement {
   }
 
   mountWithPreact() {
-    const ui = window.EventLog2UI || {};
-    const Component = ui.components?.LogViewerRoot || null;
+    const Component = ViewerRoot;
 
     if (!Component) {
       this.renderStartupError("Log viewer root component is not registered.");

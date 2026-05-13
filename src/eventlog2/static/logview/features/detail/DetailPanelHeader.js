@@ -17,7 +17,3 @@ export const DetailPanelHeader = () => html`
     </button>
   </div>
 `;
-
-window.EventLog2UI = window.EventLog2UI || {};
-window.EventLog2UI.components = window.EventLog2UI.components || {};
-window.EventLog2UI.components.DetailPanelHeader = DetailPanelHeader;

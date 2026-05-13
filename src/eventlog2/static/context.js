@@ -1,21 +1,14 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const createContext = ui.createContext;
-  const createElement = ui.createElement;
+import { createContext, createElement } from "preact";
 
-  ui.context = ui.context || {};
+export const AppServicesContext = createContext(null);
 
-  if (!ui.context.AppServicesContext) {
-    ui.context.AppServicesContext = typeof createContext === "function" ? createContext(null) : null;
-  }
+export const AppServicesProvider = (props) => {
+  const services = props?.services ?? null;
+  const children = props?.children ?? null;
+  return createElement(AppServicesContext.Provider, { value: services }, children);
+};
 
-  ui.AppServicesProvider = function AppServicesProvider(props) {
-    const services = props?.services ?? null;
-    const children = props?.children ?? null;
-    const Provider = ui.context.AppServicesContext?.Provider || null;
-    if (!Provider || typeof createElement !== "function") {
-      throw new Error("EventLog2UI.AppServicesProvider requires a working local Preact runtime.");
-    }
-    return createElement(Provider, { value: services }, children);
-  };
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.context = window.EventLog2UI.context || {};
+window.EventLog2UI.context.AppServicesContext = AppServicesContext;
+window.EventLog2UI.AppServicesProvider = AppServicesProvider;

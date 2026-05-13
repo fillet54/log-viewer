@@ -82,7 +82,3 @@ export const SearchHelpDialog = ({ dialogRef, fields, onSelectExample }) => html
       </form>
     </dialog>
 `;
-
-window.EventLog2UI = window.EventLog2UI || {};
-window.EventLog2UI.components = window.EventLog2UI.components || {};
-window.EventLog2UI.components.SearchHelpDialog = SearchHelpDialog;

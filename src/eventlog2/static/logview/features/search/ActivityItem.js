@@ -35,7 +35,3 @@ export const ActivityItem = ({
       </div>
     `;
   };
-
-window.EventLog2UI = window.EventLog2UI || {};
-window.EventLog2UI.components = window.EventLog2UI.components || {};
-window.EventLog2UI.components.ActivityItem = ActivityItem;

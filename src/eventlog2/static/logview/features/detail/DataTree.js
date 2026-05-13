@@ -72,10 +72,3 @@ export const DataTreeNode = ({ node, collapsedPaths, onToggle }) => {
     </div>
   `;
 };
-
-window.EventLog2UI = window.EventLog2UI || {};
-window.EventLog2UI.components = window.EventLog2UI.components || {};
-window.EventLog2UI.utils = window.EventLog2UI.utils || {};
-window.EventLog2UI.components.DataTreeNode = DataTreeNode;
-window.EventLog2UI.utils.buildDataTree = buildDataTree;
-window.EventLog2UI.utils.collectExpandablePaths = collectExpandablePaths;

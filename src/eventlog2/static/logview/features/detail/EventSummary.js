@@ -8,7 +8,3 @@ export const EventSummary = ({ event }) => html`
     <div class="detail-path">${event.system}/${event.subsystem}/${event.unit}/${event.code}</div>
   </${Fragment}>
 `;
-
-window.EventLog2UI = window.EventLog2UI || {};
-window.EventLog2UI.components = window.EventLog2UI.components || {};
-window.EventLog2UI.components.EventSummary = EventSummary;
