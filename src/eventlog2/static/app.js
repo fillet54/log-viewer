@@ -1,4 +1,12 @@
 // app.js - Main entry point
+import "./state/viewer-store-shared.js";
+import "./state/viewer-store-navigation.js";
+import "./state/viewer-store-layout.js";
+import "./state/viewer-store-search.js";
+import "./state/viewer-store-chart.js";
+import "./state/viewer-store-activity.js";
+import "./state/viewer-store.js";
+
 import { createMountController } from './mount.js';
 import { STORAGE_KEYS, queryById, smoothScrollTo } from './shared.js';
 import { ViewerRoot } from './logview/ViewerRoot.js';

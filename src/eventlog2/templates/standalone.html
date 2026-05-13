@@ -63,10 +63,32 @@
 {{ script|replace('</script', '<\\/script')|safe }}
     </script>
     {% endfor %}
-    {% if entry_point_path %}
+
+    <script id="esm-data" type="application/json">
+{{ esm_data|safe }}
+    </script>
+    <script>
+      (function() {
+        const dataNode = document.getElementById('esm-data');
+        if (!dataNode) return;
+        const data = JSON.parse(dataNode.textContent);
+        const imports = {};
+        for (const [id, code] of Object.entries(data)) {
+          const blob = new Blob([code], { type: 'text/javascript' });
+          const url = URL.createObjectURL(blob);
+          imports[id] = url;
+        }
+        const script = document.createElement('script');
+        script.type = 'importmap';
+        script.textContent = JSON.stringify({ imports });
+        document.head.appendChild(script);
+      })();
+    </script>
+
+    {% if entry_point_id %}
     <script type="module">
-      import "/static/runtime.js";
-      import "{{ entry_point_path }}";
+      import "static/runtime.js";
+      import "{{ entry_point_id }}";
     </script>
     {% endif %}
   </body>

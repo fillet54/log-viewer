@@ -3,13 +3,13 @@ from __future__ import annotations
 from importlib.resources import files
 from pathlib import Path
 import json
+import base64
+import re
+import os
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from .plugin_manager import build_page_data_documents_from_path, build_page_data_from_path
-
-import base64
-import json
 
 SCRIPT_PATHS = [
     "static/vendor/chart.umd.min.js",
@@ -21,6 +21,7 @@ SCRIPT_PATHS = [
     "static/vendor/htm-core.mjs",
     "static/vendor/htm-preact.mjs",
     "static/runtime.js",
+    "static/shared.js",
     "static/context.js",
     "static/hooks/use-app-services.js",
     "static/hooks/use-split.js",
@@ -73,6 +74,8 @@ SCRIPT_PATHS = [
 GLOBAL_SCRIPTS = [
     "static/vendor/chart.umd.min.js",
     "static/vendor/split.min.js",
+    "static/services/search.js",
+    "static/services/app-services.js",
 ]
 
 BARE_MODULES = {
@@ -96,9 +99,35 @@ TEMPLATE_ENV = Environment(
 def _read_package_text(relative_path: str) -> str:
     return files("eventlog2").joinpath(relative_path).read_text(encoding="utf-8")
 
-def _to_data_uri(content: str, mime_type: str = "text/javascript") -> str:
-    b64 = base64.b64encode(content.encode("utf-8")).decode("utf-8")
-    return f"data:{mime_type};base64,{b64}"
+def _resolve_relative(current_path: str, rel_path: str) -> str:
+    base_dir = os.path.dirname(current_path)
+    resolved = os.path.normpath(os.path.join(base_dir, rel_path))
+    return resolved.replace(os.sep, "/")
+
+def _normalize_imports(path: str, content: str) -> str:
+    def replace_import(match: re.Match) -> str:
+        rel_path = match.group(2)
+        if rel_path.startswith("."):
+            resolved = _resolve_relative(path, rel_path)
+            return f'{match.group(1)}"{resolved}"'
+        return match.group(0)
+
+    # Handle 'import ... from "..."' or 'export ... from "..."'
+    # Use re.DOTALL to match newlines in the imports
+    content = re.sub(
+        r'((?:import|export)\s+.*?\s+from\s+)["\']([^"\']+)["\']',
+        replace_import,
+        content,
+        flags=re.DOTALL
+    )
+    # Handle 'import "..."'
+    content = re.sub(
+        r'(import\s+)["\'](\.[^"\']+)["\']',
+        replace_import,
+        content,
+        flags=re.DOTALL
+    )
+    return content
 
 def build_page_data_script(page_data: dict[str, object]) -> str:
     payload = json.dumps(page_data, separators=(",", ":"), sort_keys=True)
@@ -114,30 +143,32 @@ def build_standalone_html(data_script: str, title: str = "HTML Log Viewer") -> s
     for path in GLOBAL_SCRIPTS:
         global_scripts.append(_read_package_text(path))
     
-    import_map_dict = {"imports": {}}
+    module_data = {}
     
-    # 1. Map bare modules
-    for name, path in BARE_MODULES.items():
-        content = _read_package_text(path)
-        import_map_dict["imports"][name] = _to_data_uri(content)
-    
-    # 2. Map all scripts as their absolute-ish paths to support relative imports
+    # 1. Normalize and collect all modules
     for path in SCRIPT_PATHS:
         if path in GLOBAL_SCRIPTS:
             continue
-        logical_path = f"/{path}"
         content = _read_package_text(path)
-        import_map_dict["imports"][logical_path] = _to_data_uri(content)
+        module_data[path] = _normalize_imports(path, content)
     
-    import_map = json.dumps(import_map_dict, indent=2)
+    # 2. Add bare modules
+    for name, path in BARE_MODULES.items():
+        if name in module_data:
+            continue
+        content = _read_package_text(path)
+        # Bare modules shouldn't have relative imports usually, but let's be safe
+        module_data[name] = _normalize_imports(path, content)
+            
+    esm_data = json.dumps(module_data)
 
     return TEMPLATE_ENV.get_template("standalone.html").render(
         title=title,
         styles=styles,
         row_template=row_template,
         global_scripts=global_scripts,
-        import_map=import_map,
-        entry_point_path=f"/{ENTRY_POINT}",
+        esm_data=esm_data,
+        entry_point_id=ENTRY_POINT,
     )
 
 
