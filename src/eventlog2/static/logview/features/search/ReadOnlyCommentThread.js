@@ -1,12 +1,7 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const html = ui.html;
+import { html } from "logview/lib";
 
-  ui.components = ui.components || {};
-
-  const ReadOnlyCommentThread = ({ threads, depth = 0 }) => {
+export const ReadOnlyCommentThread = ({ threads, depth = 0 }) => {
     if (!threads.length) return null;
-    const ReadOnlyCommentThreadComponent = ui.components.ReadOnlyCommentThread;
 
     return html`
       <div class="comment-thread">
@@ -18,14 +13,15 @@
               </div>
               <div class="comment-body">${comment.body}</div>
               ${comment.replies?.length
-                ? html`<${ReadOnlyCommentThreadComponent} threads=${comment.replies} depth=${depth + 1} />`
+                ? html`<${ReadOnlyCommentThread} threads=${comment.replies} depth=${depth + 1} />`
                 : null}
             </div>
           `
         )}
       </div>
     `;
-  };
+};
 
-  ui.components.ReadOnlyCommentThread = ReadOnlyCommentThread;
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.components = window.EventLog2UI.components || {};
+window.EventLog2UI.components.ReadOnlyCommentThread = ReadOnlyCommentThread;

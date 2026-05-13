@@ -1,22 +1,29 @@
 import { smoothScrollTo } from "../../../shared.js";
+import {
+  MainLogPane,
+  buildEventByRowId,
+  buildIndexByRowId,
+  findClosestIndexBySeconds,
+  createRenderedLogRow,
+} from "./LogVirtualList.js";
+import { MainViewToolbar } from "./MainViewToolbar.js";
 
-(function () {
-  const ui = window.EventLog2UI || {};
-  const LogSearch = window.LogSearch || null;
-  const LogMainViewChart = window.LogMainViewChart || null;
-  const html = ui.html;
-  const useEffect = ui.hooks?.useEffect || null;
-  const useLayoutEffect = ui.hooks?.useLayoutEffect || null;
-  const useRef = ui.hooks?.useRef || null;
-  const useState = ui.hooks?.useState || null;
+const ui = window.EventLog2UI || {};
+const LogSearch = window.LogSearch || null;
+const LogMainViewChart = window.LogMainViewChart || null;
+const html = ui.html;
+const useEffect = ui.hooks?.useEffect || null;
+const useLayoutEffect = ui.hooks?.useLayoutEffect || null;
+const useRef = ui.hooks?.useRef || null;
+const useState = ui.hooks?.useState || null;
 
-  ui.components = ui.components || {};
+ui.components = ui.components || {};
 
-  const VIEW_MODE_SPLIT = "split";
-  const VIEW_MODE_CHART = "chart";
-  const VIEW_MODE_LIST = "list";
+const VIEW_MODE_SPLIT = "split";
+const VIEW_MODE_CHART = "chart";
+const VIEW_MODE_LIST = "list";
 
-  const MainViewShell = () => {
+export const MainViewShell = () => {
     const services = ui.appHooks.useAppServices();
     const viewerStore = services?.viewerStore || null;
     const events = Array.isArray(services?.logData?.events) ? services.logData.events : [];
@@ -39,11 +46,6 @@ import { smoothScrollTo } from "../../../shared.js";
     const pendingJumpRef = useRef ? useRef(null) : { current: null };
     const highlightNonceRef = useRef ? useRef(0) : { current: 0 };
     
-    const buildEventByRowId = ui.utils?.buildEventByRowId || (() => new Map());
-    const buildIndexByRowId = ui.utils?.buildIndexByRowId || (() => new Map());
-    const findClosestIndexBySeconds = ui.utils?.findClosestIndexBySeconds || (() => null);
-    const createRenderedLogRow = ui.utils?.createRenderedLogRow || (() => null);
-
     const filteredRef = useRef ? useRef(events) : { current: events };
     const indexByRowIdRef = useRef ? useRef(buildIndexByRowId(events)) : { current: buildIndexByRowId(events) };
     const eventByRowIdRef = useRef ? useRef(buildEventByRowId(events)) : { current: buildEventByRowId(events) };
@@ -312,9 +314,6 @@ import { smoothScrollTo } from "../../../shared.js";
       }, [selectedChartType, chartTypes.length]);
     }
 
-    const MainViewToolbar = ui.components.MainViewToolbar;
-    const MainLogPane = ui.components.MainLogPane;
-
     return html`
       <div ref=${rootRef} class="main-view-shell">
         <${MainViewToolbar}
@@ -365,9 +364,8 @@ import { smoothScrollTo } from "../../../shared.js";
     `;
   };
 
-  ui.components.LogMainViewShell = MainViewShell;
-  ui.constants = ui.constants || {};
-  ui.constants.VIEW_MODE_SPLIT = VIEW_MODE_SPLIT;
-  ui.constants.VIEW_MODE_CHART = VIEW_MODE_CHART;
-  ui.constants.VIEW_MODE_LIST = VIEW_MODE_LIST;
-})();
+ui.components.LogMainViewShell = MainViewShell;
+ui.constants = ui.constants || {};
+ui.constants.VIEW_MODE_SPLIT = VIEW_MODE_SPLIT;
+ui.constants.VIEW_MODE_CHART = VIEW_MODE_CHART;
+ui.constants.VIEW_MODE_LIST = VIEW_MODE_LIST;

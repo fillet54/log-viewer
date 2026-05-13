@@ -1,15 +1,8 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const html = ui.html;
+import { html } from "logview/lib";
+import { LayoutShell } from "./features/layout/LayoutShell.js";
 
-  ui.components = ui.components || {};
+export const ViewerRoot = () => html`<${LayoutShell} />`;
 
-  const ViewerRoot = () => {
-    const LayoutShell = ui.components?.LogLayoutShell || null;
-    return typeof LayoutShell === "function"
-      ? html`<${LayoutShell} />`
-      : html`<div class="empty-panel-message">Layout shell component is not registered.</div>`;
-  };
-
-  ui.components.LogViewerRoot = ViewerRoot;
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.components = window.EventLog2UI.components || {};
+window.EventLog2UI.components.LogViewerRoot = ViewerRoot;

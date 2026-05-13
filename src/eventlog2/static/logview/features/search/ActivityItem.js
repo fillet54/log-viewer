@@ -1,10 +1,8 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const html = ui.html;
+import { html } from "logview/lib";
+import { RenderedRow } from "./RenderedRow.js";
+import { ReadOnlyCommentThread } from "./ReadOnlyCommentThread.js";
 
-  ui.components = ui.components || {};
-
-  const ActivityItem = ({
+export const ActivityItem = ({
     event,
     services,
     events,
@@ -14,8 +12,6 @@
     bookmarkState,
     commentState,
   }) => {
-    const RenderedRow = ui.components.RenderedRow;
-    const ReadOnlyCommentThread = ui.components.ReadOnlyCommentThread;
     const threads = comments?.buildThreads(event.row_id) || [];
 
     return html`
@@ -40,5 +36,6 @@
     `;
   };
 
-  ui.components.ActivityItem = ActivityItem;
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.components = window.EventLog2UI.components || {};
+window.EventLog2UI.components.ActivityItem = ActivityItem;

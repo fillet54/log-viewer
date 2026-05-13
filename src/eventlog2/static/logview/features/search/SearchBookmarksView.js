@@ -1,10 +1,7 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const html = ui.html;
+import { html } from "logview/lib";
+import { ActivityItem } from "./ActivityItem.js";
 
-  ui.components = ui.components || {};
-
-  const SearchBookmarksView = ({
+export const SearchBookmarksView = ({
     currentTab,
     activityEnabled,
     bookmarkEvents,
@@ -15,8 +12,7 @@
     bookmarkState,
     commentState,
   }) => {
-    const SEARCH_TAB_BOOKMARKS = ui.constants?.SEARCH_TAB_BOOKMARKS || "bookmarks";
-    const ActivityItem = ui.components.ActivityItem;
+    const SEARCH_TAB_BOOKMARKS = "bookmarks";
 
     return html`
       <div
@@ -46,5 +42,6 @@
     `;
   };
 
-  ui.components.SearchBookmarksView = SearchBookmarksView;
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.components = window.EventLog2UI.components || {};
+window.EventLog2UI.components.SearchBookmarksView = SearchBookmarksView;

@@ -1,10 +1,8 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const html = ui.html;
+import { html } from "logview/lib";
+import { ActivityItem } from "./ActivityItem.js";
+import { RenderedRow } from "./RenderedRow.js";
 
-  ui.components = ui.components || {};
-
-  const SearchResultsContent = ({
+export const SearchResultsContent = ({
     currentTab,
     results,
     resultRowStride,
@@ -18,9 +16,7 @@
     bookmarkState,
     commentState,
   }) => {
-    const SEARCH_TAB_BOOKMARKS = ui.constants?.SEARCH_TAB_BOOKMARKS || "bookmarks";
-    const ActivityItem = ui.components.ActivityItem;
-    const RenderedRow = ui.components.RenderedRow;
+    const SEARCH_TAB_BOOKMARKS = "bookmarks";
 
     if (currentTab === SEARCH_TAB_BOOKMARKS) {
       return html`
@@ -72,5 +68,6 @@
     `;
   };
 
-  ui.components.SearchResultsContent = SearchResultsContent;
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.components = window.EventLog2UI.components || {};
+window.EventLog2UI.components.SearchResultsContent = SearchResultsContent;

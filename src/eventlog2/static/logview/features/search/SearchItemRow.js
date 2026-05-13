@@ -1,10 +1,6 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const html = ui.html;
+import { html } from "logview/lib";
 
-  ui.components = ui.components || {};
-
-  const SearchItemRow = ({ item, isPinned, onPinToggle, onPromote, onSelect }) => html`
+export const SearchItemRow = ({ item, isPinned, onPinToggle, onPromote, onSelect }) => html`
     <div class="search-item search-history-item" onClick=${onSelect}>
       <span class="search-query">${item.label}</span>
       <button
@@ -36,7 +32,8 @@
       </button>
       <span class="search-time">${item.count}</span>
     </div>
-  `;
+`;
 
-  ui.components.SearchItemRow = SearchItemRow;
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.components = window.EventLog2UI.components || {};
+window.EventLog2UI.components.SearchItemRow = SearchItemRow;

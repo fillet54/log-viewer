@@ -1,10 +1,6 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const html = ui.html;
+import { html } from "logview/lib";
 
-  ui.components = ui.components || {};
-
-  const FilterItemRow = ({ filter, onToggle, onRemove }) => html`
+export const FilterItemRow = ({ filter, onToggle, onRemove }) => html`
     <div class="search-item search-filter-item">
       <span>${filter.query}</span>
       <button
@@ -19,7 +15,8 @@
         </svg>
       </button>
     </div>
-  `;
+`;
 
-  ui.components.FilterItemRow = FilterItemRow;
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.components = window.EventLog2UI.components || {};
+window.EventLog2UI.components.FilterItemRow = FilterItemRow;

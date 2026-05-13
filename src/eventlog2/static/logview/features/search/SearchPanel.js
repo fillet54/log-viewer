@@ -1,15 +1,20 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const LogSearch = window.LogSearch || null;
-  const html = ui.html;
-  const Fragment = ui.Fragment;
-  const useEffect = ui.hooks?.useEffect || null;
-  const useRef = ui.hooks?.useRef || null;
-  const useState = ui.hooks?.useState || null;
+import { SearchPanelHeader, SEARCH_TAB_HISTORY, SEARCH_TAB_BOOKMARKS } from "./SearchPanelHeader.js";
+import { SearchSidebar } from "./SearchSidebar.js";
+import { SearchResultsPane } from "./SearchResultsPane.js";
+import { SearchHelpDialog } from "./SearchHelpDialog.js";
+import { createRenderedRow } from "./RenderedRow.js";
 
-  ui.components = ui.components || {};
+const ui = window.EventLog2UI || {};
+const LogSearch = window.LogSearch || null;
+const html = ui.html;
+const Fragment = ui.Fragment;
+const useEffect = ui.hooks?.useEffect || null;
+const useRef = ui.hooks?.useRef || null;
+const useState = ui.hooks?.useState || null;
 
-  const getSearchFieldPaths = (events) => {
+ui.components = ui.components || {};
+
+const getSearchFieldPaths = (events) => {
     const source = Array.isArray(events) ? events : [];
     const sample = source.find((event) => event && typeof event === "object") || null;
     if (!sample) return [];
@@ -24,7 +29,7 @@
       .sort((left, right) => left.name.localeCompare(right.name));
   };
 
-  const getBookmarkEvents = ({ events, bookmarks, comments }) => {
+const getBookmarkEvents = ({ events, bookmarks, comments }) => {
     const bookmarkIds = new Set(bookmarks?.getAll() || []);
     const commentRows = comments?.getByRowId() || new Map();
     const ids = new Set([...bookmarkIds, ...Array.from(commentRows.keys())]);
@@ -34,10 +39,7 @@
       .sort((left, right) => (left.norm_time || 0) - (right.norm_time || 0));
   };
 
-  const SearchPanel = () => {
-    const SEARCH_TAB_HISTORY = ui.constants?.SEARCH_TAB_HISTORY || "history";
-    const SEARCH_TAB_BOOKMARKS = ui.constants?.SEARCH_TAB_BOOKMARKS || "bookmarks";
-
+export const SearchPanel = () => {
     const services = ui.appHooks.useAppServices();
     const viewerStore = services?.viewerStore || null;
     const events = Array.isArray(services?.logData?.events) ? services.logData.events : [];
@@ -171,9 +173,6 @@
         const host = measureRef.current;
         if (!host || !events.length) return;
         host.innerHTML = "";
-        const createRenderedRow = ui.utils?.createRenderedRow;
-        if (!createRenderedRow) return;
-        
         const sample = createRenderedRow({
           event: events[0],
           services,
@@ -275,11 +274,6 @@
       if (eventKey.key === "Enter") executeSearch(true);
     };
 
-    const SearchPanelHeader = ui.components.SearchPanelHeader;
-    const SearchSidebar = ui.components.SearchSidebar;
-    const SearchResultsPane = ui.components.SearchResultsPane;
-    const SearchHelpDialog = ui.components.SearchHelpDialog;
-
     return html`
       <${Fragment}>
         <${SearchPanelHeader}
@@ -343,5 +337,4 @@
     `;
   };
 
-  ui.components.LogSearchPanel = SearchPanel;
-})();
+ui.components.LogSearchPanel = SearchPanel;

@@ -1,28 +1,25 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const html = ui.html;
-  const useLayoutEffect = ui.hooks?.useLayoutEffect || null;
-  const useRef = ui.hooks?.useRef || null;
+import { html, hooks } from "logview/lib";
 
-  ui.components = ui.components || {};
+const useLayoutEffect = hooks.useLayoutEffect || null;
+const useRef = hooks.useRef || null;
 
-  const buildEventByRowId = (events) => {
+export const buildEventByRowId = (events) => {
     const map = new Map();
     events.forEach((event) => {
       map.set(String(event.row_id), event);
     });
     return map;
-  };
+};
 
-  const buildIndexByRowId = (events) => {
+export const buildIndexByRowId = (events) => {
     const map = new Map();
     events.forEach((event, index) => {
       map.set(String(event.row_id), index);
     });
     return map;
-  };
+};
 
-  const findClosestIndexBySeconds = (events, targetSeconds) => {
+export const findClosestIndexBySeconds = (events, targetSeconds) => {
     if (!events.length) return null;
     let lo = 0;
     let hi = events.length - 1;
@@ -40,9 +37,9 @@
     return Math.abs(events[lo].norm_time - targetSeconds) < Math.abs(events[hi].norm_time - targetSeconds)
       ? lo
       : hi;
-  };
+};
 
-  const createRenderedLogRow = ({ event, services, selectedRowId }) => {
+export const createRenderedLogRow = ({ event, services, selectedRowId }) => {
     const rowTemplate = services?.rowTemplate || null;
     const renderRow = window.EventLog2?.resolveRowRenderer
       ? window.EventLog2.resolveRowRenderer(services?.plugin || null)
@@ -58,9 +55,9 @@
     if (!row) return null;
     row.classList.toggle("log-selected", String(selectedRowId ?? "") === String(event.row_id));
     return row;
-  };
+};
 
-  const attachRenderedLogRow = ({ row, event, services, eventByRowId }) => {
+const attachRenderedLogRow = ({ row, event, services, eventByRowId }) => {
     if (!row) return null;
 
     row.querySelector(".bookmark-toggle")?.addEventListener("click", (eventClick) => {
@@ -88,9 +85,9 @@
     });
 
     return row;
-  };
+};
 
-  const MainLogRow = ({
+export const MainLogRow = ({
     event,
     services,
     eventByRowId,
@@ -136,9 +133,9 @@
     }
 
     return html`<div ref=${ref}></div>`;
-  };
+};
 
-  const MainLogContent = ({
+export const MainLogContent = ({
     filteredEvents,
     rowStride,
     virtual,
@@ -150,7 +147,6 @@
     bookmarkState,
     logListRef,
   }) => {
-    const MainLogRow = ui.components.MainLogRow;
     if (!filteredEvents.length) {
       return html`
         <div id="log-spacer"></div>
@@ -183,9 +179,9 @@
         )}
       </div>
     `;
-  };
+};
 
-  const MainLogPane = ({
+export const MainLogPane = ({
     logRegionRef,
     logBodyRef,
     measureRef,
@@ -201,9 +197,8 @@
     bookmarkState,
     logListRef,
   }) => {
-    const MainLogContent = ui.components.MainLogContent;
-    const VIEW_MODE_LIST = ui.constants?.VIEW_MODE_LIST || "list";
-    const VIEW_MODE_CHART = ui.constants?.VIEW_MODE_CHART || "chart";
+    const VIEW_MODE_LIST = "list";
+    const VIEW_MODE_CHART = "chart";
 
     return html`
       <section
@@ -233,15 +228,15 @@
         <div ref=${measureRef} style=${{ position: "absolute", visibility: "hidden", pointerEvents: "none" }}></div>
       </section>
     `;
-  };
+};
 
-  ui.components.MainLogRow = MainLogRow;
-  ui.components.MainLogContent = MainLogContent;
-  ui.components.MainLogPane = MainLogPane;
-  
-  ui.utils = ui.utils || {};
-  ui.utils.buildEventByRowId = buildEventByRowId;
-  ui.utils.buildIndexByRowId = buildIndexByRowId;
-  ui.utils.findClosestIndexBySeconds = findClosestIndexBySeconds;
-  ui.utils.createRenderedLogRow = createRenderedLogRow;
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.components = window.EventLog2UI.components || {};
+window.EventLog2UI.utils = window.EventLog2UI.utils || {};
+window.EventLog2UI.components.MainLogRow = MainLogRow;
+window.EventLog2UI.components.MainLogContent = MainLogContent;
+window.EventLog2UI.components.MainLogPane = MainLogPane;
+window.EventLog2UI.utils.buildEventByRowId = buildEventByRowId;
+window.EventLog2UI.utils.buildIndexByRowId = buildIndexByRowId;
+window.EventLog2UI.utils.findClosestIndexBySeconds = findClosestIndexBySeconds;
+window.EventLog2UI.utils.createRenderedLogRow = createRenderedLogRow;

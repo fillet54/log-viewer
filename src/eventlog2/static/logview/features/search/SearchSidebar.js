@@ -1,10 +1,9 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const html = ui.html;
+import { html } from "logview/lib";
+import { SearchHistoryView } from "./SearchHistoryView.js";
+import { SearchFilterView } from "./SearchFilterView.js";
+import { SearchBookmarksView } from "./SearchBookmarksView.js";
 
-  ui.components = ui.components || {};
-
-  const SearchSidebar = ({
+export const SearchSidebar = ({
     currentTab,
     activityEnabled,
     splitLeftRef,
@@ -25,10 +24,6 @@
     onToggleFilter,
     onRemoveFilter,
   }) => {
-    const SearchHistoryView = ui.components.SearchHistoryView;
-    const SearchFilterView = ui.components.SearchFilterView;
-    const SearchBookmarksView = ui.components.SearchBookmarksView;
-
     return html`
       <aside id="search-history-pane" ref=${splitLeftRef} class="search-history">
         <${SearchHistoryView}
@@ -61,5 +56,6 @@
     `;
   };
 
-  ui.components.SearchSidebar = SearchSidebar;
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.components = window.EventLog2UI.components || {};
+window.EventLog2UI.components.SearchSidebar = SearchSidebar;

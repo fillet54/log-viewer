@@ -1,10 +1,6 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const html = ui.html;
+import { html } from "logview/lib";
 
-  ui.components = ui.components || {};
-
-  const HELP_EXAMPLES = [
+const HELP_EXAMPLES = [
     "name:temp_core",
     "system:Power",
     "color:Red",
@@ -16,7 +12,7 @@
     "$.*:writer",
   ];
 
-  const SearchHelpDialog = ({ dialogRef, fields, onSelectExample }) => html`
+export const SearchHelpDialog = ({ dialogRef, fields, onSelectExample }) => html`
     <dialog ref=${dialogRef} id="search-help-dialog" class="search-help-dialog">
       <form method="dialog" class="search-help-card">
         <div class="search-help-header">
@@ -85,7 +81,8 @@
         </div>
       </form>
     </dialog>
-  `;
+`;
 
-  ui.components.SearchHelpDialog = SearchHelpDialog;
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.components = window.EventLog2UI.components || {};
+window.EventLog2UI.components.SearchHelpDialog = SearchHelpDialog;

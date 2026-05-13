@@ -1,12 +1,9 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const html = ui.html;
-  const useLayoutEffect = ui.hooks?.useLayoutEffect || null;
-  const useRef = ui.hooks?.useRef || null;
+import { html, hooks } from "logview/lib";
 
-  ui.components = ui.components || {};
+const useLayoutEffect = hooks.useLayoutEffect || null;
+const useRef = hooks.useRef || null;
 
-  const createRenderedRow = ({ event, services, extraClasses = [] }) => {
+export const createRenderedRow = ({ event, services, extraClasses = [] }) => {
     const rowTemplate = services?.rowTemplate || null;
     const renderRow = window.EventLog2?.resolveRowRenderer
       ? window.EventLog2.resolveRowRenderer(services?.plugin || null)
@@ -17,9 +14,9 @@
       bookmarks: services?.viewerStore || null,
       view: services?.view || null,
     });
-  };
+};
 
-  const attachRowActions = ({ row, event, services, events, activityEnabled }) => {
+const attachRowActions = ({ row, event, services, events, activityEnabled }) => {
     if (!row) return null;
 
     row.querySelector(".bookmark-toggle")?.addEventListener("click", (eventClick) => {
@@ -49,9 +46,9 @@
     });
 
     return row;
-  };
+};
 
-  const RenderedRow = ({
+export const RenderedRow = ({
     event,
     services,
     events,
@@ -80,9 +77,10 @@
     }
 
     return html`<div ref=${ref} class=${className}></div>`;
-  };
+};
 
-  ui.components.RenderedRow = RenderedRow;
-  ui.utils = ui.utils || {};
-  ui.utils.createRenderedRow = createRenderedRow;
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.components = window.EventLog2UI.components || {};
+window.EventLog2UI.utils = window.EventLog2UI.utils || {};
+window.EventLog2UI.components.RenderedRow = RenderedRow;
+window.EventLog2UI.utils.createRenderedRow = createRenderedRow;

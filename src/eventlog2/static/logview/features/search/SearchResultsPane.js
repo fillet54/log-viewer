@@ -1,10 +1,8 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const html = ui.html;
+import { html } from "logview/lib";
+import { SearchControls } from "./SearchControls.js";
+import { SearchResultsContent } from "./SearchResultsContent.js";
 
-  ui.components = ui.components || {};
-
-  const SearchResultsPane = ({
+export const SearchResultsPane = ({
     splitRightRef,
     query,
     queryInputRef,
@@ -27,9 +25,6 @@
     commentState,
     measureRef,
   }) => {
-    const SearchControls = ui.components.SearchControls;
-    const SearchResultsContent = ui.components.SearchResultsContent;
-
     return html`
       <section id="search-results-pane" ref=${splitRightRef} class="search-results">
         <${SearchControls}
@@ -61,5 +56,6 @@
     `;
   };
 
-  ui.components.SearchResultsPane = SearchResultsPane;
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.components = window.EventLog2UI.components || {};
+window.EventLog2UI.components.SearchResultsPane = SearchResultsPane;

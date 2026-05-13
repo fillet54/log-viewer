@@ -1,10 +1,7 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const html = ui.html;
+import { html } from "logview/lib";
+import { SearchItemRow } from "./SearchItemRow.js";
 
-  ui.components = ui.components || {};
-
-  const SearchHistoryView = ({
+export const SearchHistoryView = ({
     currentTab,
     pinned,
     history,
@@ -13,8 +10,7 @@
     onSelectQuery,
     onClearHistory,
   }) => {
-    const SEARCH_TAB_HISTORY = ui.constants?.SEARCH_TAB_HISTORY || "history";
-    const SearchItemRow = ui.components.SearchItemRow;
+    const SEARCH_TAB_HISTORY = "history";
 
     return html`
       <div id="search-history-view" class=${`search-view${currentTab === SEARCH_TAB_HISTORY ? "" : " hidden"}`}>
@@ -59,5 +55,6 @@
     `;
   };
 
-  ui.components.SearchHistoryView = SearchHistoryView;
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.components = window.EventLog2UI.components || {};
+window.EventLog2UI.components.SearchHistoryView = SearchHistoryView;

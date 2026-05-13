@@ -1,10 +1,6 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const html = ui.html;
+import { html } from "logview/lib";
 
-  ui.components = ui.components || {};
-
-  const SearchControls = ({
+export const SearchControls = ({
     query,
     queryInputRef,
     onQueryInput,
@@ -40,7 +36,8 @@
         Search
       </button>
     </div>
-  `;
+`;
 
-  ui.components.SearchControls = SearchControls;
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.components = window.EventLog2UI.components || {};
+window.EventLog2UI.components.SearchControls = SearchControls;

@@ -1,14 +1,10 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const html = ui.html;
+import { html } from "logview/lib";
 
-  ui.components = ui.components || {};
+export const SEARCH_TAB_HISTORY = "history";
+export const SEARCH_TAB_FILTERS = "filters";
+export const SEARCH_TAB_BOOKMARKS = "bookmarks";
 
-  const SEARCH_TAB_HISTORY = "history";
-  const SEARCH_TAB_FILTERS = "filters";
-  const SEARCH_TAB_BOOKMARKS = "bookmarks";
-
-  const SearchPanelHeader = ({ currentTab, activityEnabled, onSelectTab }) => html`
+export const SearchPanelHeader = ({ currentTab, activityEnabled, onSelectTab }) => html`
     <div class="pane-header compact-header pane-header-spread">
       <span id="search-header-text" class="section-label">Search</span>
       <div id="search-header-tabs" class="search-tabs hidden">
@@ -40,11 +36,12 @@
         </svg>
       </button>
     </div>
-  `;
+`;
 
-  ui.components.SearchPanelHeader = SearchPanelHeader;
-  ui.constants = ui.constants || {};
-  ui.constants.SEARCH_TAB_HISTORY = SEARCH_TAB_HISTORY;
-  ui.constants.SEARCH_TAB_FILTERS = SEARCH_TAB_FILTERS;
-  ui.constants.SEARCH_TAB_BOOKMARKS = SEARCH_TAB_BOOKMARKS;
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.components = window.EventLog2UI.components || {};
+window.EventLog2UI.constants = window.EventLog2UI.constants || {};
+window.EventLog2UI.components.SearchPanelHeader = SearchPanelHeader;
+window.EventLog2UI.constants.SEARCH_TAB_HISTORY = SEARCH_TAB_HISTORY;
+window.EventLog2UI.constants.SEARCH_TAB_FILTERS = SEARCH_TAB_FILTERS;
+window.EventLog2UI.constants.SEARCH_TAB_BOOKMARKS = SEARCH_TAB_BOOKMARKS;

@@ -1,10 +1,6 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const html = ui.html;
+import { html } from "logview/lib";
 
-  ui.components = ui.components || {};
-
-  const ViewModeButton = ({ id, active, title, label, icon, onClick }) => html`
+export const ViewModeButton = ({ id, active, title, label, icon, onClick }) => html`
     <button
       id=${id}
       class=${`button button-ghost button-xs view-mode-button${active ? " is-active" : ""}`}
@@ -16,9 +12,9 @@
       ${icon}
       <span class="sr-only">${label}</span>
     </button>
-  `;
+`;
 
-  const MainViewToolbar = ({
+export const MainViewToolbar = ({
     chartTypes,
     selectedChartType,
     commandBarRef,
@@ -26,10 +22,9 @@
     onChartTypeChange,
     onViewModeChange,
   }) => {
-    const ViewModeButton = ui.components.ViewModeButton;
-    const VIEW_MODE_SPLIT = ui.constants?.VIEW_MODE_SPLIT || "split";
-    const VIEW_MODE_CHART = ui.constants?.VIEW_MODE_CHART || "chart";
-    const VIEW_MODE_LIST = ui.constants?.VIEW_MODE_LIST || "list";
+    const VIEW_MODE_SPLIT = "split";
+    const VIEW_MODE_CHART = "chart";
+    const VIEW_MODE_LIST = "list";
 
     return html`
       <div class="main-view-toolbar">
@@ -93,8 +88,9 @@
         </div>
       </div>
     `;
-  };
+};
 
-  ui.components.ViewModeButton = ViewModeButton;
-  ui.components.MainViewToolbar = MainViewToolbar;
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.components = window.EventLog2UI.components || {};
+window.EventLog2UI.components.ViewModeButton = ViewModeButton;
+window.EventLog2UI.components.MainViewToolbar = MainViewToolbar;
