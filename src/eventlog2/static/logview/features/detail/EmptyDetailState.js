@@ -1,10 +1,7 @@
-(function () {
-  const ui = window.EventLog2UI || {};
-  const html = ui.html;
+import { html } from "logview/lib";
 
-  ui.components = ui.components || {};
+export const EmptyDetailState = () => html`<div class="empty-panel-message">Select a log event to view details.</div>`;
 
-  const EmptyDetailState = () => html`<div class="empty-panel-message">Select a log event to view details.</div>`;
-
-  ui.components.EmptyDetailState = EmptyDetailState;
-})();
+window.EventLog2UI = window.EventLog2UI || {};
+window.EventLog2UI.components = window.EventLog2UI.components || {};
+window.EventLog2UI.components.EmptyDetailState = EmptyDetailState;
