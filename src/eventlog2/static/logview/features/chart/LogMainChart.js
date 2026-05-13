@@ -1,5 +1,7 @@
-window.LogMainViewChart = window.LogMainViewChart || {};
-window.LogMainViewTimeline = window.LogMainViewTimeline || {};
+import { queryById } from "../../../shared.js";
+
+const LogMainViewChart = window.LogMainViewChart || (window.LogMainViewChart = {});
+const LogMainViewTimeline = window.LogMainViewTimeline || (window.LogMainViewTimeline = {});
 const signalEffect = window.EventLog2UI?.signals?.effect || null;
 
 LogMainViewChart.registry = LogMainViewChart.registry || new Map();

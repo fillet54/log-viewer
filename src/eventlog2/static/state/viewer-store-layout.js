@@ -1,3 +1,5 @@
+import { STORAGE_KEYS } from "../shared.js";
+
 (function () {
   const shared = window.EventLog2.viewerStoreShared;
 

@@ -1,97 +1,6 @@
-const STORAGE_KEYS = {
-  root: "loglayout.split.root",
-  top: "loglayout.split.top",
-  detailCollapsed: "loglayout.split.detail.collapsed",
-  bottomCollapsed: "loglayout.split.bottom.collapsed",
-  search: "loglayout.split.search",
-  rootExpanded: "loglayout.split.root.expanded",
-  searchHistory: "loglayout.search.history",
-  searchPinned: "loglayout.search.pinned",
-  searchFilters: "loglayout.search.filters",
-  searchTab: "loglayout.search.tab",
-  chartTooltips: "loglayout.chart.tooltips",
-  chartType: "loglayout.chart.type",
-  chartTimelineView: "loglayout.timeline.view",
-  mainViewMode: "loglayout.mainview.mode",
-  mainViewSplit: "loglayout.mainview.split",
-  bookmarks: "loglayout.bookmarks",
-  comments: "loglayout.comments",
-};
-
-const loadSizes = (key, fallback) => {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length !== fallback.length) return fallback;
-    if (parsed.some((value) => typeof value !== "number")) return fallback;
-    return parsed;
-  } catch (err) {
-    return fallback;
-  }
-};
-
-const saveSizes = (key, sizes) => {
-  localStorage.setItem(key, JSON.stringify(sizes));
-};
-
-const queryById = (root, id) => {
-  if (!root || !id) return null;
-  if (typeof root.getElementById === "function") return root.getElementById(id);
-  if (typeof root.querySelector === "function") return root.querySelector(`#${id}`);
-  return null;
-};
-
-window.EventLog2 = window.EventLog2 || {};
-window.EventLog2._pendingViewRegistrations = window.EventLog2._pendingViewRegistrations || [];
-window.EventLog2._rowRenderers = window.EventLog2._rowRenderers || new Map();
-window.EventLog2.registerRowRenderer = (renderer) => {
-  if (typeof renderer !== "function") throw new Error("Row renderer must be a function.");
-  window.EventLog2._rowRenderers.set("global", renderer);
-  return renderer;
-};
-window.EventLog2.registerPluginRowRenderer = (pluginId, renderer) => {
-  const normalizedPluginId = String(pluginId || "").trim();
-  if (!normalizedPluginId) throw new Error("Plugin row renderers must define a plugin id.");
-  if (typeof renderer !== "function") throw new Error("Row renderer must be a function.");
-  window.EventLog2._rowRenderers.set(normalizedPluginId, renderer);
-  return renderer;
-};
-window.EventLog2.resolveRowRenderer = (plugin) => {
-  const pluginId =
-    typeof plugin === "string"
-      ? String(plugin).trim()
-      : String(plugin?.id || plugin?.pluginId || "").trim();
-  return window.EventLog2._rowRenderers.get(pluginId) || window.EventLog2._rowRenderers.get("global") || null;
-};
-window.EventLog2.registerChartType = (definition) => {
-  if (!window.LogMainViewChart?.registerType) {
-    window.EventLog2._pendingViewRegistrations.push({ kind: "chart", pluginId: null, definition });
-    return;
-  }
-  return window.LogMainViewChart.registerType(definition);
-};
-window.EventLog2.registerPluginChartType = (pluginId, definition) => {
-  if (!window.LogMainViewChart?.registerPluginType) {
-    window.EventLog2._pendingViewRegistrations.push({ kind: "chart", pluginId, definition });
-    return;
-  }
-  return window.LogMainViewChart.registerPluginType(pluginId, definition);
-};
-window.EventLog2.registerTimelineView = (definition) => {
-  if (!window.LogMainViewTimeline?.registerView) {
-    window.EventLog2._pendingViewRegistrations.push({ kind: "timeline", pluginId: null, definition });
-    return;
-  }
-  return window.LogMainViewTimeline.registerView(definition);
-};
-window.EventLog2.registerPluginTimelineView = (pluginId, definition) => {
-  if (!window.LogMainViewTimeline?.registerPluginView) {
-    window.EventLog2._pendingViewRegistrations.push({ kind: "timeline", pluginId, definition });
-    return;
-  }
-  return window.LogMainViewTimeline.registerPluginView(pluginId, definition);
-};
+// app.js - Main entry point
+import { createMountController } from './mount.js';
+import { STORAGE_KEYS, queryById, smoothScrollTo } from './shared.js';
 
 const loadPageData = () => {
   return window.EVENTLOG2_PAGE_DATA || null;
@@ -127,29 +36,6 @@ const loadPageScripts = (root, pageData) => {
   });
 };
 
-const smoothScrollTo = (container, targetTop, durationMs = 200, onComplete = null) => {
-  const startTop = container.scrollTop;
-  const delta = targetTop - startTop;
-  if (Math.abs(delta) < 2) {
-    container.scrollTop = targetTop;
-    if (onComplete) onComplete();
-    return;
-  }
-  const startTime = performance.now();
-  const easeOut = (t) => 1 - Math.pow(1 - t, 3);
-  const step = (now) => {
-    const elapsed = now - startTime;
-    const progress = Math.min(1, elapsed / durationMs);
-    container.scrollTop = startTop + delta * easeOut(progress);
-    if (progress < 1) {
-      requestAnimationFrame(step);
-    } else if (onComplete) {
-      onComplete();
-    }
-  };
-  requestAnimationFrame(step);
-};
-
 const attachServices = (root, services) => {
   root._services = services;
   return services;
@@ -170,30 +56,6 @@ class LogViewerAppElement extends HTMLElement {
     return this._services?.logData || this._data || null;
   }
 
-  getLogData() {
-    return this._services?.logData || null;
-  }
-
-  getSearchWorker() {
-    return this._services?.searchWorker || null;
-  }
-
-  getBookmarks() {
-    return this._services?.viewerStore || null;
-  }
-
-  getComments() {
-    return this._services?.viewerStore || null;
-  }
-
-  getPlugin() {
-    return this._services?.plugin || null;
-  }
-
-  getView() {
-    return this._services?.view || null;
-  }
-
   captureRowTemplate(pageData) {
     const fromDom = this.querySelector('template[data-role="row-template"]');
     if (fromDom) return fromDom.cloneNode(true);
@@ -208,18 +70,13 @@ class LogViewerAppElement extends HTMLElement {
     const ui = window.EventLog2UI || {};
     const Component = ui.components?.LogViewerRoot || null;
 
-    if (!ui.available) {
-      this.renderStartupError("Local Preact runtime is required for the log viewer.");
-      return false;
-    }
-
-    if (typeof ui.createMountController !== "function" || typeof Component !== "function") {
+    if (!Component) {
       this.renderStartupError("Log viewer root component is not registered.");
       return false;
     }
 
     if (!this._mountController) {
-      this._mountController = ui.createMountController({
+      this._mountController = createMountController({
         host: this,
         Component,
         getServices: () => this._services,
@@ -244,7 +101,8 @@ class LogViewerAppElement extends HTMLElement {
       applyPageView(this, pageData);
       loadPageScripts(this, pageData);
       this._data = pageData;
-      const services = LogServices.createRootServices({ pageData });
+      
+      const services = window.LogServices.createRootServices({ pageData });
       services.rowTemplate = this.captureRowTemplate(pageData);
       attachServices(this, services);
       this.mountWithPreact();
@@ -274,3 +132,5 @@ class LogViewerAppElement extends HTMLElement {
 if (!customElements.get("log-viewer-app")) {
   customElements.define("log-viewer-app", LogViewerAppElement);
 }
+
+export { STORAGE_KEYS, queryById, smoothScrollTo };

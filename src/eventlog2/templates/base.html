@@ -14,57 +14,65 @@
         document.documentElement.dataset.theme = storedTheme || preferredTheme;
       })();
     </script>
+    <script type="importmap">
+    {
+      "imports": {
+        "preact": "/static/vendor/preact.mjs",
+        "preact/hooks": "/static/vendor/hooks.mjs",
+        "preact/signals": "/static/vendor/signals.mjs",
+        "@preact/signals-core": "/static/vendor/signals-core.mjs",
+        "htm": "/static/vendor/htm-core.mjs",
+        "htm/preact": "/static/vendor/htm-preact.mjs",
+        "logview/lib": "/static/logview/lib.js"
+      }
+    }
+    </script>
     <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
     <script src="{{ url_for('static', filename='vendor/split.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='vendor/preact.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='vendor/preact-hooks.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='vendor/htm.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='vendor/preact-signals-core.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='vendor/preact-signals.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='runtime.js') }}"></script>
-    <script src="{{ url_for('static', filename='context.js') }}"></script>
-    <script src="{{ url_for('static', filename='hooks/use-app-services.js') }}"></script>
-    <script src="{{ url_for('static', filename='hooks/use-split.js') }}"></script>
-    <script src="{{ url_for('static', filename='hooks/use-virtual-list.js') }}"></script>
-    <script src="{{ url_for('static', filename='state/viewer-store-shared.js') }}"></script>
-    <script src="{{ url_for('static', filename='state/viewer-store-navigation.js') }}"></script>
-    <script src="{{ url_for('static', filename='state/viewer-store-layout.js') }}"></script>
-    <script src="{{ url_for('static', filename='state/viewer-store-search.js') }}"></script>
-    <script src="{{ url_for('static', filename='state/viewer-store-chart.js') }}"></script>
-    <script src="{{ url_for('static', filename='state/viewer-store-activity.js') }}"></script>
-    <script src="{{ url_for('static', filename='state/viewer-store.js') }}"></script>
-    <script src="{{ url_for('static', filename='mount.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/detail/DataTree.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/detail/CommentThread.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/detail/DetailPanelHeader.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/detail/EmptyDetailState.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/detail/EventSummary.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/detail/BookmarkSection.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/detail/CommentSection.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/detail/DataTreeSection.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/detail/DetailEventContent.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/detail/DetailPanel.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/chart/LogMainChart.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/main/LogVirtualList.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/main/MainViewToolbar.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/main/MainViewShell.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/search/SearchPanelHeader.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/search/SearchItemRow.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/search/FilterItemRow.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/search/ReadOnlyCommentThread.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/search/SearchHelpDialog.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/search/RenderedRow.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/search/ActivityItem.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/search/SearchHistoryView.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/search/SearchFilterView.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/search/SearchBookmarksView.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/search/SearchSidebar.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/search/SearchControls.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/search/SearchResultsContent.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/search/SearchResultsPane.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/search/SearchPanel.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/features/layout/LayoutShell.js') }}"></script>
-    <script src="{{ url_for('static', filename='logview/ViewerRoot.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='runtime-bootstrap.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='runtime.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='context.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='hooks/use-app-services.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='hooks/use-split.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='hooks/use-virtual-list.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='state/viewer-store-shared.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='state/viewer-store-navigation.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='state/viewer-store-layout.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='state/viewer-store-search.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='state/viewer-store-chart.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='state/viewer-store-activity.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='state/viewer-store.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/detail/DataTree.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/detail/CommentThread.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/detail/DetailPanelHeader.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/detail/EmptyDetailState.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/detail/EventSummary.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/detail/BookmarkSection.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/detail/CommentSection.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/detail/DataTreeSection.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/detail/DetailEventContent.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/detail/DetailPanel.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/chart/LogMainChart.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/main/LogVirtualList.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/main/MainViewToolbar.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/main/MainViewShell.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/search/SearchPanelHeader.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/search/SearchItemRow.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/search/FilterItemRow.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/search/ReadOnlyCommentThread.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/search/SearchHelpDialog.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/search/RenderedRow.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/search/ActivityItem.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/search/SearchHistoryView.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/search/SearchFilterView.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/search/SearchBookmarksView.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/search/SearchSidebar.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/search/SearchControls.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/search/SearchResultsContent.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/search/SearchResultsPane.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/search/SearchPanel.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/features/layout/LayoutShell.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='logview/ViewerRoot.js') }}"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
     {% block head_extra %}{% endblock %}
   </head>

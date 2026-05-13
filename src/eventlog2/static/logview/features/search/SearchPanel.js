@@ -1,5 +1,6 @@
 (function () {
   const ui = window.EventLog2UI || {};
+  const LogSearch = window.LogSearch || null;
   const html = ui.html;
   const Fragment = ui.Fragment;
   const useEffect = ui.hooks?.useEffect || null;
@@ -129,7 +130,7 @@
         return;
       }
 
-      if (services?.searchWorker && !isBookmarks) {
+      if (services?.searchWorker && !isBookmarks && LogSearch?.runQuery) {
         const requestId = ++pendingSearchRef.current;
         LogSearch.runQuery(services.searchWorker, trimmedQuery, (indices) => {
           if (requestId !== pendingSearchRef.current) return;
@@ -141,7 +142,8 @@
         return;
       }
 
-      const filtered = source.filter(LogSearch.getQueryPredicate(trimmedQuery));
+      const predicate = LogSearch?.getQueryPredicate?.(trimmedQuery);
+      const filtered = typeof predicate === "function" ? source.filter(predicate) : source;
       setResults(filtered);
       setResultsVersion((value) => value + 1);
       if (commitHistory && !isBookmarks) addHistory(trimmedQuery, filtered.length, filtered[0]?.color);

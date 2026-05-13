@@ -1,5 +1,9 @@
+import { smoothScrollTo } from "../../../shared.js";
+
 (function () {
   const ui = window.EventLog2UI || {};
+  const LogSearch = window.LogSearch || null;
+  const LogMainViewChart = window.LogMainViewChart || null;
   const html = ui.html;
   const useEffect = ui.hooks?.useEffect || null;
   const useLayoutEffect = ui.hooks?.useLayoutEffect || null;
@@ -115,7 +119,7 @@
       }
 
       const query = terms.join(" OR ");
-      if (services?.searchWorker) {
+      if (services?.searchWorker && LogSearch?.runQuery) {
         LogSearch.runQuery(services.searchWorker, query, (indices) => {
           if (requestId !== pendingFilterRef.current) return;
           viewerStore?.setFilteredEvents(indices.map((index) => events[index]).filter(Boolean));
@@ -123,7 +127,13 @@
         return;
       }
 
-      const predicates = terms.map((term) => LogSearch.getQueryPredicate(term));
+      const predicates = terms
+        .map((term) => LogSearch?.getQueryPredicate?.(term))
+        .filter((predicate) => typeof predicate === "function");
+      if (!predicates.length) {
+        viewerStore?.setFilteredEvents(events);
+        return;
+      }
       viewerStore?.setFilteredEvents(
         events.filter((event) => predicates.some((predicate) => predicate(event)))
       );
@@ -163,7 +173,7 @@
         const root = rootRef.current;
         if (!root || !services?.logData) return undefined;
 
-        const controller = LogMainViewChart.mount(root, services);
+        const controller = LogMainViewChart?.mount?.(root, services);
         if (!controller) return undefined;
 
         chartControllerRef.current = controller;
