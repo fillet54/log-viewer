@@ -1,4 +1,5 @@
 import { html } from "logview/lib";
+import { EventLog2 } from "../../../runtime.js";
 
 const normalizePluginId = (plugin) =>
   plugin && typeof plugin === "object"
@@ -18,7 +19,7 @@ export const PluginLogRow = ({
   jumpOnSelect = false,
 }) => {
   const pluginId = normalizePluginId(services?.plugin || services?.logData?.pluginId);
-  const RowComponent = window.EventLog2?.resolveRowComponent?.(pluginId) || null;
+  const RowComponent = EventLog2.resolveRowComponent(pluginId);
   const viewerStore = services?.viewerStore || null;
   const bookmarkColor = viewerStore?.getColor?.(event?.row_id) || 0;
   const classList = Array.isArray(extraClasses) ? extraClasses.filter(Boolean) : [];

@@ -21,24 +21,26 @@ const renderStartupError = (host, message) => {
   render(h("div", { class: "empty-panel-message" }, String(message || "Unable to load event log viewer.")), host);
 };
 
-const loadPageScripts = (host, pageData) => {
-  if (!host) return;
-  host.querySelectorAll('script[data-role="plugin-view-script"]').forEach((node) => node.remove());
+const loadPageScripts = async (pageData) => {
   const scripts = Array.isArray(pageData?.view?.scripts) ? pageData.view.scripts : [];
-  scripts.forEach((source) => {
-    if (typeof source !== "string" || !source.trim()) return;
-    const script = document.createElement("script");
-    script.dataset.role = "plugin-view-script";
-    script.textContent = source;
-    host.appendChild(script);
-  });
+  const urls = [];
+  await Promise.all(
+    scripts.map((source) => {
+      if (typeof source !== "string" || !source.trim()) return Promise.resolve();
+      const blob = new Blob([source], { type: "text/javascript" });
+      const url = URL.createObjectURL(blob);
+      urls.push(url);
+      return import(url);
+    })
+  );
+  urls.forEach((url) => URL.revokeObjectURL(url));
 };
 
-export const bootstrapViewer = ({ host = document.getElementById("log-viewer-root"), pageData = loadPageData() } = {}) => {
+export const bootstrapViewer = async ({ host = document.getElementById("log-viewer-root"), pageData = loadPageData() } = {}) => {
   if (!host || !pageData) return false;
 
   try {
-    loadPageScripts(host, pageData);
+    await loadPageScripts(pageData);
     const services = createRootServices({ pageData });
     host._services = services;
     render(

@@ -1,4 +1,5 @@
 import { queryById } from "../../../shared.js";
+import { EventLog2 } from "../../../runtime.js";
 
 const LogMainViewChart = window.LogMainViewChart || (window.LogMainViewChart = {});
 const LogMainViewTimeline = window.LogMainViewTimeline || (window.LogMainViewTimeline = {});
@@ -54,8 +55,8 @@ LogMainViewTimeline.registerPluginView = (pluginId, definition) => {
   LogMainViewTimeline.registerView({ ...definition, pluginId: normalizedPluginId });
 };
 
-if (window.EventLog2?._pendingViewRegistrations?.length) {
-  const pending = window.EventLog2._pendingViewRegistrations.splice(0);
+if (EventLog2._pendingViewRegistrations.length) {
+  const pending = EventLog2._pendingViewRegistrations.splice(0);
   pending.forEach(({ kind, pluginId, definition }) => {
     if ((kind || "chart") === "timeline") {
       if (pluginId == null) LogMainViewTimeline.registerView(definition);

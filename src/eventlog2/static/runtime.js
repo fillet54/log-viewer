@@ -1,10 +1,5 @@
-import { effect } from "preact/signals";
-import { html } from "htm/preact";
-
-const globalObject = window;
-const existingEventLog2 = globalObject.EventLog2 || {};
-const rowComponents = existingEventLog2._rowComponents || new Map();
-const pendingViewRegistrations = existingEventLog2._pendingViewRegistrations || [];
+const rowComponents = new Map();
+const pendingViewRegistrations = [];
 
 export const STORAGE_KEYS = {
   root: "loglayout.split.root",
@@ -26,10 +21,7 @@ export const STORAGE_KEYS = {
   comments: "loglayout.comments",
 };
 
-globalObject.STORAGE_KEYS = STORAGE_KEYS;
-
 export const EventLog2 = {
-  ...existingEventLog2,
   _rowComponents: rowComponents,
   _pendingViewRegistrations: pendingViewRegistrations,
   registerPluginRowComponent(pluginId, Component) {
@@ -46,12 +38,10 @@ export const EventLog2 = {
         : String(plugin || "").trim();
     return rowComponents.get(pluginId) || null;
   },
-  html,
-  signalEffect: effect,
   registerPluginChartType(pluginId, definition) {
     const normalizedPluginId = String(pluginId || "").trim();
     if (!normalizedPluginId) throw new Error("Plugin chart types must define a plugin id.");
-    const chartRegistry = globalObject.LogMainViewChart || null;
+    const chartRegistry = window.LogMainViewChart || null;
     if (chartRegistry && typeof chartRegistry.registerPluginType === "function") {
       return chartRegistry.registerPluginType(normalizedPluginId, definition);
     }
@@ -61,7 +51,7 @@ export const EventLog2 = {
   registerPluginTimelineView(pluginId, definition) {
     const normalizedPluginId = String(pluginId || "").trim();
     if (!normalizedPluginId) throw new Error("Plugin timeline views must define a plugin id.");
-    const timelineRegistry = globalObject.LogMainViewTimeline || null;
+    const timelineRegistry = window.LogMainViewTimeline || null;
     if (timelineRegistry && typeof timelineRegistry.registerPluginView === "function") {
       return timelineRegistry.registerPluginView(normalizedPluginId, definition);
     }
@@ -69,5 +59,3 @@ export const EventLog2 = {
     return definition;
   },
 };
-
-globalObject.EventLog2 = EventLog2;
