@@ -1,13 +1,4 @@
-const ui = window.EventLog2UI || {};
-const useEffect = ui.hooks?.useEffect || null;
-const useLayoutEffect = ui.hooks?.useLayoutEffect || null;
-const useRef = ui.hooks?.useRef || null;
-const useState = ui.hooks?.useState || null;
-
-const requireHook = (hookName, hookValue) => {
-  if (typeof hookValue === "function") return hookValue;
-  throw new Error(`EventLog2UI.${hookName} requires a working local Preact runtime.`);
-};
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 const buildRange = ({ scrollTop, clientHeight, itemCount, rowHeight, overscan, maxVisible }) => {
     const safeRowHeight = Math.max(1, Number(rowHeight) || 1);
@@ -45,14 +36,9 @@ export const useVirtualList = ({
     maxVisible = 80,
     dependencies = [],
 } = {}) => {
-    const useStateHook = requireHook("appHooks.useVirtualList", useState);
-    const useEffectHook = requireHook("appHooks.useVirtualList", useEffect);
-    const useLayoutEffectHook = requireHook("appHooks.useVirtualList", useLayoutEffect);
-    const useRefHook = requireHook("appHooks.useVirtualList", useRef);
-
-    const frameRef = useRefHook(0);
-    const resizeObserverRef = useRefHook(null);
-    const [range, setRange] = useStateHook(() =>
+    const frameRef = useRef(0);
+    const resizeObserverRef = useRef(null);
+    const [range, setRange] = useState(() =>
       buildRange({
         scrollTop: 0,
         clientHeight: 0,
@@ -84,11 +70,11 @@ export const useVirtualList = ({
       });
     };
 
-    useLayoutEffectHook(() => {
+    useLayoutEffect(() => {
       recompute();
     }, [itemCount, rowHeight, overscan, maxVisible, ...dependencies]);
 
-    useEffectHook(() => {
+    useEffect(() => {
       const container = containerRef?.current || null;
       if (!container) return undefined;
 
@@ -139,5 +125,3 @@ export const useVirtualList = ({
     };
 };
 
-ui.appHooks = ui.appHooks || {};
-ui.appHooks.useVirtualList = useVirtualList;

@@ -63,8 +63,9 @@ def test_core_event_plugin_builds_normalized_page_data() -> None:
     assert page_data["logData"]["channels"] == ["A", "B"]
     assert page_data["logData"]["channelCount"] == 2
     assert page_data["view"]["rowSettings"]["channels"] == ["A", "B"]
-    assert "<template" in page_data["view"]["rowTemplate"]
+    assert "rowTemplate" not in page_data["view"]
     assert len(page_data["view"]["scripts"]) == 2
+    assert "registerPluginRowComponent" in page_data["view"]["scripts"][0]
     assert "registerPluginChartType" in page_data["view"]["scripts"][1]
 
 

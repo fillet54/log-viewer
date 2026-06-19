@@ -5,12 +5,11 @@ import {
   buildEventByRowId,
   buildIndexByRowId,
   findClosestIndexBySeconds,
-  createRenderedLogRow,
 } from "./LogVirtualList.js";
 import { MainViewToolbar } from "./MainViewToolbar.js";
 import { html, hooks, appHooks } from "logview/lib";
+import { getQueryPredicate } from "../../../services/search.js";
 
-const LogSearch = window.LogSearch || null;
 const LogMainViewChart = window.LogMainViewChart || null;
 const { useEffect, useLayoutEffect, useRef, useState } = hooks;
 
@@ -116,17 +115,10 @@ export const MainViewShell = () => {
       }
 
       const query = terms.join(" OR ");
-      if (services?.searchWorker && LogSearch?.runQuery) {
-        LogSearch.runQuery(services.searchWorker, query, (indices) => {
-          if (requestId !== pendingFilterRef.current) return;
-          viewerStore?.setFilteredEvents(indices.map((index) => events[index]).filter(Boolean));
-        });
-        return;
-      }
-
       const predicates = terms
-        .map((term) => LogSearch?.getQueryPredicate?.(term))
+        .map((term) => getQueryPredicate(term))
         .filter((predicate) => typeof predicate === "function");
+      if (requestId !== pendingFilterRef.current) return;
       if (!predicates.length) {
         viewerStore?.setFilteredEvents(events);
         return;
@@ -207,22 +199,12 @@ export const MainViewShell = () => {
         const list = logListRef.current;
         if (!host || !list || !events.length) return;
 
-        host.innerHTML = "";
-        const sample = createRenderedLogRow({
-          event: events[0],
-          services,
-          selectedRowId: null,
-        });
+        const sample = host.firstElementChild;
         if (!sample) return;
-
-        sample.style.visibility = "hidden";
-        host.appendChild(sample);
 
         const rowHeight = sample.getBoundingClientRect().height || 38;
         const listStyle = getComputedStyle(list);
         const gap = parseFloat(listStyle.rowGap || listStyle.gap || "0") || 0;
-
-        host.innerHTML = "";
 
         if (rowHeight > 0) {
           setRowStride(rowHeight + gap);

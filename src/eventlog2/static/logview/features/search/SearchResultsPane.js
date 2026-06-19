@@ -1,6 +1,7 @@
 import { html } from "logview/lib";
 import { SearchControls } from "./SearchControls.js";
 import { SearchResultsContent } from "./SearchResultsContent.js";
+import { PluginLogRow } from "../rows/PluginLogRow.js";
 
 export const SearchResultsPane = ({
     splitRightRef,
@@ -51,7 +52,19 @@ export const SearchResultsPane = ({
             commentState=${commentState}
           />
         </div>
-        <div ref=${measureRef} style=${{ position: "absolute", visibility: "hidden", pointerEvents: "none" }}></div>
+        <div ref=${measureRef} style=${{ position: "absolute", visibility: "hidden", pointerEvents: "none" }}>
+          ${events[0]
+            ? html`
+                <${PluginLogRow}
+                  event=${events[0]}
+                  services=${services}
+                  events=${events}
+                  extraClasses=${["search-result-row"]}
+                  activityEnabled=${activityEnabled}
+                />
+              `
+            : null}
+        </div>
       </section>
     `;
   };

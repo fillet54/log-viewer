@@ -3,7 +3,7 @@ window.EventLog2PluginViews.coreEvent = window.EventLog2PluginViews.coreEvent ||
 
 (function () {
   if (!window.EventLog2?.registerPluginChartType || !window.EventLog2?.registerPluginTimelineView) return;
-  const signalEffect = window.EventLog2UI?.signals?.effect || null;
+  const signalEffect = window.EventLog2?.signalEffect || null;
 
   const getEvents = (logData) => (Array.isArray(logData?.events) ? logData.events : []);
 

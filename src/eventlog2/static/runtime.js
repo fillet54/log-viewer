@@ -1,11 +1,9 @@
-import * as preact from "preact";
-import * as hooks from "preact/hooks";
-import * as signals from "preact/signals";
+import { effect } from "preact/signals";
 import { html } from "htm/preact";
 
 const globalObject = window;
 const existingEventLog2 = globalObject.EventLog2 || {};
-const rowRenderers = existingEventLog2._rowRenderers || new Map();
+const rowComponents = existingEventLog2._rowComponents || new Map();
 const pendingViewRegistrations = existingEventLog2._pendingViewRegistrations || [];
 
 export const STORAGE_KEYS = {
@@ -30,26 +28,26 @@ export const STORAGE_KEYS = {
 
 globalObject.STORAGE_KEYS = STORAGE_KEYS;
 
-const existingUi = globalObject.EventLog2UI || {};
-
 export const EventLog2 = {
   ...existingEventLog2,
-  _rowRenderers: rowRenderers,
+  _rowComponents: rowComponents,
   _pendingViewRegistrations: pendingViewRegistrations,
-  registerPluginRowRenderer(pluginId, renderer) {
+  registerPluginRowComponent(pluginId, Component) {
     const normalizedPluginId = String(pluginId || "").trim();
-    if (!normalizedPluginId) throw new Error("Plugin row renderers must define a plugin id.");
-    if (typeof renderer !== "function") throw new Error("Plugin row renderers must be functions.");
-    rowRenderers.set(normalizedPluginId, renderer);
-    return renderer;
+    if (!normalizedPluginId) throw new Error("Plugin row components must define a plugin id.");
+    if (typeof Component !== "function") throw new Error("Plugin row components must be functions.");
+    rowComponents.set(normalizedPluginId, Component);
+    return Component;
   },
-  resolveRowRenderer(plugin) {
+  resolveRowComponent(plugin) {
     const pluginId =
       plugin && typeof plugin === "object"
         ? String(plugin.id || "").trim()
         : String(plugin || "").trim();
-    return rowRenderers.get(pluginId) || null;
+    return rowComponents.get(pluginId) || null;
   },
+  html,
+  signalEffect: effect,
   registerPluginChartType(pluginId, definition) {
     const normalizedPluginId = String(pluginId || "").trim();
     if (!normalizedPluginId) throw new Error("Plugin chart types must define a plugin id.");
@@ -73,39 +71,3 @@ export const EventLog2 = {
 };
 
 globalObject.EventLog2 = EventLog2;
-
-export const EventLog2UI = {
-  ...existingUi,
-  html: html,
-  render: preact.render,
-  hydrate: preact.hydrate,
-  createElement: preact.h,
-  createContext: preact.createContext,
-  Fragment: preact.Fragment,
-  hooks: {
-    useState: hooks.useState,
-    useEffect: hooks.useEffect,
-    useLayoutEffect: hooks.useLayoutEffect,
-    useMemo: hooks.useMemo,
-    useRef: hooks.useRef,
-    useContext: hooks.useContext,
-    useReducer: hooks.useReducer,
-    useCallback: hooks.useCallback,
-  },
-  signals: {
-    signal: signals.signal,
-    computed: signals.computed,
-    effect: signals.effect,
-    batch: signals.batch,
-    untracked: signals.untracked,
-    useSignal: signals.useSignal,
-    useComputed: signals.useComputed,
-    useSignalEffect: signals.useSignalEffect,
-    Signal: signals.Signal,
-  },
-  available: true,
-  signalsAvailable: true,
-};
-
-globalObject.EventLog2UI = EventLog2UI;
-

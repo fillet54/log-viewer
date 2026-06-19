@@ -36,7 +36,6 @@ SCRIPT_PATHS = [
     "static/services/search.js",
     "static/services/app-services.js",
     "static/logview/lib.js",
-    "static/mount.js",
     "static/logview/features/detail/DataTree.js",
     "static/logview/features/detail/CommentThread.js",
     "static/logview/features/detail/DetailPanelHeader.js",
@@ -52,6 +51,7 @@ SCRIPT_PATHS = [
     "static/logview/features/search/FilterItemRow.js",
     "static/logview/features/search/ReadOnlyCommentThread.js",
     "static/logview/features/search/SearchHelpDialog.js",
+    "static/logview/features/rows/PluginLogRow.js",
     "static/logview/features/search/RenderedRow.js",
     "static/logview/features/search/ActivityItem.js",
     "static/logview/features/search/SearchHistoryView.js",
@@ -74,8 +74,6 @@ SCRIPT_PATHS = [
 GLOBAL_SCRIPTS = [
     "static/vendor/chart.umd.min.js",
     "static/vendor/split.min.js",
-    "static/services/search.js",
-    "static/services/app-services.js",
 ]
 
 BARE_MODULES = {
@@ -137,7 +135,6 @@ def build_page_data_script(page_data: dict[str, object]) -> str:
 
 def build_standalone_html(data_script: str, title: str = "HTML Log Viewer") -> str:
     styles = _read_package_text("static/styles.css")
-    row_template = _read_package_text("templates/components/shared/log_row_template.html")
     
     global_scripts = [data_script]
     for path in GLOBAL_SCRIPTS:
@@ -165,7 +162,6 @@ def build_standalone_html(data_script: str, title: str = "HTML Log Viewer") -> s
     return TEMPLATE_ENV.get_template("standalone.html").render(
         title=title,
         styles=styles,
-        row_template=row_template,
         global_scripts=global_scripts,
         esm_data=esm_data,
         entry_point_id=ENTRY_POINT,

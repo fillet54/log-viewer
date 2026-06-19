@@ -1,11 +1,11 @@
-(function () {
-  const ui = window.EventLog2UI || {};
+import { computed, effect, signal } from "preact/signals";
 
+(function () {
   window.EventLog2 = window.EventLog2 || {};
   window.EventLog2.viewerStoreShared = {
-    signalFactory: ui.signals?.signal || ((initialValue) => ({ value: initialValue })),
-    computedFactory: ui.signals?.computed || null,
-    effectFactory: ui.signals?.effect || null,
+    signalFactory: signal,
+    computedFactory: computed,
+    effectFactory: effect,
     readStorage(key, fallback, options = {}) {
       try {
         const raw = localStorage.getItem(key);

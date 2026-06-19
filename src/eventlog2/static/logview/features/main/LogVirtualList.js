@@ -1,7 +1,5 @@
-import { html, hooks } from "logview/lib";
-
-const useLayoutEffect = hooks.useLayoutEffect || null;
-const useRef = hooks.useRef || null;
+import { html } from "logview/lib";
+import { PluginLogRow } from "../rows/PluginLogRow.js";
 
 export const buildEventByRowId = (events) => {
     const map = new Map();
@@ -39,54 +37,6 @@ export const findClosestIndexBySeconds = (events, targetSeconds) => {
       : hi;
 };
 
-export const createRenderedLogRow = ({ event, services, selectedRowId }) => {
-    const rowTemplate = services?.rowTemplate || null;
-    const renderRow = window.EventLog2?.resolveRowRenderer
-      ? window.EventLog2.resolveRowRenderer(services?.plugin || null)
-      : null;
-
-    if (!rowTemplate || typeof renderRow !== "function") return null;
-
-    const row = renderRow(event, rowTemplate, {
-      bookmarks: services?.viewerStore || null,
-      view: services?.view || null,
-    });
-
-    if (!row) return null;
-    row.classList.toggle("log-selected", String(selectedRowId ?? "") === String(event.row_id));
-    return row;
-};
-
-const attachRenderedLogRow = ({ row, event, services, eventByRowId }) => {
-    if (!row) return null;
-
-    row.querySelector(".bookmark-toggle")?.addEventListener("click", (eventClick) => {
-      eventClick.stopPropagation();
-      const next = services?.viewerStore?.cycle(event.row_id) || 0;
-      row.classList.toggle("is-bookmarked", next > 0);
-      row.dataset.bookmarkColor = String(next);
-    });
-
-    row.querySelectorAll(".match-link").forEach((button) => {
-      button.addEventListener("click", (eventClick) => {
-        eventClick.stopPropagation();
-        const linkedRowId = button.dataset.linkedRowId;
-        if (!linkedRowId) return;
-        const linkedEvent = eventByRowId.get(String(linkedRowId)) || null;
-        if (linkedEvent) {
-          services?.viewerStore?.setSelectedEvent(linkedEvent);
-        }
-        services?.viewerStore?.setLogJump({ rowId: linkedRowId });
-      });
-    });
-
-    row.addEventListener("click", () => {
-      services?.viewerStore?.setSelectedEvent(event);
-    });
-
-    return row;
-};
-
 export const MainLogRow = ({
     event,
     services,
@@ -96,43 +46,17 @@ export const MainLogRow = ({
     highlightNonce,
     bookmarkState,
   }) => {
-    const ref = useRef ? useRef(null) : { current: null };
-
-    if (typeof useLayoutEffect === "function") {
-      useLayoutEffect(() => {
-        const host = ref.current;
-        if (!host) return;
-
-        host.innerHTML = "";
-        const row = createRenderedLogRow({ event, services, selectedRowId });
-        if (!row) return;
-
-        if (String(highlightRowId ?? "") === String(event.row_id)) {
-          row.classList.remove("log-highlight");
-          void row.offsetWidth;
-          row.classList.add("log-highlight");
-        }
-
-        const mountedRow = attachRenderedLogRow({
-          row,
-          event,
-          services,
-          eventByRowId,
-        });
-
-        if (mountedRow) host.appendChild(mountedRow);
-      }, [
-        event?.row_id,
-        services,
-        eventByRowId,
-        selectedRowId,
-        highlightRowId,
-        highlightNonce,
-        bookmarkState,
-      ]);
-    }
-
-    return html`<div ref=${ref}></div>`;
+    return html`
+      <${PluginLogRow}
+        key=${`${event?.row_id ?? ""}:${highlightNonce}`}
+        event=${event}
+        services=${services}
+        eventByRowId=${eventByRowId}
+        selected=${String(selectedRowId ?? "") === String(event?.row_id ?? "")}
+        highlighted=${String(highlightRowId ?? "") === String(event?.row_id ?? "")}
+        highlightNonce=${highlightNonce}
+      />
+    `;
 };
 
 export const MainLogContent = ({
@@ -225,7 +149,11 @@ export const MainLogPane = ({
             logListRef=${logListRef}
           />
         </div>
-        <div ref=${measureRef} style=${{ position: "absolute", visibility: "hidden", pointerEvents: "none" }}></div>
+        <div ref=${measureRef} style=${{ position: "absolute", visibility: "hidden", pointerEvents: "none" }}>
+          ${filteredEvents[0]
+            ? html`<${PluginLogRow} event=${filteredEvents[0]} services=${services} />`
+            : null}
+        </div>
       </section>
     `;
 };

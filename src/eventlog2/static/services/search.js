@@ -1,6 +1,4 @@
-window.LogSearch = window.LogSearch || {};
-
-LogSearch.buildParser = () => {
+export const buildParser = () => {
   const getFieldValue = (event, path) => {
     if (!event || !path) return null;
     const parts = path.split(".");
@@ -621,74 +619,16 @@ LogSearch.buildParser = () => {
   };
 };
 
-LogSearch.parser = LogSearch.buildParser();
-[
-  "getFieldValue",
-  "toComparable",
-  "globToRegex",
-  "tokenizeQuery",
-  "parseQuery",
-  "matchFieldTerm",
-  "matchBareTerm",
-  "filterObjects",
-  "makePredicate",
-  "getQueryPredicate",
-].forEach((key) => {
-  LogSearch[key] = LogSearch.parser[key];
-});
-
-LogSearch.createWorker = (events = []) => {
-  if (typeof Worker === "undefined") return null;
-  const parserSource = LogSearch.buildParser.toString();
-  const workerMain = (builderSource) => {
-    let EVENTS = [];
-    const buildParser = eval("(" + builderSource + ")");
-    const parser = buildParser();
-
-    onmessage = (event) => {
-      const payload = event.data || {};
-      if (payload.type === "init") {
-        EVENTS = Array.isArray(payload.events) ? payload.events : [];
-        postMessage({ type: "ready" });
-        return;
-      }
-      if (payload.type === "query") {
-        const query = payload.query || "";
-        if (!query) {
-          const all = EVENTS.map((_, idx) => idx);
-          postMessage({ type: "result", id: payload.id, indices: all });
-          return;
-        }
-        const predicate = parser.makePredicate(query);
-        const indices = [];
-        for (let i = 0; i < EVENTS.length; i += 1) {
-          if (predicate(EVENTS[i])) indices.push(i);
-        }
-        postMessage({ type: "result", id: payload.id, indices });
-      }
-    };
-  };
-  const workerCode = "(" + workerMain.toString() + ")(" + parserSource + ");";
-
-  const blob = new Blob([workerCode], { type: "application/javascript" });
-  const worker = new Worker(URL.createObjectURL(blob));
-  worker.postMessage({ type: "init", events });
-  return worker;
-};
-
-LogSearch.runQuery = (() => {
-  let seq = 0;
-  return (worker, query, callback) => {
-    if (!worker) return null;
-    const id = ++seq;
-    const handler = (event) => {
-      const payload = event.data || {};
-      if (payload.type !== "result" || payload.id !== id) return;
-      worker.removeEventListener("message", handler);
-      callback(payload.indices || []);
-    };
-    worker.addEventListener("message", handler);
-    worker.postMessage({ type: "query", id, query });
-    return id;
-  };
-})();
+export const parser = buildParser();
+export const {
+  getFieldValue,
+  toComparable,
+  globToRegex,
+  tokenizeQuery,
+  parseQuery,
+  matchFieldTerm,
+  matchBareTerm,
+  filterObjects,
+  makePredicate,
+  getQueryPredicate,
+} = parser;

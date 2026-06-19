@@ -566,7 +566,7 @@ button {
 }
 
 .viewer-page,
-log-viewer-app {
+.log-viewer-root {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;

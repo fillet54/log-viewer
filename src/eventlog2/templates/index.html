@@ -11,14 +11,10 @@
 
 {% block content %}
   <div class="viewer-page">
-    <log-viewer-app>
-      {% include 'components/shared/log_row_template.html' %}
-    </log-viewer-app>
+    <div id="log-viewer-root" class="log-viewer-root"></div>
   </div>
 {% endblock %}
 
 {% block body_scripts %}
-  <script src="{{ url_for('static', filename='services/search.js') }}"></script>
-  <script src="{{ url_for('static', filename='services/app-services.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='app.js') }}"></script>
 {% endblock %}

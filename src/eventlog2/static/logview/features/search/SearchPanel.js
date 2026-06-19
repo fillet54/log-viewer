@@ -3,9 +3,8 @@ import { SearchPanelHeader, SEARCH_TAB_HISTORY, SEARCH_TAB_BOOKMARKS } from "./S
 import { SearchSidebar } from "./SearchSidebar.js";
 import { SearchResultsPane } from "./SearchResultsPane.js";
 import { SearchHelpDialog } from "./SearchHelpDialog.js";
-import { createRenderedRow } from "./RenderedRow.js";
+import { getQueryPredicate } from "../../../services/search.js";
 
-const LogSearch = window.LogSearch || null;
 const { useEffect, useRef, useState } = hooks;
 
 const getSearchFieldPaths = (events) => {
@@ -134,20 +133,10 @@ export const SearchPanel = () => {
         return;
       }
 
-      if (services?.searchWorker && !isBookmarks && LogSearch?.runQuery) {
-        const requestId = ++pendingSearchRef.current;
-        LogSearch.runQuery(services.searchWorker, trimmedQuery, (indices) => {
-          if (requestId !== pendingSearchRef.current) return;
-          const filtered = indices.map((idx) => events[idx]);
-          setResults(filtered);
-          setResultsVersion((value) => value + 1);
-          if (commitHistory) addHistory(trimmedQuery, filtered.length, filtered[0]?.color);
-        });
-        return;
-      }
-
-      const predicate = LogSearch?.getQueryPredicate?.(trimmedQuery);
+      const requestId = ++pendingSearchRef.current;
+      const predicate = getQueryPredicate(trimmedQuery);
       const filtered = typeof predicate === "function" ? source.filter(predicate) : source;
+      if (requestId !== pendingSearchRef.current) return;
       setResults(filtered);
       setResultsVersion((value) => value + 1);
       if (commitHistory && !isBookmarks) addHistory(trimmedQuery, filtered.length, filtered[0]?.color);
@@ -174,19 +163,11 @@ export const SearchPanel = () => {
       useEffect(() => {
         const host = measureRef.current;
         if (!host || !events.length) return;
-        host.innerHTML = "";
-        const sample = createRenderedRow({
-          event: events[0],
-          services,
-          extraClasses: ["search-result-row"],
-        });
+        const sample = host.firstElementChild;
         if (!sample) return;
-        sample.style.visibility = "hidden";
-        host.appendChild(sample);
         const rowHeight = sample.getBoundingClientRect().height || 28;
         const listStyle = getComputedStyle(host.parentNode || host);
         const gap = parseFloat(listStyle.rowGap || listStyle.gap || "0") || 0;
-        host.innerHTML = "";
         if (rowHeight > 0) {
           setRowStride(rowHeight + gap);
           virtual.invalidate();

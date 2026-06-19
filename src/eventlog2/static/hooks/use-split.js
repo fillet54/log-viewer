@@ -1,11 +1,4 @@
-const ui = window.EventLog2UI || {};
-const useLayoutEffect = ui.hooks?.useLayoutEffect || null;
-const useRef = ui.hooks?.useRef || null;
-
-const requireHook = (hookName, hookValue) => {
-  if (typeof hookValue === "function") return hookValue;
-  throw new Error(`EventLog2UI.${hookName} requires a working local Preact runtime.`);
-};
+import { useLayoutEffect, useRef } from "preact/hooks";
 
 const destroySplit = (instanceRef) => {
   if (!instanceRef?.current || typeof instanceRef.current.destroy !== "function") return;
@@ -14,11 +7,9 @@ const destroySplit = (instanceRef) => {
 };
 
 export const useSplit = ({ refs = [], options = {}, enabled = true, dependencies = [] } = {}) => {
-  const useLayoutEffectHook = requireHook("appHooks.useSplit", useLayoutEffect);
-  const useRefHook = requireHook("appHooks.useSplit", useRef);
-  const instanceRef = useRefHook(null);
+  const instanceRef = useRef(null);
 
-  useLayoutEffectHook(() => {
+  useLayoutEffect(() => {
     if (!enabled || typeof window.Split !== "function") {
       destroySplit(instanceRef);
       return undefined;
@@ -47,6 +38,3 @@ export const useSplit = ({ refs = [], options = {}, enabled = true, dependencies
     },
   };
 };
-
-ui.appHooks = ui.appHooks || {};
-ui.appHooks.useSplit = useSplit;

@@ -10,13 +10,13 @@ This should be an incremental migration, not a rewrite. The safest path is to ke
 
 | Area | Current file(s) | Notes |
 | --- | --- | --- |
-| App bootstrap | `src/eventlog2/static/app.js` | Defines `log-viewer-app`, shared helpers, page-data loading, plugin script injection, base custom-element APIs |
+| App bootstrap | `src/eventlog2/static/app.js` | Mounts the Preact app into `#log-viewer-root`, loads page data, and injects plugin view scripts |
 | Services | `src/eventlog2/static/services/app-services.js` | Event bus, bookmarks, comments, root services |
 | Layout | `src/eventlog2/static/components/log-layout.js` | Split.js shell, collapse/expand state, pane wiring |
 | Main view | `src/eventlog2/static/components/log-main-view.js` | Toolbar, view mode, chart/list split, virtualized log list, selection |
 | Detail panel | `src/eventlog2/static/components/log-detail-panel.js` | Selected event details, data tree, comments, bookmark color editing |
 | Search panel | `src/eventlog2/static/components/log-search-panel.js` | Search history, pinned filters, saved filters, results virtualization, bookmark activity |
-| Plugin row rendering | `src/eventlog2/plugins/core_event/static/row.js` | Plugin row renderer returns DOM nodes |
+| Plugin row rendering | `src/eventlog2/plugins/core_event/static/row.js` | Plugin row component registers with `EventLog2.registerPluginRowComponent` |
 | Plugin charts/views | `src/eventlog2/static/components/log-main-chart.js`, `src/eventlog2/plugins/core_event/static/charts.js` | Registry-based chart/timeline plugins |
 | HTML templates | `src/eventlog2/templates/*.html` | Flask page shell and standalone export shell |
 | Standalone export | `src/eventlog2/standalone.py` | Inlines all JS/CSS into a self-contained HTML file |
@@ -68,7 +68,7 @@ Do not rely on CDNs. Preact must always be loaded from local static files served
 
 ### Mount strategy
 
-Use a single top-level Preact mount rooted at `log-viewer-app`.
+Use a single top-level Preact mount rooted at `#log-viewer-root`.
 
 During migration it was acceptable to use temporary custom-element mount shells for major panes, but the desired end state is one Preact tree that renders layout, main view, detail, and search directly.
 
@@ -78,25 +78,22 @@ This avoids a big-bang template rewrite and lets us migrate one panel at a time.
 
 Keep these existing APIs first:
 
-- `LogServices.createRootServices(...)`
+- `createRootServices(...)` from `static/services/app-services.js`
 - `window.EVENTLOG2_PAGE_DATA`
 - existing event bus events
 - chart/timeline registry APIs
-- plugin row renderer registration APIs
+- plugin row component registration APIs
 
 Wrap them with Preact context/hooks and signals rather than replacing them immediately.
 
-### Plugin compatibility strategy
+### Plugin row strategy
 
-Do not rewrite plugin row renderers in phase 1.
+Plugin row rendering is Preact-only. Plugins register row components with:
 
-Instead, add a small bridge component that:
+- `EventLog2.registerPluginRowComponent(pluginId, RowComponent)`
+- `EventLog2.resolveRowComponent(pluginId)`
 
-- receives an event plus plugin renderer
-- asks the plugin renderer for a DOM node
-- mounts that DOM node into a `ref` container in `useLayoutEffect`
-
-That lets the main list move to Preact without forcing every plugin renderer to become JSX immediately.
+The viewer owns selection, bookmark, jump, search, and virtualization behavior. The plugin row component owns only row markup and receives viewer callbacks for interactions inside that markup.
 
 ## Target Architecture
 
@@ -122,7 +119,6 @@ Suggested directory layout:
 src/eventlog2/static/
   runtime.js
   context.js
-  mount.js
   hooks/
     use-app-services.js
     use-bus.js
@@ -156,8 +152,6 @@ Steps:
    - bookmark and comment persistence
    - standalone HTML opening without network access
 3. Identify current globals that must remain stable during migration:
-   - `LogServices`
-   - `LogSearch`
    - `LogMainViewChart`
    - `LogMainViewTimeline`
    - `window.EventLog2`
@@ -175,11 +169,7 @@ Steps:
 1. Add vendored runtime files under `src/eventlog2/static/vendor/`.
 2. Add script tags to `src/eventlog2/templates/base.html`.
 3. Add the same files to `SCRIPT_PATHS` in `src/eventlog2/standalone.py`.
-4. Add `src/eventlog2/static/runtime.js` that exposes a stable global helper, for example:
-   - `window.EventLog2UI.html`
-   - `window.EventLog2UI.render`
-   - `window.EventLog2UI.hooks`
-   - `window.EventLog2UI.signals`
+4. Add `src/eventlog2/static/runtime.js` for app-specific runtime registries such as `window.EventLog2`.
 5. Verify normal Flask pages and standalone pages still load.
 
 Acceptance:
@@ -360,13 +350,13 @@ Mitigation:
 - treat `src/eventlog2/standalone.py` as part of every frontend PR
 - verify exported HTML with network disabled
 
-#### Risk: plugin row renderers do not fit declarative rendering
+#### Risk: plugin row components take on too much viewer behavior
 
 Mitigation:
 
-- keep the renderer contract temporarily
-- bridge DOM nodes into Preact with refs
-- defer plugin renderer API redesign until after the app migration
+- keep selection, bookmark, jump, search, and virtualization state in the viewer
+- pass callbacks into plugin row components for row-internal controls
+- treat `core-event` as the reference implementation for the row contract
 
 #### Risk: virtualization performance regresses
 

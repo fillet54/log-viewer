@@ -1,8 +1,6 @@
-window.LogServices = window.LogServices || {};
+export const isStandalone = () => document.body.classList.contains("app-body-standalone");
 
-LogServices.isStandalone = () => document.body.classList.contains("app-body-standalone");
-
-LogServices.createRootServices = ({ pageData }) => {
+export const createRootServices = ({ pageData }) => {
   const pluginValue = pageData && typeof pageData === "object" ? pageData.plugin : null;
   const plugin =
     pluginValue && typeof pluginValue === "object"
@@ -20,8 +18,7 @@ LogServices.createRootServices = ({ pageData }) => {
     pageData && typeof pageData === "object" && pageData.view && typeof pageData.view === "object"
       ? pageData.view
       : {};
-  const events = Array.isArray(logData?.events) ? logData.events : [];
-  const standalone = LogServices.isStandalone();
+  const standalone = isStandalone();
   const viewerStore =
     typeof window.EventLog2?.createViewerStore === "function"
       ? window.EventLog2.createViewerStore({ logData, standalone })
@@ -32,6 +29,5 @@ LogServices.createRootServices = ({ pageData }) => {
     view,
     logData,
     viewerStore,
-    searchWorker: LogSearch.createWorker(events),
   };
 };

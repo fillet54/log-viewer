@@ -21,7 +21,6 @@ class EventLogViewPlugin(ABC):
     plugin_id: str
     plugin_name: str
     asset_package: str | None = None
-    row_template_path: str | None = None
     script_paths: tuple[str, ...] = ()
     row_settings: dict[str, Any] = {}
 
@@ -68,17 +67,11 @@ class EventLogViewPlugin(ABC):
         package = import_module(self.get_asset_package())
         return files(package).joinpath(relative_path).read_text(encoding="utf-8")
 
-    def get_row_template_html(self) -> str:
-        if not self.row_template_path:
-            return ""
-        return self.read_asset_text(self.row_template_path)
-
     def get_inline_scripts(self) -> list[str]:
         return [self.read_asset_text(path) for path in self.script_paths]
 
     def get_view_config(self) -> dict[str, Any]:
         return {
-            "rowTemplate": self.get_row_template_html(),
             "scripts": self.get_inline_scripts(),
             "rowSettings": dict(self.row_settings),
         }

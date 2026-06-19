@@ -425,7 +425,6 @@ def _resolve_bounds(payload: dict[str, Any], events: list[dict[str, Any]]) -> di
 class CoreEventPlugin(EventLogSourcePlugin):
     plugin_id = "core-event"
     plugin_name = "Core Event"
-    row_template_path = "templates/log_row.html"
     script_paths = ("static/row.js", "static/charts.js")
     row_settings = {
         "channels": DEFAULT_CORE_EVENT_CHANNELS,
@@ -433,7 +432,6 @@ class CoreEventPlugin(EventLogSourcePlugin):
 
     def _build_view_config(self, channels: list[str]) -> dict[str, Any]:
         return {
-            "rowTemplate": self.get_row_template_html(),
             "scripts": self.get_inline_scripts(),
             "rowSettings": {
                 "channels": list(channels),
