@@ -97,6 +97,11 @@ TEMPLATE_ENV = Environment(
 def _read_package_text(relative_path: str) -> str:
     return files("eventlog2").joinpath(relative_path).read_text(encoding="utf-8")
 
+def _read_package_data_uri(relative_path: str, mime_type: str) -> str:
+    data = files("eventlog2").joinpath(relative_path).read_bytes()
+    encoded = base64.b64encode(data).decode("ascii")
+    return f"data:{mime_type};base64,{encoded}"
+
 def _resolve_relative(current_path: str, rel_path: str) -> str:
     base_dir = os.path.dirname(current_path)
     resolved = os.path.normpath(os.path.join(base_dir, rel_path))
@@ -159,12 +164,17 @@ def build_standalone_html(data_script: str, title: str = "HTML Log Viewer") -> s
             
     esm_data = json.dumps(module_data)
 
+    logo_light = _read_package_data_uri("static/img/logo_lightmode.png", "image/png")
+    logo_dark = _read_package_data_uri("static/img/logo_darkmode.png", "image/png")
+
     return TEMPLATE_ENV.get_template("standalone.html").render(
         title=title,
         styles=styles,
         global_scripts=global_scripts,
         esm_data=esm_data,
         entry_point_id=ENTRY_POINT,
+        logo_light=logo_light,
+        logo_dark=logo_dark,
     )
 
 

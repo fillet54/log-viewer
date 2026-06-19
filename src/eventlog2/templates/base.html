@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{% block title %}HTML Log Viewer{% endblock %}</title>
+    <title>{% block title %}Cinc{% endblock %}</title>
     <script>
       (function () {
         const storageKey = "eventlog2-theme";
@@ -38,7 +38,11 @@
     <div class="app-shell">
       <header class="topbar">
         <div class="topbar-inner">
-          <a href="{{ url_for('index') }}" class="brand">HTML Log Viewer</a>
+          <a href="{{ url_for('index') }}" class="brand">
+            <img src="{{ url_for('static', filename='img/logo_lightmode.png') }}" class="brand-logo brand-logo-light" alt="Cinc" />
+            <img src="{{ url_for('static', filename='img/logo_darkmode.png') }}" class="brand-logo brand-logo-dark" alt="Cinc" />
+            <span class="brand-name">Cinc</span>
+          </a>
         <div class="topbar-actions">
           <button type="button" id="theme-toggle" class="button button-ghost button-xs" aria-label="Toggle theme">
             Theme
