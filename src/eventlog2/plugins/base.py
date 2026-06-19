@@ -22,6 +22,7 @@ class EventLogViewPlugin(ABC):
     plugin_name: str
     asset_package: str | None = None
     script_paths: tuple[str, ...] = ()
+    style_paths: tuple[str, ...] = ()
     row_settings: dict[str, Any] = {}
 
     def _load_json_text(self, text: str, data_path: Path) -> Any:
@@ -70,9 +71,13 @@ class EventLogViewPlugin(ABC):
     def get_inline_scripts(self) -> list[str]:
         return [self.read_asset_text(path) for path in self.script_paths]
 
+    def get_inline_styles(self) -> list[str]:
+        return [self.read_asset_text(path) for path in self.style_paths]
+
     def get_view_config(self) -> dict[str, Any]:
         return {
             "scripts": self.get_inline_scripts(),
+            "styles": self.get_inline_styles(),
             "rowSettings": dict(self.row_settings),
         }
 

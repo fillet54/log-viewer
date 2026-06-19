@@ -13,6 +13,15 @@ const renderStartupError = (host, message) => {
   render(h("div", { class: "empty-panel-message" }, String(message || "Unable to load event log viewer.")), host);
 };
 
+const loadPageStyles = (pageData) => {
+  const styles = Array.isArray(pageData?.view?.styles) ? pageData.view.styles : [];
+  if (!styles.length) return;
+  const el = document.createElement("style");
+  el.dataset.role = "plugin-styles";
+  el.textContent = styles.join("\n");
+  document.head.appendChild(el);
+};
+
 const loadPageScripts = async (pageData) => {
   const scripts = Array.isArray(pageData?.view?.scripts) ? pageData.view.scripts : [];
   const urls = [];
@@ -32,6 +41,7 @@ export const bootstrapViewer = async ({ host = document.getElementById("log-view
   if (!host || !pageData) return false;
 
   try {
+    loadPageStyles(pageData);
     await loadPageScripts(pageData);
     const services = createRootServices({ pageData });
     host._services = services;
