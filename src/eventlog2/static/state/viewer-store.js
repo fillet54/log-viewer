@@ -1,16 +1,18 @@
-(function () {
-  window.EventLog2 = window.EventLog2 || {};
+import { createNavigationState } from "./navigation.js";
+import { createLayoutState } from "./layout.js";
+import { createSearchState } from "./search.js";
+import { createChartState } from "./chart.js";
+import { createActivityState } from "./activity.js";
 
-  window.EventLog2.createViewerStore = ({ logData, standalone = false }) => {
-    const allEvents = Array.isArray(logData?.events) ? logData.events : [];
+export const createViewerStore = ({ logData, standalone = false }) => {
+  const allEvents = Array.isArray(logData?.events) ? logData.events : [];
 
-    return {
-      allEvents,
-      ...window.EventLog2.createViewerNavigationState({ allEvents }),
-      ...window.EventLog2.createViewerLayoutState(),
-      ...window.EventLog2.createViewerSearchState(),
-      ...window.EventLog2.createViewerChartState(),
-      ...window.EventLog2.createViewerActivityState({ logData, standalone }),
-    };
+  return {
+    allEvents,
+    ...createNavigationState({ allEvents }),
+    ...createLayoutState(),
+    ...createSearchState(),
+    ...createChartState(),
+    ...createActivityState({ logData, standalone }),
   };
-})();
+};

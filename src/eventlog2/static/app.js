@@ -1,15 +1,7 @@
-// app.js - Main entry point
-import "./state/viewer-store-shared.js";
-import "./state/viewer-store-navigation.js";
-import "./state/viewer-store-layout.js";
-import "./state/viewer-store-search.js";
-import "./state/viewer-store-chart.js";
-import "./state/viewer-store-activity.js";
-import "./state/viewer-store.js";
-
 import { h, render } from "preact";
 
-import { STORAGE_KEYS, queryById, smoothScrollTo } from "./shared.js";
+import { STORAGE_KEYS } from "./state/storage.js";
+import { queryById, smoothScrollTo } from "./shared.js";
 import { AppServicesContext } from "./context.js";
 import { ViewerRoot } from "./logview/ViewerRoot.js";
 import { createRootServices } from "./services/app-services.js";

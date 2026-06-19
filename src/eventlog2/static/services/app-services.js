@@ -1,3 +1,5 @@
+import { createViewerStore } from "../state/viewer-store.js";
+
 export const isStandalone = () => document.body.classList.contains("app-body-standalone");
 
 export const createRootServices = ({ pageData }) => {
@@ -19,10 +21,7 @@ export const createRootServices = ({ pageData }) => {
       ? pageData.view
       : {};
   const standalone = isStandalone();
-  const viewerStore =
-    typeof window.EventLog2?.createViewerStore === "function"
-      ? window.EventLog2.createViewerStore({ logData, standalone })
-      : null;
+  const viewerStore = createViewerStore({ logData, standalone });
 
   return {
     plugin,

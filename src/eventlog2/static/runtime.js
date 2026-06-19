@@ -1,26 +1,6 @@
 const rowComponents = new Map();
 const pendingViewRegistrations = [];
 
-export const STORAGE_KEYS = {
-  root: "loglayout.split.root",
-  top: "loglayout.split.top",
-  detailCollapsed: "loglayout.split.detail.collapsed",
-  bottomCollapsed: "loglayout.split.bottom.collapsed",
-  search: "loglayout.split.search",
-  rootExpanded: "loglayout.split.root.expanded",
-  searchHistory: "loglayout.search.history",
-  searchPinned: "loglayout.search.pinned",
-  searchFilters: "loglayout.search.filters",
-  searchTab: "loglayout.search.tab",
-  chartTooltips: "loglayout.chart.tooltips",
-  chartType: "loglayout.chart.type",
-  chartTimelineView: "loglayout.timeline.view",
-  mainViewMode: "loglayout.mainview.mode",
-  mainViewSplit: "loglayout.mainview.split",
-  bookmarks: "loglayout.bookmarks",
-  comments: "loglayout.comments",
-};
-
 export const EventLog2 = {
   _rowComponents: rowComponents,
   _pendingViewRegistrations: pendingViewRegistrations,
