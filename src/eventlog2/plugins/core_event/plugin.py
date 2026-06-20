@@ -331,6 +331,7 @@ def _normalize_event(
     return {
         **raw_event,
         "row_id": row_id,
+        "time": utctime,
         "norm_time": norm_time,
         "utctime": utctime,
         "id": str(raw_id),
@@ -432,7 +433,7 @@ class CoreEventPlugin(EventLogSourcePlugin):
 
     def get_log_types(self, session_store=None) -> list:
         from .log_types import CoreEventBootLogType
-        return [CoreEventBootLogType(self.plugin_id, self.build_page_data, session_store=session_store)]
+        return [CoreEventBootLogType(self.plugin_id, self.build_page_data)]
 
     def _build_view_config(self, channels: list[str]) -> dict[str, Any]:
         return {
@@ -455,6 +456,7 @@ class CoreEventPlugin(EventLogSourcePlugin):
         return (
             {
                 "pluginId": self.plugin_id,
+                "logTypeId": "core_event",
                 "pluginName": self.plugin_name,
                 "channels": list(channels),
                 "channelCount": len(channels),
@@ -487,9 +489,14 @@ class CoreEventPlugin(EventLogSourcePlugin):
     def build_page_data(self, payload: Any) -> dict[str, Any]:
         log_data, channels = self._build_log_data(payload)
         return {
+            "apiVersion": 1,
             "plugin": {
                 "id": self.plugin_id,
                 "name": self.plugin_name,
+            },
+            "logType": {
+                "id": "core_event",
+                "name": "Core Event",
             },
             "logData": log_data,
             "view": self._build_view_config(channels),

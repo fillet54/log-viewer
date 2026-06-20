@@ -13,11 +13,31 @@ class LogRecord:
     plugin_id: str
     name: str
     imported_at: datetime
+    source: str = "import"
+    status: str = "completed"
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def imported_at_label(self) -> str:
         return self.imported_at.strftime("%Y-%m-%d %H:%M")
+
+    @property
+    def duration_seconds(self) -> float | None:
+        if self.started_at is None or self.ended_at is None:
+            return None
+        return (self.ended_at - self.started_at).total_seconds()
+
+    @property
+    def duration_label(self) -> str:
+        seconds = self.duration_seconds
+        if seconds is None:
+            return "ongoing" if self.status == "active" else "—"
+        if seconds < 60:
+            return f"{seconds:.0f}s"
+        minutes, remainder = divmod(int(seconds), 60)
+        return f"{minutes}m {remainder}s"
 
 
 class LogTypeDefinition(ABC):
@@ -70,6 +90,30 @@ class LogTypeDefinition(ABC):
     ) -> dict[str, Any]:
         """Build the viewer ``page_data`` for viewing this log."""
         return payload
+
+    def normalize_events(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
+        """Return normalized event maps for storage/search.
+
+        The default expects payloads to already expose an ``events`` array.
+        Log types can override when they need richer normalization before
+        persisting events.
+        """
+        events = payload.get("events") if isinstance(payload, dict) else None
+        return [event for event in events if isinstance(event, dict)] if isinstance(events, list) else []
+
+    def build_payload_from_events(self, record: LogRecord, events: list[dict[str, Any]]) -> dict[str, Any]:
+        """Rebuild a viewer payload from persisted normalized events."""
+        payload = dict(record.metadata.get("payload_header") or {})
+        payload["events"] = events
+        return payload
+
+    def get_import_template(self) -> str | None:
+        """Return a custom import template name, if this log type has one."""
+        return None
+
+    def get_supported_charts(self) -> dict[str, list[str]]:
+        """Return supported chart and timeline IDs for the viewer."""
+        return {"charts": [], "timelineViews": []}
 
     def extra_records(self, search: str = "") -> list[LogRecord]:
         """Additional LogRecords not held in the main LogStore.

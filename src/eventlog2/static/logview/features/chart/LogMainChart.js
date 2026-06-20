@@ -76,7 +76,7 @@ LogMainViewChart.mount = (root, services) => {
   const chartPanelHost = queryById(root, "chart-panel-host");
   if (!chartRegion || !chartPanelHost) return null;
 
-  const activePluginId = normalizePluginId(plugin?.id || logData?.pluginId);
+  const activePluginId = normalizePluginId(services.logType?.id || plugin?.id || logData?.logTypeId || logData?.pluginId);
   const mountedPanels = new Map();
   let activeType = null;
   let activePanel = null;
@@ -91,6 +91,7 @@ LogMainViewChart.mount = (root, services) => {
   const buildContext = (extra = {}) => ({
     root,
     plugin,
+    logType: services.logType || null,
     viewerStore,
     logData,
     bookmarks: viewerStore,
@@ -423,7 +424,7 @@ const createTimelineChartController = (panel, context) => {
     window.EVENTLOG2_DEBUG_TIMELINE === true;
 
   const listViews = () => {
-    const activeId = normalizePluginId(context.plugin?.id || context.logData?.pluginId);
+    const activeId = normalizePluginId(context.logType?.id || context.plugin?.id || context.logData?.logTypeId || context.logData?.pluginId);
     return Array.from(LogMainViewTimeline.registry.values()).filter(
       (view) => !view.pluginId || normalizePluginId(view.pluginId) === activeId
     );

@@ -51,7 +51,10 @@ def test_core_event_plugin_builds_normalized_page_data() -> None:
     )
 
     assert page_data["plugin"]["id"] == "core-event"
+    assert page_data["logType"]["id"] == "core_event"
     assert page_data["logData"]["pluginId"] == "core-event"
+    assert page_data["logData"]["logTypeId"] == "core_event"
+    assert page_data["logData"]["events"][0]["time"] == "2026-04-03T08:00:00Z"
     assert page_data["logData"]["events"][0]["matchSummary"]["collapsed"] is True
     assert page_data["logData"]["events"][0]["matchSummary"]["items"][0]["label"] == "15s"
     assert page_data["logData"]["events"][0]["rowDisplay"]["prefix"] == "[PWR-Y-214]"
@@ -65,8 +68,8 @@ def test_core_event_plugin_builds_normalized_page_data() -> None:
     assert page_data["view"]["rowSettings"]["channels"] == ["A", "B"]
     assert "rowTemplate" not in page_data["view"]
     assert len(page_data["view"]["scripts"]) == 2
-    assert "registerPluginRowComponent" in page_data["view"]["scripts"][0]
-    assert "registerPluginChartType" in page_data["view"]["scripts"][1]
+    assert "registerLogRowComponent" in page_data["view"]["scripts"][0]
+    assert "registerLogChartType" in page_data["view"]["scripts"][1]
 
 
 def test_core_event_plugin_supports_variable_channel_catalog() -> None:

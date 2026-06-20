@@ -3,6 +3,10 @@ import { createViewerStore } from "../state/viewer-store.js";
 export const isStandalone = () => document.body.classList.contains("app-body-standalone");
 
 export const createRootServices = ({ pageData }) => {
+  const logType =
+    pageData?.logType && typeof pageData.logType === "object"
+      ? pageData.logType
+      : null;
   const pluginValue = pageData && typeof pageData === "object" ? pageData.plugin : null;
   const plugin =
     pluginValue && typeof pluginValue === "object"
@@ -33,6 +37,7 @@ export const createRootServices = ({ pageData }) => {
     : null;
 
   return {
+    logType,
     plugin,
     view,
     logData: reactiveLogData,

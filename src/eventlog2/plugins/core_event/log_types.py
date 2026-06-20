@@ -4,26 +4,25 @@ import json
 from pathlib import Path
 from typing import Any, Callable
 
-from ...live.storage import SessionStore
 from ...logs.types import LogRecord, LogTypeDefinition
-
-_LIVE_PREFIX = "live:"
 
 
 class CoreEventBootLogType(LogTypeDefinition):
-    id = "boot-log"
-    name = "Boot Log"
+    id = "core_event"
+    name = "Core Event"
     description = "Core event log captured from a system boot sequence"
 
     def __init__(
         self,
         plugin_id: str,
         build_page_data: Callable[[dict[str, Any]], dict[str, Any]],
-        session_store: SessionStore | None = None,
     ) -> None:
         super().__init__(plugin_id)
         self._build_page_data = build_page_data
-        self._session_store = session_store
+
+    @property
+    def full_id(self) -> str:
+        return self.id
 
     def parse_import(
         self,
@@ -51,10 +50,12 @@ class CoreEventBootLogType(LogTypeDefinition):
 
     def extract_metadata(self, payload: dict[str, Any]) -> dict[str, Any]:
         events = payload.get("events") or []
+        header = {key: value for key, value in payload.items() if key != "events"}
         return {
             "event_count": len(events),
             "hours": float(payload.get("hours") or 0),
             "channels": list(payload.get("channels") or []),
+            "payload_header": header,
         }
 
     def get_list_columns(self) -> list[dict[str, str]]:
@@ -82,54 +83,46 @@ class CoreEventBootLogType(LogTypeDefinition):
             "channels": ", ".join(channels) if channels else "—",
         }
 
+    def normalize_events(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
+        page_data = self._build_page_data(payload)
+        events = page_data.get("logData", {}).get("events") or []
+        normalized = []
+        for event in events:
+            if not isinstance(event, dict):
+                continue
+            entry = dict(event)
+            entry.setdefault("time", entry.get("utctime"))
+            normalized.append(entry)
+        return normalized
+
+    def build_payload_from_events(self, record: LogRecord, events: list[dict[str, Any]]) -> dict[str, Any]:
+        payload = dict(record.metadata.get("payload_header") or {})
+        payload["events"] = events
+        channels = record.metadata.get("channels")
+        if channels and "channels" not in payload:
+            payload["channels"] = channels
+        if record.started_at and "start" not in payload:
+            payload["start"] = record.started_at.isoformat()
+        if record.ended_at and "end" not in payload:
+            payload["end"] = record.ended_at.isoformat()
+        return payload
+
     def build_view_page_data(
         self, record: LogRecord, payload: dict[str, Any]
     ) -> dict[str, Any]:
-        return self._build_page_data(payload)
+        page_data = self._build_page_data(payload)
+        page_data["logType"] = {"id": self.full_id, "name": self.name}
+        page_data["apiVersion"] = 1
+        page_data["search"] = {
+            "fields": ["time", "utctime", "name", "system", "subsystem", "unit", "code", "color", "set_clear"],
+            "examples": ["color:Red", "system:Power", "set_clear:set", "data.$.*~voltage"],
+        }
+        page_data["view"].setdefault("charts", self.get_supported_charts()["charts"])
+        page_data["view"].setdefault("timelineViews", self.get_supported_charts()["timelineViews"])
+        return page_data
 
-    def extra_records(self, search: str = "") -> list[LogRecord]:
-        if not self._session_store:
-            return []
-        sessions = self._session_store.list_sessions()
-        records = []
-        lo = search.lower()
-        for s in sessions:
-            # Skip active sessions — they aren't complete captures yet
-            if s.status == "active":
-                continue
-            name = f"Live capture {s.started_at.strftime('%Y-%m-%d %H:%M')}"
-            if lo and lo not in name.lower():
-                continue
-            hours = 0.0
-            if s.duration_seconds is not None:
-                hours = s.duration_seconds / 3600
-            records.append(LogRecord(
-                id=f"{_LIVE_PREFIX}{s.id}",
-                log_type_id=self.full_id,
-                plugin_id=self.plugin_id,
-                name=name,
-                imported_at=s.started_at,
-                metadata={
-                    "event_count": s.event_count,
-                    "hours": hours,
-                    "channels": s.channels,
-                    "source": "live",
-                },
-            ))
-        return records
-
-    def get_extra_payload(self, record_id: str) -> dict[str, Any] | None:
-        if not self._session_store or not record_id.startswith(_LIVE_PREFIX):
-            return None
-        session_id = record_id[len(_LIVE_PREFIX):]
-        meta = self._session_store.get_meta(session_id)
-        if not meta:
-            return None
-        events = self._session_store.get_events(session_id)
+    def get_supported_charts(self) -> dict[str, list[str]]:
         return {
-            "events": events,
-            "started_at": meta.started_at.isoformat(),
-            "ended_at": meta.ended_at.isoformat() if meta.ended_at else None,
-            "channels": meta.channels,
-            "hours": meta.duration_seconds / 3600 if meta.duration_seconds else 0,
+            "charts": ["systems"],
+            "timelineViews": ["severity", "bus-load"],
         }

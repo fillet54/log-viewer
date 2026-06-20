@@ -8,7 +8,6 @@ from flask import Flask, render_template
 
 from .plugin_manager import get_plugin
 from .standalone import build_page_data_script
-from .live.storage import SessionStore
 from .live.monitor import SessionManager
 from .live.routes import create_live_blueprint
 from .logs.registry import LogTypeRegistry
@@ -22,20 +21,20 @@ _plugin = get_plugin("core-event")
 
 _data_root = Path(os.environ.get("CINC_DATA_DIR", "./cinc-data"))
 
-_sessions_dir = _data_root / "sessions"
-_store = SessionStore(_sessions_dir)
-_manager = SessionManager(
-    store=_store,
-    monitor=CoreEventLiveMonitor(),
-    plugin_id=_plugin.plugin_id,
-    build_page_data=_plugin.build_page_data,
-    normalize_events=_plugin.normalize_stream_events,
-)
-app.register_blueprint(create_live_blueprint(_manager, _store))
-
 _log_registry = LogTypeRegistry()
-_log_registry.register_plugin(_plugin, session_store=_store)
-_log_store = LogStore(_data_root / "logs")
+_log_registry.register_plugin(_plugin)
+_core_event_log_type = _log_registry.get("core_event")
+if _core_event_log_type is None:
+    raise RuntimeError("Core event log type was not registered")
+
+_log_store = LogStore(_data_root / "eventlog2.sqlite")
+_manager = SessionManager(
+    store=_log_store,
+    monitor=CoreEventLiveMonitor(),
+    log_type=_core_event_log_type,
+)
+app.register_blueprint(create_live_blueprint(_manager))
+
 app.register_blueprint(create_logs_blueprint(_log_registry, _log_store))
 
 

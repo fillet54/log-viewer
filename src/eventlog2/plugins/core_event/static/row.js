@@ -217,4 +217,4 @@ const CoreEventRow = ({
   `;
 };
 
-EventLog2.registerPluginRowComponent("core-event", CoreEventRow);
+EventLog2.registerLogRowComponent("core_event", CoreEventRow);

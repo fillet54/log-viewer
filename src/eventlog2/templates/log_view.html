@@ -12,6 +12,28 @@
 {% endblock %}
 
 {% block content %}
+  {% if record.source == "live" and record.status == "active" %}
+  <div id="live-banner" style="
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    padding: 0.55rem 1rem; font-size: 0.82rem;
+    background: var(--color-success-soft);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-success) 35%, var(--color-border));
+    flex-shrink: 0;
+  ">
+    <span style="display: flex; align-items: center; gap: 0.55rem;">
+      <span id="live-dot" style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); animation: pulse-dot 1.5s ease-in-out infinite; flex-shrink: 0;"></span>
+      <strong>Live</strong>
+      <span id="live-channel-info" style="color: var(--color-text-muted);">channels: {{ record.metadata.channels | join(", ") }}</span>
+      <span id="live-count" style="color: var(--color-text-muted);">· {{ record.metadata.event_count or 0 }} events</span>
+    </span>
+    <span style="display: flex; align-items: center; gap: 0.65rem;">
+      <form method="post" action="{{ url_for('live.stop') }}" style="margin: 0;">
+        <button type="submit" class="button button-xs button-danger">Stop</button>
+      </form>
+      <a href="{{ url_for('live.sessions') }}" class="button button-xs button-ghost">Live Control</a>
+    </span>
+  </div>
+  {% else %}
   <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem;
               padding: 0.45rem 1rem; font-size: 0.82rem;
               background: var(--color-bg-muted);
@@ -34,10 +56,17 @@
       <button type="submit" class="button button-xs button-danger-ghost">Delete</button>
     </form>
   </div>
+  {% endif %}
 
   <div class="viewer-page" style="flex: 1 1 auto; min-height: 0;">
     <div id="log-viewer-root" class="log-viewer-root"></div>
   </div>
+  <style>
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  </style>
 {% endblock %}
 
 {% block body_scripts %}

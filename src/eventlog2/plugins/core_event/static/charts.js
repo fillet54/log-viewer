@@ -135,7 +135,7 @@ const mountSystemsPanel = (panel, context) => {
   };
 };
 
-EventLog2.registerPluginTimelineView("core-event", {
+EventLog2.registerLogTimelineView("core_event", {
   id: "severity",
   label: "Severity",
   kind: "histogram",
@@ -168,7 +168,7 @@ EventLog2.registerPluginTimelineView("core-event", {
   ],
 });
 
-EventLog2.registerPluginTimelineView("core-event", {
+EventLog2.registerLogTimelineView("core_event", {
   id: "bus-load",
   label: "Bus Load",
   kind: "line",
@@ -189,7 +189,7 @@ EventLog2.registerPluginTimelineView("core-event", {
   },
 });
 
-EventLog2.registerPluginChartType("core-event", {
+EventLog2.registerLogChartType("core_event", {
   id: "systems",
   label: "Subsystem Status",
   renderPanel(panel, context) {

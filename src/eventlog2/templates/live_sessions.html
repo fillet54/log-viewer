@@ -1,28 +1,23 @@
 {% extends "base.html" %}
 
-{% block title %}Live Sessions — Cinc{% endblock %}
+{% block title %}Live Monitoring — Cinc{% endblock %}
 
 {% block content %}
-<div class="pane-body" style="max-width: 1100px; margin: 0 auto;">
+<div class="pane-body" style="max-width: 760px; margin: 0 auto;">
   <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem;">
     <div>
       <h1 style="margin: 0; font-size: 1.35rem; font-weight: 700;">Live Monitoring</h1>
-      <p class="page-subtitle">Boot sessions recorded from connected system</p>
+      <p class="page-subtitle">Capture a core event log from the connected system</p>
     </div>
-    <div class="form-actions">
-      {% if active_session_id %}
-        <a href="{{ url_for('live.session_view', session_id=active_session_id) }}" class="button button-outline">
-          View Live Session
-        </a>
-        <form method="post" action="{{ url_for('live.stop') }}" style="margin: 0;">
-          <button type="submit" class="button button-danger">Stop Monitoring</button>
-        </form>
-      {% else %}
-        <form method="post" action="{{ url_for('live.start') }}" style="margin: 0;">
-          <button type="submit" class="button button-primary">Start Monitoring</button>
-        </form>
-      {% endif %}
-    </div>
+    {% if active_session_id %}
+      <form method="post" action="{{ url_for('live.stop') }}" style="margin: 0;">
+        <button type="submit" class="button button-danger">Stop Monitoring</button>
+      </form>
+    {% else %}
+      <form method="post" action="{{ url_for('live.start') }}" style="margin: 0;">
+        <button type="submit" class="button button-primary">Start Monitoring</button>
+      </form>
+    {% endif %}
   </div>
 
   {% if error %}
@@ -32,71 +27,17 @@
   {% endif %}
 
   {% if active_session_id %}
-    {% set active = sessions | selectattr("id", "equalto", active_session_id) | first %}
-    {% if active %}
-    <div style="padding: 0.85rem 1rem; border-radius: 0.8rem; background: var(--color-success-soft); border: 1px solid color-mix(in srgb, var(--color-success) 40%, var(--color-border)); display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
-      <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); flex-shrink: 0; animation: pulse-dot 1.5s ease-in-out infinite;"></span>
-      <span style="font-size: 0.9rem;">
-        <strong>Live session active</strong> — started {{ active.started_at.strftime('%H:%M:%S UTC') }} · {{ active.event_count }} events · channels: {{ active.channels | join(", ") }}
+    <div style="padding: 1rem; border-radius: 0.8rem; background: var(--color-success-soft); border: 1px solid color-mix(in srgb, var(--color-success) 40%, var(--color-border)); display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
+      <span style="display: inline-flex; align-items: center; gap: 0.55rem; font-size: 0.9rem;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); flex-shrink: 0; animation: pulse-dot 1.5s ease-in-out infinite;"></span>
+        <strong>Live capture active</strong>
       </span>
-    </div>
-    {% endif %}
-  {% endif %}
-
-  {% if sessions %}
-    <div class="table-wrap">
-      <table class="data-table" style="min-width: 640px;">
-        <thead>
-          <tr>
-            <th>Status</th>
-            <th>Started</th>
-            <th>Duration</th>
-            <th>Channels</th>
-            <th>Events</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for s in sessions %}
-          <tr>
-            <td>
-              {% if s.status == "active" %}
-                <span style="display: inline-flex; align-items: center; gap: 0.4rem; color: var(--color-success); font-size: 0.8rem; font-weight: 700;">
-                  <span style="width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: pulse-dot 1.5s ease-in-out infinite;"></span>
-                  Live
-                </span>
-              {% elif s.status == "error" %}
-                <span style="color: var(--color-danger); font-size: 0.8rem; font-weight: 600;">Error</span>
-              {% else %}
-                <span style="color: var(--color-text-muted); font-size: 0.8rem;">Completed</span>
-              {% endif %}
-            </td>
-            <td style="font-family: var(--font-mono); font-size: 0.82rem; white-space: nowrap;">
-              {{ s.started_at.strftime('%Y-%m-%d %H:%M:%S') }}
-            </td>
-            <td style="font-family: var(--font-mono); font-size: 0.82rem;">{{ s.duration_label }}</td>
-            <td>
-              <span style="display: inline-flex; gap: 0.25rem; flex-wrap: wrap;">
-                {% for ch in s.channels %}
-                  <span style="font-size: 0.68rem; font-weight: 700; padding: 0.1rem 0.35rem; border-radius: 0.3rem; background: var(--color-bg-muted); border: 1px solid var(--color-border); font-family: var(--font-mono);">{{ ch }}</span>
-                {% endfor %}
-              </span>
-            </td>
-            <td style="font-family: var(--font-mono); font-size: 0.88rem;">{{ s.event_count }}</td>
-            <td style="text-align: right;">
-              <a href="{{ url_for('live.session_view', session_id=s.id) }}" class="button button-small button-outline">
-                View Log
-              </a>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <a href="{{ url_for('logs.view_log', log_type_id='core_event', log_id=active_session_id) }}" class="button button-outline button-small">View Live Log</a>
     </div>
   {% else %}
-    <div class="no-results" style="min-height: 200px; flex-direction: column; gap: 0.5rem;">
-      <span>No sessions recorded yet</span>
-      <span style="font-size: 0.85rem; font-weight: 400; color: var(--color-text-muted);">Start monitoring to record a boot session</span>
+    <div class="no-results" style="min-height: 180px; flex-direction: column; gap: 0.5rem;">
+      <span>No live capture is active</span>
+      <a href="{{ url_for('logs.list_logs', log_type_id='core_event', q='live') }}" class="button button-ghost button-small" style="margin-top: 0.5rem;">Browse live captures</a>
     </div>
   {% endif %}
 </div>

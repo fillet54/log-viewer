@@ -1,19 +1,17 @@
 from __future__ import annotations
 
-import dataclasses
-import json
 import queue
 import threading
-import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any
 
-from .storage import SessionMeta, SessionStore
+from ..logs.store import LogStore
+from ..logs.types import LogTypeDefinition
 
 
 class LiveMonitorPlugin(ABC):
-    """Abstract interface a plugin implements to support live monitoring."""
+    """Interface implemented by the single core-event live monitor."""
 
     @abstractmethod
     def detect_system(self) -> bool:
@@ -41,17 +39,13 @@ class SessionManager:
 
     def __init__(
         self,
-        store: SessionStore,
+        store: LogStore,
         monitor: LiveMonitorPlugin,
-        plugin_id: str,
-        build_page_data: Callable[[Any], dict[str, Any]],
-        normalize_events: Callable[[list[dict[str, Any]], list[str]], list[dict[str, Any]]] | None = None,
+        log_type: LogTypeDefinition,
     ):
         self._store = store
         self._monitor = monitor
-        self._plugin_id = plugin_id
-        self._build_page_data = build_page_data
-        self._normalize_events = normalize_events
+        self._log_type = log_type
         self._active_session_id: str | None = None
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
@@ -59,61 +53,77 @@ class SessionManager:
         self._subscribers: list[queue.Queue] = []
 
     @property
+    def log_type_id(self) -> str:
+        return self._log_type.full_id
+
+    @property
     def active_session_id(self) -> str | None:
         with self._lock:
-            return self._active_session_id
+            if self._active_session_id:
+                return self._active_session_id
+        active = self._store.get_active_live_record(self.log_type_id)
+        return active.id if active else None
 
     def start(self) -> str:
         with self._lock:
-            if self._active_session_id:
-                raise RuntimeError("A session is already active")
+            if self._active_session_id or self._store.get_active_live_record(self.log_type_id):
+                raise RuntimeError("A live capture is already active")
             if not self._monitor.detect_system():
                 raise RuntimeError("System not detected")
 
-            session_id = str(uuid.uuid4())
+            started_at = datetime.now(timezone.utc)
             channels = self._monitor.get_channels()
-            meta = SessionMeta(
-                id=session_id,
-                started_at=datetime.now(timezone.utc),
-                ended_at=None,
-                channels=channels,
-                event_count=0,
+            record = self._store.create_log(
+                self._log_type.full_id,
+                self._log_type.plugin_id,
+                f"Live capture {started_at.strftime('%Y-%m-%d %H:%M')}",
+                {
+                    "event_count": 0,
+                    "hours": 0,
+                    "channels": channels,
+                    "payload_header": {
+                        "channels": channels,
+                        "start": started_at.isoformat(),
+                    },
+                },
+                source="live",
                 status="active",
-                plugin_id=self._plugin_id,
+                started_at=started_at,
             )
-            self._store.create_session(session_id, meta)
-            self._active_session_id = session_id
+            self._active_session_id = record.id
 
-        self._monitor.start_session(session_id, channels)
+        self._monitor.start_session(record.id, channels)
         self._stop_event.clear()
         self._thread = threading.Thread(
             target=self._poll_loop,
-            args=(session_id,),
+            args=(record.id, channels),
             daemon=True,
         )
         self._thread.start()
-        return session_id
+        return record.id
 
     def stop(self) -> None:
+        active_id = self.active_session_id
+        if not active_id:
+            return
+
         self._stop_event.set()
         if self._thread:
             self._thread.join(timeout=10)
         self._monitor.stop_session()
+        if not self._thread:
+            self._store.complete_log(active_id)
 
         with self._lock:
             self._active_session_id = None
-            for q in self._subscribers:
+            for subscriber in self._subscribers:
                 try:
-                    q.put_nowait(None)
+                    subscriber.put_nowait(None)
                 except queue.Full:
                     pass
             self._subscribers.clear()
 
-    def _poll_loop(self, session_id: str) -> None:
-        event_count = 0
-        meta = self._store.get_meta(session_id)
-        channels = meta.channels if meta else []
-
+    def _poll_loop(self, log_id: str, channels: list[str]) -> None:
         while not self._stop_event.wait(self.POLL_INTERVAL):
             try:
                 raw_events = self._monitor.poll_events()
@@ -123,39 +133,35 @@ class SessionManager:
             if not raw_events:
                 continue
 
-            self._store.append_events(session_id, raw_events)
-            event_count += len(raw_events)
+            payload = {"events": raw_events, "channels": channels}
+            record = self._store.get_record(log_id)
+            if record and record.started_at:
+                payload["start"] = record.started_at.isoformat()
+            normalized_events = self._log_type.normalize_events(payload)
+            self._store.append_events(log_id, normalized_events, source="live", tags=("live",))
 
-            meta = self._store.get_meta(session_id)
-            if meta:
-                self._store.update_meta(dataclasses.replace(meta, event_count=event_count))
-
-            broadcast_events = (
-                self._normalize_events(raw_events, channels)
-                if self._normalize_events is not None
-                else raw_events
-            )
-            payload = {"type": "events", "events": broadcast_events}
+            broadcast = {"type": "events", "events": normalized_events}
             with self._lock:
                 dead = []
-                for q in self._subscribers:
+                for subscriber in self._subscribers:
                     try:
-                        q.put_nowait(payload)
+                        subscriber.put_nowait(broadcast)
                     except queue.Full:
-                        dead.append(q)
-                for q in dead:
-                    self._subscribers.remove(q)
+                        dead.append(subscriber)
+                for subscriber in dead:
+                    self._subscribers.remove(subscriber)
 
-        meta = self._store.get_meta(session_id)
-        if meta:
-            self._store.update_meta(
-                dataclasses.replace(
-                    meta,
-                    ended_at=datetime.now(timezone.utc),
-                    status="completed",
-                    event_count=event_count,
-                )
-            )
+        record = self._store.get_record(log_id)
+        ended_at = datetime.now(timezone.utc)
+        if record:
+            metadata = dict(record.metadata or {})
+            if record.started_at:
+                metadata["hours"] = max(0.0, (ended_at - record.started_at).total_seconds() / 3600)
+            header = dict(metadata.get("payload_header") or {})
+            header["end"] = ended_at.isoformat()
+            metadata["payload_header"] = header
+            self._store.update_record_metadata(log_id, metadata)
+        self._store.complete_log(log_id, ended_at=ended_at)
 
     def subscribe(self) -> queue.Queue:
         q: queue.Queue = queue.Queue(maxsize=500)
@@ -169,18 +175,3 @@ class SessionManager:
                 self._subscribers.remove(q)
             except ValueError:
                 pass
-
-    def get_session_page_data(self, session_id: str) -> dict[str, Any] | None:
-        meta = self._store.get_meta(session_id)
-        if not meta:
-            return None
-        events = self._store.get_events(session_id)
-        payload: dict[str, Any] = {
-            "events": events,
-            "channels": meta.channels,
-        }
-        if meta.started_at:
-            payload["start"] = meta.started_at.isoformat()
-        if meta.ended_at:
-            payload["end"] = meta.ended_at.isoformat()
-        return self._build_page_data(payload)

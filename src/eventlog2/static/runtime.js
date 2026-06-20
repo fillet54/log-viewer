@@ -1,26 +1,37 @@
 const rowComponents = new Map();
 const pendingViewRegistrations = [];
+const idVariants = (id) => {
+  const text = String(id || "").trim();
+  if (!text) return [];
+  return Array.from(new Set([text, text.replace(/_/g, "-"), text.replace(/-/g, "_")]));
+};
 
 export const EventLog2 = {
   _rowComponents: rowComponents,
   _pendingViewRegistrations: pendingViewRegistrations,
-  registerPluginRowComponent(pluginId, Component) {
-    const normalizedPluginId = String(pluginId || "").trim();
-    if (!normalizedPluginId) throw new Error("Plugin row components must define a plugin id.");
+  registerLogRowComponent(logTypeId, Component) {
+    const normalizedPluginId = String(logTypeId || "").trim();
+    if (!normalizedPluginId) throw new Error("Log row components must define a log type id.");
     if (typeof Component !== "function") throw new Error("Plugin row components must be functions.");
-    rowComponents.set(normalizedPluginId, Component);
+    idVariants(normalizedPluginId).forEach((id) => rowComponents.set(id, Component));
     return Component;
+  },
+  registerPluginRowComponent(pluginId, Component) {
+    return EventLog2.registerLogRowComponent(pluginId, Component);
   },
   resolveRowComponent(plugin) {
     const pluginId =
       plugin && typeof plugin === "object"
         ? String(plugin.id || "").trim()
         : String(plugin || "").trim();
-    return rowComponents.get(pluginId) || null;
+    for (const id of idVariants(pluginId)) {
+      if (rowComponents.has(id)) return rowComponents.get(id);
+    }
+    return null;
   },
-  registerPluginChartType(pluginId, definition) {
-    const normalizedPluginId = String(pluginId || "").trim();
-    if (!normalizedPluginId) throw new Error("Plugin chart types must define a plugin id.");
+  registerLogChartType(logTypeId, definition) {
+    const normalizedPluginId = String(logTypeId || "").trim();
+    if (!normalizedPluginId) throw new Error("Log chart types must define a log type id.");
     const chartRegistry = window.LogMainViewChart || null;
     if (chartRegistry && typeof chartRegistry.registerPluginType === "function") {
       return chartRegistry.registerPluginType(normalizedPluginId, definition);
@@ -28,14 +39,20 @@ export const EventLog2 = {
     pendingViewRegistrations.push({ kind: "chart", pluginId: normalizedPluginId, definition });
     return definition;
   },
-  registerPluginTimelineView(pluginId, definition) {
-    const normalizedPluginId = String(pluginId || "").trim();
-    if (!normalizedPluginId) throw new Error("Plugin timeline views must define a plugin id.");
+  registerPluginChartType(pluginId, definition) {
+    return EventLog2.registerLogChartType(pluginId, definition);
+  },
+  registerLogTimelineView(logTypeId, definition) {
+    const normalizedPluginId = String(logTypeId || "").trim();
+    if (!normalizedPluginId) throw new Error("Log timeline views must define a log type id.");
     const timelineRegistry = window.LogMainViewTimeline || null;
     if (timelineRegistry && typeof timelineRegistry.registerPluginView === "function") {
       return timelineRegistry.registerPluginView(normalizedPluginId, definition);
     }
     pendingViewRegistrations.push({ kind: "timeline", pluginId: normalizedPluginId, definition });
     return definition;
+  },
+  registerPluginTimelineView(pluginId, definition) {
+    return EventLog2.registerLogTimelineView(pluginId, definition);
   },
 };

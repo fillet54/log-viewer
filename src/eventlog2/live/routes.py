@@ -5,60 +5,44 @@ import queue
 
 from flask import Blueprint, Response, redirect, render_template, stream_with_context, url_for
 
-from ..standalone import build_page_data_script
 from .monitor import SessionManager
-from .storage import SessionStore
 
 
-def create_live_blueprint(manager: SessionManager, store: SessionStore) -> Blueprint:
+def create_live_blueprint(manager: SessionManager) -> Blueprint:
     bp = Blueprint("live", __name__)
 
     @bp.route("/live")
     def sessions():
-        all_sessions = store.list_sessions()
-        active_id = manager.active_session_id
-        return render_template("live_sessions.html", sessions=all_sessions, active_session_id=active_id)
+        return render_template("live_sessions.html", active_session_id=manager.active_session_id)
 
     @bp.route("/live/start", methods=["POST"])
     def start():
         try:
-            session_id = manager.start()
+            log_id = manager.start()
         except RuntimeError as exc:
-            all_sessions = store.list_sessions()
             return render_template(
                 "live_sessions.html",
-                sessions=all_sessions,
-                active_session_id=None,
+                active_session_id=manager.active_session_id,
                 error=str(exc),
             )
-        return redirect(url_for("live.session_view", session_id=session_id))
+        return redirect(url_for("logs.view_log", log_type_id=manager.log_type_id, log_id=log_id))
 
     @bp.route("/live/stop", methods=["POST"])
     def stop():
+        active_id = manager.active_session_id
         manager.stop()
+        if active_id:
+            return redirect(url_for("logs.view_log", log_type_id=manager.log_type_id, log_id=active_id))
         return redirect(url_for("live.sessions"))
 
     @bp.route("/live/<session_id>")
     def session_view(session_id):
-        meta = store.get_meta(session_id)
-        if not meta:
-            return "Session not found", 404
-        page_data = manager.get_session_page_data(session_id) or {}
-        is_live = manager.active_session_id == session_id
-        if is_live:
-            page_data["live"] = {"sessionId": session_id}
-        script = build_page_data_script(page_data)
-        return render_template(
-            "live_view.html",
-            meta=meta,
-            page_data_script=script,
-            is_live=is_live,
-        )
+        return redirect(url_for("logs.view_log", log_type_id=manager.log_type_id, log_id=session_id))
 
     @bp.route("/live/<session_id>/stream")
     def event_stream(session_id):
         if manager.active_session_id != session_id:
-            return "Not an active session", 404
+            return "Not an active live capture", 404
 
         q = manager.subscribe()
 
