@@ -13,6 +13,25 @@ const renderStartupError = (host, message) => {
   render(h("div", { class: "empty-panel-message" }, String(message || "Unable to load event log viewer.")), host);
 };
 
+const connectLiveStream = (services, sessionId) => {
+  const es = new EventSource(`/live/${sessionId}/stream`);
+
+  es.onmessage = (e) => {
+    let msg;
+    try { msg = JSON.parse(e.data); } catch { return; }
+    if (msg.type === "ping") return;
+    if (msg.type === "done") { es.close(); return; }
+    if (msg.type === "events" && Array.isArray(msg.events) && msg.events.length) {
+      services.viewerStore.appendEvents(msg.events);
+    }
+  };
+
+  es.onerror = () => {
+    es.close();
+    setTimeout(() => connectLiveStream(services, sessionId), 5000);
+  };
+};
+
 const loadPageStyles = (pageData) => {
   const styles = Array.isArray(pageData?.view?.styles) ? pageData.view.styles : [];
   if (!styles.length) return;
@@ -50,6 +69,10 @@ export const bootstrapViewer = async ({ host = document.getElementById("log-view
       host
     );
     host.dispatchEvent(new CustomEvent("logapp:ready", { bubbles: true, composed: true }));
+    const liveSessionId = pageData?.live?.sessionId;
+    if (liveSessionId) {
+      connectLiveStream(services, liveSessionId);
+    }
     return true;
   } catch (error) {
     console.error(error);

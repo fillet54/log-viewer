@@ -59,6 +59,7 @@ export const SearchPanel = () => {
 
     const pendingSearchRef = useRef(0);
     const initializedRef = useRef(false);
+    const rowMeasuredRef = useRef(false);
     const splitLeftRef = useRef(null);
     const splitRightRef = useRef(null);
     const resultsRef = useRef(null);
@@ -154,6 +155,12 @@ export const SearchPanel = () => {
         executeSearch(false, currentTab, query);
       }, [currentTab]);
 
+      // Re-run search when events change (live streaming appends new events).
+      useEffect(() => {
+        if (!initializedRef.current) return;
+        executeSearch(false, currentTab, query);
+      }, [events]);
+
       useEffect(() => {
         if (currentTab === SEARCH_TAB_BOOKMARKS) {
           executeSearch(false, currentTab, query);
@@ -171,7 +178,12 @@ export const SearchPanel = () => {
         if (rowHeight > 0) {
           setRowStride(rowHeight + gap);
           virtual.invalidate();
-          virtual.scrollToIndex(0, "start");
+          // Only jump to top on the initial measurement, not when live
+          // streaming appends new events to an already-rendered list.
+          if (!rowMeasuredRef.current) {
+            rowMeasuredRef.current = true;
+            virtual.scrollToIndex(0, "start");
+          }
         }
       }, [services, events.length]);
     }

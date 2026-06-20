@@ -23,10 +23,19 @@ export const createRootServices = ({ pageData }) => {
   const standalone = isStandalone();
   const viewerStore = createViewerStore({ logData, standalone });
 
+  // Make logData.events a reactive getter so components that read it
+  // during render automatically re-render when events are appended.
+  const reactiveLogData = logData
+    ? Object.defineProperty({ ...logData }, "events", {
+        get: () => viewerStore.allEventsSignal.value,
+        enumerable: true,
+      })
+    : null;
+
   return {
     plugin,
     view,
-    logData,
+    logData: reactiveLogData,
     viewerStore,
   };
 };

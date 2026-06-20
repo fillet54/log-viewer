@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}{{ meta.started_at.strftime('%Y-%m-%d %H:%M') }} — Cinc{% endblock %}
+
+{% block body_class %} app-body-viewer{% endblock %}
+{% block main_class %} app-content-viewer{% endblock %}
+
+{% block head_extra %}
+  {% if page_data_script %}
+    <script>{{ page_data_script|safe }}</script>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+{% if is_live %}
+  {# ---- Live streaming header bar ---- #}
+  <div id="live-banner" style="
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    padding: 0.55rem 1rem; font-size: 0.82rem;
+    background: var(--color-success-soft);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-success) 35%, var(--color-border));
+    flex-shrink: 0;
+  ">
+    <span style="display: flex; align-items: center; gap: 0.55rem;">
+      <span id="live-dot" style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); animation: pulse-dot 1.5s ease-in-out infinite; flex-shrink: 0;"></span>
+      <strong>Live</strong>
+      <span id="live-channel-info" style="color: var(--color-text-muted);">channels: {{ meta.channels | join(", ") }}</span>
+      <span id="live-count" style="color: var(--color-text-muted);">· {{ meta.event_count }} events</span>
+    </span>
+    <span style="display: flex; align-items: center; gap: 0.65rem;">
+      <form method="post" action="{{ url_for('live.stop') }}" style="margin: 0;">
+        <button type="submit" class="button button-xs button-danger">Stop</button>
+      </form>
+      <a href="{{ url_for('live.sessions') }}" class="button button-xs button-ghost">All Sessions</a>
+    </span>
+  </div>
+
+  {# SSE connection is established by app.js via pageData.live.sessionId #}
+  <div class="viewer-page" style="flex: 1 1 auto; min-height: 0;">
+    <div id="log-viewer-root" class="log-viewer-root"></div>
+  </div>
+
+{% else %}
+  {# ---- Completed session: full Preact viewer ---- #}
+  <div style="
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    padding: 0.45rem 1rem; font-size: 0.82rem;
+    background: var(--color-bg-muted);
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+  ">
+    <span style="display: flex; align-items: center; gap: 0.65rem; color: var(--color-text-muted);">
+      <span>Started {{ meta.started_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</span>
+      <span>·</span>
+      <span>{{ meta.duration_label }}</span>
+      <span>·</span>
+      <span>{{ meta.event_count }} events</span>
+      <span>·</span>
+      <span>channels: {{ meta.channels | join(", ") }}</span>
+    </span>
+    <a href="{{ url_for('live.sessions') }}" class="button button-xs button-ghost">All Sessions</a>
+  </div>
+
+  <div class="viewer-page" style="flex: 1 1 auto; min-height: 0;">
+    <div id="log-viewer-root" class="log-viewer-root"></div>
+  </div>
+{% endif %}
+
+<style>
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+</style>
+{% endblock %}
+
+{% block body_scripts %}
+  <script type="module" src="{{ url_for('static', filename='app.js') }}"></script>
+{% endblock %}

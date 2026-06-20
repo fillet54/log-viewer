@@ -38,6 +38,7 @@ export const MainViewShell = () => {
     const scrollFrameRef = useRef(0);
     const pendingFilterRef = useRef(0);
     const pendingJumpRef = useRef(null);
+    const processedJumpNonceRef = useRef(null);
     const highlightNonceRef = useRef(0);
     
     const filteredRef = useRef(events);
@@ -232,25 +233,32 @@ export const MainViewShell = () => {
       }, [viewerStore, events, activeFilterQueries.join("\u0000")]);
 
       useEffect(() => {
-        const pendingJump = pendingJumpRef.current || jumpTarget;
-        if (!pendingJump) return;
+        const pendingJump = pendingJumpRef.current;
+        const currentNonce = jumpTarget?.nonce ?? null;
+        // Skip if this is not a new jump target and filteredEvents just changed
+        // due to live event appends — avoids re-scrolling to the last navigation
+        // position every time new SSE events arrive.
+        if (!pendingJump && currentNonce === processedJumpNonceRef.current) return;
+        const target = pendingJump || jumpTarget;
+        if (!target) return;
+        processedJumpNonceRef.current = currentNonce;
 
-        if (pendingJump.rowId != null) {
-          const rowIndex = indexByRowIdRef.current.get(String(pendingJump.rowId));
+        if (target.rowId != null) {
+          const rowIndex = indexByRowIdRef.current.get(String(target.rowId));
           if (rowIndex != null) {
             pendingJumpRef.current = null;
             smoothScrollToIndex(rowIndex);
             return;
           }
-          if (pendingJump.seconds == null) {
+          if (target.seconds == null) {
             pendingJumpRef.current = null;
             return;
           }
         }
 
-        if (pendingJump.seconds != null) {
+        if (target.seconds != null) {
           pendingJumpRef.current = null;
-          smoothScrollToIndex(findClosestIndexBySeconds(filteredEvents, pendingJump.seconds));
+          smoothScrollToIndex(findClosestIndexBySeconds(filteredEvents, target.seconds));
         }
       }, [filteredEvents, rowStride, jumpTarget?.nonce ?? 0]);
 

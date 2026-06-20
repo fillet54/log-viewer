@@ -464,6 +464,18 @@ class CoreEventPlugin(EventLogSourcePlugin):
             channels,
         )
 
+    def normalize_stream_events(self, raw_events: list[dict[str, Any]], channels: list[str]) -> list[dict[str, Any]]:
+        """Normalize a batch of raw events for live streaming (no set/clear pairing)."""
+        fallback_start = _resolve_fallback_start(raw_events)
+        result = []
+        for index, event in enumerate(raw_events):
+            normalized = _normalize_event(event, index, fallback_start, channels)
+            normalized["pairedChannels"] = {}
+            normalized["matchSummary"] = {"items": [], "collapsed": False}
+            normalized["rowDisplay"] = _build_row_display(normalized)
+            result.append(normalized)
+        return result
+
     def parse_payload(self, payload: Any) -> dict[str, Any]:
         log_data, _ = self._build_log_data(payload)
         return log_data

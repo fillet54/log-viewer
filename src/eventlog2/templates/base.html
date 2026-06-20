@@ -43,11 +43,14 @@
             <img src="{{ url_for('static', filename='img/logo_darkmode.png') }}" class="brand-logo brand-logo-dark" alt="Cinc" />
             <span class="brand-name">Cinc</span>
           </a>
+          <nav class="topbar-nav" style="display: flex; align-items: center; gap: 0.35rem;">
+            <a href="{{ url_for('index') }}" class="button button-ghost button-xs">Logs</a>
+            <a href="{{ url_for('live.sessions') }}" class="button button-ghost button-xs">Live</a>
+          </nav>
         <div class="topbar-actions">
           <button type="button" id="theme-toggle" class="button button-ghost button-xs" aria-label="Toggle theme">
             Theme
           </button>
-          <span class="user-state">Development Page</span>
         </div>
       </div>
       </header>

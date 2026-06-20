@@ -275,13 +275,38 @@ LogMainViewChart.mount = (root, services) => {
   return controller;
 };
 
+const getEventAbsoluteMs = (event) => {
+  const utc = new Date(event?.utctime).getTime();
+  return Number.isFinite(utc) ? utc : null;
+};
+
 const getTimelineBounds = (logData, events) => {
-  const start = new Date(logData?.start).getTime();
-  const end = new Date(logData?.end).getTime();
-  const fallbackStart = Number(events[0]?.norm_time || 0) * 1000;
-  const fallbackEnd = Number(events[events.length - 1]?.norm_time || 1) * 1000;
-  const startMs = Number.isFinite(start) ? start : fallbackStart;
-  const endMs = Number.isFinite(end) ? end : fallbackEnd;
+  const configStart = new Date(logData?.start).getTime();
+  const configEnd = new Date(logData?.end).getTime();
+  const hasConfigStart = Number.isFinite(configStart);
+  const hasConfigEnd = Number.isFinite(configEnd);
+
+  // Use absolute UTC timestamps from events when config bounds are missing.
+  // This avoids mixing epoch-scale startMs with norm_time-scale endMs which
+  // produces a negative spanMs for live sessions.
+  const firstAbsMs = events.length > 0 ? getEventAbsoluteMs(events[0]) : null;
+  const lastAbsMs = events.length > 0 ? getEventAbsoluteMs(events[events.length - 1]) : null;
+
+  const startMs = hasConfigStart ? configStart
+    : firstAbsMs != null ? firstAbsMs
+    : Number(events[0]?.norm_time || 0) * 1000;
+
+  let endMs = hasConfigEnd ? configEnd
+    : lastAbsMs != null ? lastAbsMs
+    : startMs + Number(events[events.length - 1]?.norm_time || 1) * 1000;
+
+  // For live sessions (no config end), add headroom so the X-axis doesn't
+  // rescale on every incoming event — it only steps forward when rebuilt.
+  if (!hasConfigEnd && events.length > 0) {
+    const span = endMs - startMs;
+    endMs += Math.max(8000, span * 0.15);
+  }
+
   return { startMs, endMs, spanMs: Math.max(1, endMs - startMs) };
 };
 
@@ -383,13 +408,16 @@ const buildTimelineDatasets = (view, context) => {
 };
 
 const createTimelineChartController = (panel, context) => {
-  const allEvents = Array.isArray(context.logData?.events) ? context.logData.events : [];
+  // Use a getter so we always read the latest events — supports live streaming.
+  const getAllEvents = () => (Array.isArray(context.logData?.events) ? context.logData.events : []);
+  let allEvents = getAllEvents();
   let filteredEvents = Array.isArray(context.viewerStore?.filteredEvents?.value)
     ? context.viewerStore.filteredEvents.value
     : allEvents;
   let selectedRowId = context.viewerStore?.selectedEvent?.value?.row_id ?? null;
   let currentViewId = context.viewerStore?.timelineView?.value || "events";
   let resizeObserver = null;
+  let liveUpdateTimer = null;
   const debugTimeline =
     window.localStorage?.getItem("loglayout.debug.timeline") === "true" ||
     window.EVENTLOG2_DEBUG_TIMELINE === true;
@@ -423,7 +451,28 @@ const createTimelineChartController = (panel, context) => {
   `;
   panel.appendChild(hoverOverlay);
   const hoverLabel = hoverOverlay.querySelector(".timeline-hover-label");
-  const helpers = buildTimelineHelpers({ logData: context.logData, allEvents, panel });
+  // Mutable helpers — rebuilt periodically in live mode so spanMs/startMs extend
+  // as new events arrive without rescaling on every single incoming event.
+  let helpers = buildTimelineHelpers({ logData: context.logData, allEvents, panel });
+
+  const rebuildHelpers = () => {
+    allEvents = getAllEvents();
+    helpers = buildTimelineHelpers({ logData: context.logData, allEvents, panel });
+    chart.options.scales.x.max = helpers.spanMs / 1000;
+  };
+
+  // Throttle chart redraws during live streaming: accumulate events for up to
+  // LIVE_INTERVAL ms, then do one rebuild + redraw. Avoids constant axis rescaling.
+  const LIVE_INTERVAL = 3000;
+  const scheduleUpdate = () => {
+    if (liveUpdateTimer !== null) return;
+    liveUpdateTimer = setTimeout(() => {
+      liveUpdateTimer = null;
+      rebuildHelpers();
+      applyView(currentViewId);
+    }, LIVE_INTERVAL);
+  };
+
   let hoverSeconds = null;
 
   const genericPlugins = {
@@ -711,10 +760,20 @@ const createTimelineChartController = (panel, context) => {
   if (context.viewerStore && typeof signalEffect === "function") {
     off.push(
       signalEffect(() => {
-        filteredEvents = Array.isArray(context.viewerStore.filteredEvents?.value)
+        const newFiltered = Array.isArray(context.viewerStore.filteredEvents?.value)
           ? context.viewerStore.filteredEvents.value
-          : allEvents;
-        applyView(currentViewId);
+          : getAllEvents();
+        const currentAllEvents = getAllEvents();
+        const hasNewEvents = currentAllEvents.length > allEvents.length;
+        filteredEvents = newFiltered;
+        if (hasNewEvents) {
+          // New events arrived (live streaming): throttle to avoid rescaling
+          // the time axis on every incoming batch.
+          scheduleUpdate();
+        } else {
+          // Filter changed by user: update immediately.
+          applyView(currentViewId);
+        }
       })
     );
     off.push(
@@ -789,6 +848,7 @@ const createTimelineChartController = (panel, context) => {
     },
     destroy() {
       off.forEach((unsubscribe) => unsubscribe && unsubscribe());
+      if (liveUpdateTimer !== null) { clearTimeout(liveUpdateTimer); liveUpdateTimer = null; }
       if (resizeObserver) resizeObserver.disconnect();
       canvas.removeEventListener("mouseleave", clearHover);
       chart.destroy();
