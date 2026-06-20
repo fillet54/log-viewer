@@ -51,8 +51,12 @@ export const MainViewShell = () => {
     const selectedChartType = viewerStore?.chartType?.value || "";
     const [rowStride, setRowStride] = useState(38);
     const [highlightState, setHighlightState] = useState({ rowId: null, nonce: 0 });
+    const [lockToBottom, setLockToBottom] = useState(false);
+    const lockToBottomRef = useRef(false);
+    const programmaticScrollRef = useRef(false);
 
     filteredRef.current = filteredEvents;
+    lockToBottomRef.current = lockToBottom;
     const selectedRowId = selectedEvent?.row_id ?? null;
 
     appHooks.useSplit({
@@ -91,7 +95,9 @@ export const MainViewShell = () => {
       const clamped = Math.max(0, Math.min(targetTop, container.scrollHeight));
       const selected = list[index] || null;
 
+      programmaticScrollRef.current = true;
       smoothScrollTo(container, clamped, duration, () => {
+        programmaticScrollRef.current = false;
         if (!selected) return;
         highlightNonceRef.current += 1;
         setHighlightState({
@@ -271,6 +277,14 @@ export const MainViewShell = () => {
           scrollFrameRef.current = requestAnimationFrame(() => {
             scrollFrameRef.current = 0;
             emitScrollState();
+            // Unlock if the user manually scrolled away from the bottom.
+            // Skip this check during programmatic scrolls to avoid unlocking
+            // mid-animation when the container hasn't reached the bottom yet.
+            if (lockToBottomRef.current && !programmaticScrollRef.current) {
+              const atBottom =
+                container.scrollTop + container.clientHeight >= container.scrollHeight - rowStride * 1.5;
+              if (!atBottom) setLockToBottom(false);
+            }
           });
         };
 
@@ -283,6 +297,12 @@ export const MainViewShell = () => {
           }
         };
       }, [services, rowStride, filteredEvents.length]);
+
+      // Scroll to the last event whenever new events arrive while locked.
+      useEffect(() => {
+        if (!lockToBottom || !filteredEvents.length) return;
+        smoothScrollToIndex(filteredEvents.length - 1, 120);
+      }, [lockToBottom, filteredEvents.length]);
 
       useEffect(() => {
         chartControllerRef.current?.resize?.();
@@ -306,6 +326,8 @@ export const MainViewShell = () => {
           selectedChartType=${selectedChartType}
           commandBarRef=${commandBarRef}
           viewMode=${safeViewMode}
+          lockToBottom=${lockToBottom}
+          onToggleLockToBottom=${() => setLockToBottom((v) => !v)}
           onChartTypeChange=${(nextType) => {
             viewerStore?.setChartType(nextType);
           }}

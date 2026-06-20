@@ -19,6 +19,8 @@ export const MainViewToolbar = ({
     selectedChartType,
     commandBarRef,
     viewMode,
+    lockToBottom,
+    onToggleLockToBottom,
     onChartTypeChange,
     onViewModeChange,
   }) => {
@@ -43,6 +45,22 @@ export const MainViewToolbar = ({
           </select>
         </div>
         <div id="chart-command-bar" ref=${commandBarRef} class="chart-command-bar"></div>
+        <button
+          type="button"
+          class=${`button button-ghost button-xs${lockToBottom ? " is-active" : ""}`}
+          title=${lockToBottom ? "Unlock scroll (following new events)" : "Lock to bottom (follow new events)"}
+          onClick=${onToggleLockToBottom}
+          aria-pressed=${String(!!lockToBottom)}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="tool-icon" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v10M8 11l4 4 4-4" />
+            ${lockToBottom
+              ? html`<path stroke-linecap="round" stroke-linejoin="round" d="M6 19h12" />`
+              : html`<path stroke-linecap="round" stroke-linejoin="round" d="M6 19h12" stroke-dasharray="3 2" />`
+            }
+          </svg>
+          <span class="sr-only">${lockToBottom ? "Unlock scroll" : "Lock to bottom"}</span>
+        </button>
         <div class="view-mode-toggle" role="tablist" aria-label="Main view layout">
           <${ViewModeButton}
             id="view-mode-split"
