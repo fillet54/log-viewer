@@ -81,6 +81,10 @@ class EventLogViewPlugin(ABC):
             "rowSettings": dict(self.row_settings),
         }
 
+    def get_log_types(self) -> list:
+        """Return a list of LogTypeDefinition instances this plugin provides."""
+        return []
+
     def build_page_data(self, payload: Any) -> dict[str, Any]:
         return {
             "plugin": {

@@ -321,8 +321,15 @@ button {
   color: var(--color-danger);
 }
 
-.button-danger:hover:not(:disabled) {
+.button-danger:hover:not(:disabled),
+.button-danger-ghost:hover:not(:disabled) {
   background: var(--color-danger-soft);
+}
+
+.button-danger-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-danger);
 }
 
 .button-small {

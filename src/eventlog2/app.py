@@ -11,13 +11,18 @@ from .standalone import build_page_data_script
 from .live.storage import SessionStore
 from .live.monitor import SessionManager
 from .live.routes import create_live_blueprint
+from .logs.registry import LogTypeRegistry
+from .logs.store import LogStore
+from .logs.routes import create_logs_blueprint
 from .plugins.core_event.live_monitor import CoreEventLiveMonitor
 
 app = Flask(__name__)
 
 _plugin = get_plugin("core-event")
 
-_sessions_dir = Path(os.environ.get("CINC_DATA_DIR", "./cinc-data")) / "sessions"
+_data_root = Path(os.environ.get("CINC_DATA_DIR", "./cinc-data"))
+
+_sessions_dir = _data_root / "sessions"
 _store = SessionStore(_sessions_dir)
 _manager = SessionManager(
     store=_store,
@@ -27,6 +32,11 @@ _manager = SessionManager(
     normalize_events=_plugin.normalize_stream_events,
 )
 app.register_blueprint(create_live_blueprint(_manager, _store))
+
+_log_registry = LogTypeRegistry()
+_log_registry.register_plugin(_plugin, session_store=_store)
+_log_store = LogStore(_data_root / "logs")
+app.register_blueprint(create_logs_blueprint(_log_registry, _log_store))
 
 
 @app.route("/")

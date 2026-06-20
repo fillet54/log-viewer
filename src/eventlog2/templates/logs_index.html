@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Logs — Cinc{% endblock %}
+
+{% block content %}
+<div class="pane-body" style="max-width: 900px; margin: 0 auto;">
+  <div style="margin-bottom: 2rem;">
+    <h1 style="margin: 0 0 0.25rem; font-size: 1.35rem; font-weight: 700;">Logs</h1>
+    <p class="page-subtitle">Imported log collections by type</p>
+  </div>
+
+  {% if entries %}
+    <div style="display: grid; gap: 0.75rem;">
+      {% for entry in entries %}
+        {% set lt = entry.log_type %}
+        <div style="border: 1px solid var(--color-border); border-radius: 0.85rem; padding: 1.1rem 1.25rem; background: var(--color-bg-elevated); display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;">
+          <div style="min-width: 0;">
+            <div style="font-size: 1rem; font-weight: 600; margin-bottom: 0.2rem;">{{ lt.name }}</div>
+            {% if lt.description %}
+              <div style="font-size: 0.82rem; color: var(--color-text-muted);">{{ lt.description }}</div>
+            {% endif %}
+            <div style="font-size: 0.78rem; color: var(--color-text-muted); margin-top: 0.3rem; font-family: var(--font-mono);">{{ lt.full_id }}</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 1.25rem; flex-shrink: 0;">
+            <div style="text-align: right;">
+              <div style="font-size: 1.15rem; font-weight: 700; font-family: var(--font-mono); line-height: 1;">{{ entry.count }}</div>
+              <div style="font-size: 0.72rem; color: var(--color-text-muted); margin-top: 0.15rem;">{{ "log" if entry.count == 1 else "logs" }}</div>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <a href="{{ url_for('logs.list_logs', log_type_id=lt.full_id) }}" class="button button-outline button-small">Browse</a>
+              <a href="{{ url_for('logs.import_log', log_type_id=lt.full_id) }}" class="button button-primary button-small">Import</a>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="no-results" style="min-height: 200px; flex-direction: column; gap: 0.5rem;">
+      <span>No log types registered</span>
+      <span style="font-size: 0.85rem; font-weight: 400; color: var(--color-text-muted);">Plugins register log types on startup</span>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

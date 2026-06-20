@@ -430,6 +430,10 @@ class CoreEventPlugin(EventLogSourcePlugin):
         "channels": DEFAULT_CORE_EVENT_CHANNELS,
     }
 
+    def get_log_types(self, session_store=None) -> list:
+        from .log_types import CoreEventBootLogType
+        return [CoreEventBootLogType(self.plugin_id, self.build_page_data, session_store=session_store)]
+
     def _build_view_config(self, channels: list[str]) -> dict[str, Any]:
         return {
             "scripts": self.get_inline_scripts(),
