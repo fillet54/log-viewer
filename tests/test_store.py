@@ -3,11 +3,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-from eventlog2.logs.store import LogStore
+from cinc.logs.store import LogStore
 
 
 def test_sqlite_store_persists_records_and_events(tmp_path: Path) -> None:
-    store = LogStore(tmp_path / "eventlog2.sqlite")
+    store = LogStore(tmp_path / "cinc.sqlite")
     started_at = datetime(2026, 4, 3, 8, 0, tzinfo=timezone.utc)
 
     record = store.create_log(
@@ -45,7 +45,7 @@ def test_sqlite_store_persists_records_and_events(tmp_path: Path) -> None:
 
 
 def test_sqlite_store_finds_active_live_record(tmp_path: Path) -> None:
-    store = LogStore(tmp_path / "eventlog2.sqlite")
+    store = LogStore(tmp_path / "cinc.sqlite")
     record = store.create_log(
         "core_event",
         "core-event",

@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "eventlog2"
+name = "cinc"
 version = "0.1.0"
 description = "HTML log viewer"
 requires-python = ">=3.10"
@@ -15,20 +15,20 @@ dependencies = [
 ]
 
 [project.scripts]
-eventlog2 = "eventlog2.__main__:main"
+cinc = "cinc.__main__:main"
 
-[project.entry-points."eventlog2.plugins"]
-core-event = "eventlog2.plugins:CoreEventPlugin"
+[project.entry-points."cinc.plugins"]
+core-event = "cinc.plugins:CoreEventPlugin"
 
 [tool.setuptools]
 include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["eventlog2*"]
+include = ["cinc*"]
 
 [tool.setuptools.package-data]
-eventlog2 = [
+cinc = [
     "templates/**/*.html",
     "static/**/*.js",
     "static/**/*.css",

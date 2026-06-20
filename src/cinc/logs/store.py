@@ -62,7 +62,7 @@ class LogStore:
     def __init__(self, db_path: Path) -> None:
         self._db_path = Path(db_path)
         if self._db_path.suffix != ".sqlite":
-            self._db_path = self._db_path / "eventlog2.sqlite"
+            self._db_path = self._db_path / "cinc.sqlite"
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 

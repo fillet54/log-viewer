@@ -89,16 +89,16 @@ BARE_MODULES = {
 ENTRY_POINT = "static/app.js"
 
 TEMPLATE_ENV = Environment(
-    loader=PackageLoader("eventlog2"),
+    loader=PackageLoader("cinc"),
     autoescape=select_autoescape(["html", "xml"]),
 )
 
 
 def _read_package_text(relative_path: str) -> str:
-    return files("eventlog2").joinpath(relative_path).read_text(encoding="utf-8")
+    return files("cinc").joinpath(relative_path).read_text(encoding="utf-8")
 
 def _read_package_data_uri(relative_path: str, mime_type: str) -> str:
-    data = files("eventlog2").joinpath(relative_path).read_bytes()
+    data = files("cinc").joinpath(relative_path).read_bytes()
     encoded = base64.b64encode(data).decode("ascii")
     return f"data:{mime_type};base64,{encoded}"
 

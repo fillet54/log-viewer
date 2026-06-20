@@ -27,7 +27,7 @@ _core_event_log_type = _log_registry.get("core_event")
 if _core_event_log_type is None:
     raise RuntimeError("Core event log type was not registered")
 
-_log_store = LogStore(_data_root / "eventlog2.sqlite")
+_log_store = LogStore(_data_root / "cinc.sqlite")
 _manager = SessionManager(
     store=_log_store,
     monitor=CoreEventLiveMonitor(),

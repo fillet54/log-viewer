@@ -6,7 +6,7 @@
     <title>{% block title %}Cinc{% endblock %}</title>
     <script>
       (function () {
-        const storageKey = "eventlog2-theme";
+        const storageKey = "cinc-theme";
         const storedTheme = localStorage.getItem(storageKey);
         const preferredTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
           ? "dark"
@@ -60,7 +60,7 @@
     </div>
     <script>
       (function () {
-        const storageKey = "eventlog2-theme";
+        const storageKey = "cinc-theme";
         const button = document.getElementById("theme-toggle");
         if (!button) return;
         const root = document.documentElement;

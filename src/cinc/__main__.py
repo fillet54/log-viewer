@@ -6,15 +6,15 @@ from .app import app
 from .plugin_manager import get_plugin, list_plugins
 from .standalone import build_standalone_files
 
-USAGE = """eventlog2
+USAGE = """cinc
 
 Usage:
-  eventlog2 serve [--host HOST] [--port PORT] [--debug] [--waitress]
-  eventlog2 build --plugin PLUGIN --data PATH [--output PATH] [--title TITLE]
-  eventlog2 plugins
-  eventlog2 [--host HOST] [--port PORT] [--debug] [--waitress]
-  eventlog2 (-h | --help)
-  eventlog2 --version
+  cinc serve [--host HOST] [--port PORT] [--debug] [--waitress]
+  cinc build --plugin PLUGIN --data PATH [--output PATH] [--title TITLE]
+  cinc plugins
+  cinc [--host HOST] [--port PORT] [--debug] [--waitress]
+  cinc (-h | --help)
+  cinc --version
 
 Options:
   --host HOST       Bind host. [default: 127.0.0.1]
@@ -75,9 +75,9 @@ def main(argv: list[str] | None = None) -> None:
     try:
         from docopt import docopt
     except ImportError as exc:
-        raise SystemExit("docopt is required for the eventlog2 CLI. Install project dependencies first.") from exc
+        raise SystemExit("docopt is required for the cinc CLI. Install project dependencies first.") from exc
 
-    args = docopt(USAGE, argv=argv, version="eventlog2 0.1.0")
+    args = docopt(USAGE, argv=argv, version="cinc 0.1.0")
 
     if args["plugins"]:
         _print_plugins()

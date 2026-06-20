@@ -13,7 +13,7 @@ def _built_in_plugins() -> list[EventLogSourcePlugin]:
 
 def list_plugins() -> list[EventLogSourcePlugin]:
     plugins: dict[str, EventLogSourcePlugin] = {plugin.plugin_id: plugin for plugin in _built_in_plugins()}
-    for entry_point in entry_points(group="eventlog2.plugins"):
+    for entry_point in entry_points(group="cinc.plugins"):
         plugin = entry_point.load()()
         if not isinstance(plugin, EventLogSourcePlugin):
             raise TypeError(f'Plugin "{entry_point.name}" must inherit EventLogSourcePlugin.')

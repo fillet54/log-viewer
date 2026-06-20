@@ -682,7 +682,7 @@ const createTimelineChartController = (panel, context) => {
   canvas.addEventListener("mouseleave", clearHover);
 
   if (debugTimeline) {
-    window.__eventlog2TimelineDebug = {
+    window.__cincTimelineDebug = {
       chart,
       canvas,
       panel,

@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from eventlog2.plugin_manager import build_page_data, build_page_data_documents_from_path, get_plugin, list_plugins
-from eventlog2.standalone import build_page_data_script
+from cinc.plugin_manager import build_page_data, build_page_data_documents_from_path, get_plugin, list_plugins
+from cinc.standalone import build_page_data_script
 
 
 def test_builtin_plugin_is_discoverable() -> None:
