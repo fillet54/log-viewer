@@ -457,7 +457,18 @@ const createTimelineChartController = (panel, context) => {
 
   const rebuildHelpers = () => {
     allEvents = getAllEvents();
-    helpers = buildTimelineHelpers({ logData: context.logData, allEvents, panel });
+    const last = allEvents.length > 0 ? allEvents[allEvents.length - 1] : null;
+    const lastAbsMs = last ? getEventAbsoluteMs(last) : null;
+    const configEndMs = new Date(context.logData?.end).getTime();
+    // If live events have arrived after the initial logData.end (which was
+    // fixed at page-load time), strip the end so getTimelineBounds derives it
+    // from current events and adds headroom — preventing late events from
+    // piling into the final bucket.
+    const logDataForBounds =
+      Number.isFinite(configEndMs) && lastAbsMs !== null && lastAbsMs > configEndMs
+        ? { ...context.logData, end: undefined }
+        : context.logData;
+    helpers = buildTimelineHelpers({ logData: logDataForBounds, allEvents, panel });
     chart.options.scales.x.max = helpers.spanMs / 1000;
   };
 

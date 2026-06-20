@@ -402,23 +402,23 @@ def _derive_core_events(raw_events: list[dict[str, Any]], available_channels: li
 def _resolve_bounds(payload: dict[str, Any], events: list[dict[str, Any]]) -> dict[str, Any]:
     start = _parse_datetime(payload.get("start"))
     end = _parse_datetime(payload.get("end"))
-    if start is not None and end is not None:
-        return {
-            "start": _isoformat_seconds(start),
-            "end": _isoformat_seconds(end),
-            "hours": max(0.0, (end - start).total_seconds() / 3600),
-        }
 
-    ordered = sorted(events, key=lambda event: (float(event.get("norm_time") or 0), int(event.get("row_id") or 0)))
-    first = ordered[0] if ordered else None
-    last = ordered[-1] if ordered else None
-    first_time = _parse_datetime(first.get("utctime") if first else None) or datetime.fromtimestamp(0, tz=timezone.utc)
-    last_time = _parse_datetime(last.get("utctime") if last else None) or first_time
+    # Use provided values when available; fall back per-field rather than
+    # requiring both.  This preserves the explicit session start time even
+    # when the session is still active (ended_at is None / "end" is absent).
+    if start is None or end is None:
+        ordered = sorted(events, key=lambda event: (float(event.get("norm_time") or 0), int(event.get("row_id") or 0)))
+        first = ordered[0] if ordered else None
+        last = ordered[-1] if ordered else None
+        if start is None:
+            start = _parse_datetime(first.get("utctime") if first else None) or datetime.fromtimestamp(0, tz=timezone.utc)
+        if end is None:
+            end = _parse_datetime(last.get("utctime") if last else None) or start
 
     return {
-        "start": _isoformat_seconds(first_time),
-        "end": _isoformat_seconds(last_time),
-        "hours": max(0.0, (last_time - first_time).total_seconds() / 3600),
+        "start": _isoformat_seconds(start),
+        "end": _isoformat_seconds(end),
+        "hours": max(0.0, (end - start).total_seconds() / 3600),
     }
 
 
