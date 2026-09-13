@@ -4,6 +4,11 @@ Last updated: 2026-09-13
 
 Status: implementation in progress; the v2 specification remains the acceptance source.
 
+Phase 1 status: complete. Obsolete source/docs/vendor files were removed, runtime
+dependencies are constrained, and the vendor manifest is synchronized with the eight
+active browser libraries. Local `cinc-data/sessions` was preserved because it contains
+populated local capture data.
+
 ## Completed
 
 - Phase foundation: introduced `LogType`, `Sample`, normalized-event validation, registry discovery, and the v2 page-data assembler.
@@ -26,6 +31,7 @@ Status: implementation in progress; the v2 specification remains the acceptance 
 - `c9a97cb` — repository-wide formatting and lint cleanup
 - `14b46e3` — self-describing bundle resolution and type sniffing
 - `c52be9e` — storage memberships and mandatory event time
+- `2117834` — complete Phase 1 hygiene and vendor manifest
 
 ## Verification
 
