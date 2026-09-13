@@ -24,3 +24,12 @@ export const smoothScrollTo = (container, targetTop, durationMs = 200, onComplet
   };
   requestAnimationFrame(step);
 };
+export const eventTimeMs = (event) => {
+  const value = Date.parse(event?.time || "");
+  return Number.isFinite(value) ? value : null;
+};
+
+export const formatInstant = (value) => {
+  const instant = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(instant.getTime()) ? "—" : instant.toISOString();
+};
