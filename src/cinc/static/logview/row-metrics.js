@@ -1,8 +1,8 @@
-export function buildOffsets(events, heightForType, defaultHeight = 32) {
+export function buildOffsets(events, heights = new Map(), fallback = 32) {
   const offsets = new Array(events.length + 1);
   offsets[0] = 0;
   for (let index = 0; index < events.length; index += 1) {
-    const height = Number(heightForType(events[index]?.log_type)) || defaultHeight;
+    const height = Number(heights.get?.(events[index]?.log_type)) || fallback;
     offsets[index + 1] = offsets[index] + height;
   }
   return offsets;

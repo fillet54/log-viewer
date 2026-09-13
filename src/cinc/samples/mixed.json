@@ -1,0 +1,28 @@
+{
+  "cinc": 2,
+  "name": "Mixed reference report",
+  "sections": [
+    {
+      "logType": "core_event",
+      "payload": {
+        "channels": ["A", "B", "C", "D"],
+        "channelCount": 4,
+        "events": [
+          {"row_id": 1, "utctime": "2026-04-03T08:00:00Z", "name": "Power ready", "color": "Green", "system": "Power", "set_clear": "set"},
+          {"row_id": 2, "utctime": "2026-04-03T08:05:00Z", "name": "Bus warning", "color": "Yellow", "system": "Power", "set_clear": "set"}
+        ]
+      }
+    },
+    {
+      "logType": "text_log",
+      "payload": {
+        "source": "mixed.log",
+        "host": "build-agent-04",
+        "lines": [
+          {"ts": "2026-04-03T08:00:00.100Z", "level": "INFO", "logger": "server", "message": "started"},
+          {"ts": "2026-04-03T08:05:00.100Z", "level": "ERROR", "logger": "db", "message": "connection refused"}
+        ]
+      }
+    }
+  ]
+}

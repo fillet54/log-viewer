@@ -70,10 +70,9 @@ levels timeline, detail summary, live replay, and isolation coverage.
 - `7666465` — text-log conformance assets and live support
 - `2e40019` — text-log fixture and conformance tests
 
-Phase 8 status: backend bundle and CLI foundation implemented. Multiple input files can be
-resolved and assembled into one v2 page-data envelope without a type flag, the CLI lists
-both types and builds a mixed standalone file, and row rendering dispatches by event type.
-Variable-height virtualization and full import/storage bundle routes remain to be completed.
+Phase 8 status: mixed bundle fixture, multi-file standalone build, per-row dispatch, and
+row-metrics API alignment are implemented. The remaining work is wiring prefix-sum offsets
+through the main/search virtual list and completing mixed import/storage routes.
 - pending — Phase 4 completion (commit follows verification)
 
 ## Verification
