@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from importlib.resources import files
 from pathlib import Path
 
 from flask import Flask, abort, render_template
@@ -41,10 +42,10 @@ def create_app(data_dir: Path | None = None) -> Flask:
         )
         if sample is None:
             abort(404)
-        path = (
-            Path(log_type.__class__.__module__.replace(".", "/")).parent / sample.path
+        package = log_type.__class__.__module__.rsplit(".", 1)[0]
+        payload = json.loads(
+            files(package).joinpath(sample.path).read_text(encoding="utf-8")
         )
-        payload = json.loads(path.read_text(encoding="utf-8"))
         page_data = log_type.build_page_data(payload)
         return render_template(
             "index.html", page_data_script=build_page_data_script(page_data)
