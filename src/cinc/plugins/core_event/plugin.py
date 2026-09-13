@@ -183,7 +183,7 @@ def _normalize_channel_list(
 
     inferred = _infer_event_channels(event)
     if not inferred:
-        return []
+        return available[:1]
     if not available:
         return inferred
     return [channel for channel in available if channel in inferred]
