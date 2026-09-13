@@ -34,7 +34,12 @@ def _parse_datetime(value: Any) -> datetime | None:
 
 
 def _isoformat_seconds(value: datetime) -> str:
-    return value.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return (
+        value.astimezone(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def _normalize_action(value: Any) -> str:
@@ -89,7 +94,11 @@ def _normalize_entity_fields(raw_event: dict[str, Any], key: str) -> dict[str, A
     elif raw_value is not None:
         if raw_name or raw_id:
             candidate = _coerce_string(raw_value)
-            if candidate and candidate != _coerce_string(raw_id) and candidate != _coerce_string(raw_name):
+            if (
+                candidate
+                and candidate != _coerce_string(raw_id)
+                and candidate != _coerce_string(raw_name)
+            ):
                 value_name = candidate
         else:
             value_name = _coerce_string(raw_value)
@@ -110,7 +119,12 @@ def _normalize_entity_fields(raw_event: dict[str, Any], key: str) -> dict[str, A
 def _infer_event_channels(event: dict[str, Any]) -> list[str]:
     inferred: list[str] = []
     for key, value in event.items():
-        if value is None or key == "norm_time" or not isinstance(key, str) or not key.endswith("_time"):
+        if (
+            value is None
+            or key == "norm_time"
+            or not isinstance(key, str)
+            or not key.endswith("_time")
+        ):
             continue
         channel = _normalize_channel_name(key[:-5])
         if channel and channel not in inferred:
@@ -118,7 +132,9 @@ def _infer_event_channels(event: dict[str, Any]) -> list[str]:
     return inferred
 
 
-def _resolve_channel_catalog(payload: dict[str, Any], raw_events: list[dict[str, Any]]) -> list[str]:
+def _resolve_channel_catalog(
+    payload: dict[str, Any], raw_events: list[dict[str, Any]]
+) -> list[str]:
     configured = payload.get("channels")
     configured_count = _normalize_channel_count(payload.get("channelCount"))
     discovered: list[str] = []
@@ -134,7 +150,9 @@ def _resolve_channel_catalog(payload: dict[str, Any], raw_events: list[dict[str,
 
     for event in raw_events:
         explicit = event.get("channels")
-        source = explicit if isinstance(explicit, list) else _infer_event_channels(event)
+        source = (
+            explicit if isinstance(explicit, list) else _infer_event_channels(event)
+        )
         for item in source:
             channel = _normalize_channel_name(item)
             if channel and channel not in discovered:
@@ -144,8 +162,14 @@ def _resolve_channel_catalog(payload: dict[str, Any], raw_events: list[dict[str,
     return discovered
 
 
-def _normalize_channel_list(event: dict[str, Any], available_channels: list[str]) -> list[str]:
-    available = [_normalize_channel_name(channel) for channel in available_channels if _normalize_channel_name(channel)]
+def _normalize_channel_list(
+    event: dict[str, Any], available_channels: list[str]
+) -> list[str]:
+    available = [
+        _normalize_channel_name(channel)
+        for channel in available_channels
+        if _normalize_channel_name(channel)
+    ]
     available_set = set(available)
     explicit = event.get("channels")
     if isinstance(explicit, list):
@@ -173,7 +197,9 @@ def _normalize_norm_time(value: Any, fallback: int | float = 0) -> float:
     return numeric
 
 
-def _resolve_fallback_start(raw_events: list[dict[str, Any]]) -> datetime | None:
+def _resolve_fallback_start(
+    raw_events: list[dict[str, Any]],
+) -> datetime | None:
     for event in raw_events:
         parsed = _parse_datetime(event.get("utctime"))
         if parsed is None:
@@ -225,13 +251,21 @@ def _build_fault_prefix(event: dict[str, Any]) -> str:
     if len(parts) >= 2:
         return f"{parts[0]}-{severity}-{'-'.join(parts[1:])}"
 
-    system_prefix = "".join(ch for ch in str(event.get("system") or "").strip().upper() if ch.isalnum())[:3]
-    return f"{system_prefix}-{severity}-{raw_code}" if system_prefix else f"{severity}-{raw_code}"
+    system_prefix = "".join(
+        ch for ch in str(event.get("system") or "").strip().upper() if ch.isalnum()
+    )[:3]
+    return (
+        f"{system_prefix}-{severity}-{raw_code}"
+        if system_prefix
+        else f"{severity}-{raw_code}"
+    )
 
 
 def _build_row_display(event: dict[str, Any]) -> dict[str, Any]:
     norm_time = float(event.get("norm_time") or 0)
-    location = "/".join(str(event.get(key) or "") for key in ("system", "subsystem", "unit")).strip("/")
+    location = "/".join(
+        str(event.get(key) or "") for key in ("system", "subsystem", "unit")
+    ).strip("/")
     prefix = _build_fault_prefix(event)
     has_data = _has_event_data(event.get("data"))
 
@@ -248,7 +282,9 @@ def _build_row_display(event: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _summarize_matches(event: dict[str, Any], channel_matches: dict[str, Any]) -> dict[str, Any]:
+def _summarize_matches(
+    event: dict[str, Any], channel_matches: dict[str, Any]
+) -> dict[str, Any]:
     channels = event.get("channels") or []
     if not channels:
         return {"items": [], "collapsed": False}
@@ -256,7 +292,8 @@ def _summarize_matches(event: dict[str, Any], channel_matches: dict[str, Any]) -
     matches = [
         channel_matches[channel]
         for channel in channels
-        if channel_matches.get(channel) and channel_matches[channel].get("linkedRowId") is not None
+        if channel_matches.get(channel)
+        and channel_matches[channel].get("linkedRowId") is not None
         and channel_matches[channel].get("durationSeconds") is not None
     ]
     if not matches:
@@ -288,7 +325,11 @@ def _summarize_matches(event: dict[str, Any], channel_matches: dict[str, Any]) -
     items = []
     for channel in channels:
         item = channel_matches.get(channel)
-        if not item or item.get("linkedRowId") is None or item.get("durationSeconds") is None:
+        if (
+            not item
+            or item.get("linkedRowId") is None
+            or item.get("durationSeconds") is None
+        ):
             continue
         items.append(
             {
@@ -304,7 +345,10 @@ def _summarize_matches(event: dict[str, Any], channel_matches: dict[str, Any]) -
 
 
 def _normalize_event(
-    raw_event: dict[str, Any], index: int, fallback_start: datetime | None, available_channels: list[str]
+    raw_event: dict[str, Any],
+    index: int,
+    fallback_start: datetime | None,
+    available_channels: list[str],
 ) -> dict[str, Any]:
     norm_time = _normalize_norm_time(raw_event.get("norm_time"), index)
     parsed_utc = _parse_datetime(raw_event.get("utctime"))
@@ -350,12 +394,21 @@ def _normalize_event(
     }
 
 
-def _derive_core_events(raw_events: list[dict[str, Any]], available_channels: list[str]) -> list[dict[str, Any]]:
+def _derive_core_events(
+    raw_events: list[dict[str, Any]], available_channels: list[str]
+) -> list[dict[str, Any]]:
     fallback_start = _resolve_fallback_start(raw_events)
     events = [
-        _normalize_event(event, index, fallback_start, available_channels) for index, event in enumerate(raw_events)
+        _normalize_event(event, index, fallback_start, available_channels)
+        for index, event in enumerate(raw_events)
     ]
-    ordered = sorted(events, key=lambda event: (float(event.get("norm_time") or 0), int(event.get("row_id") or 0)))
+    ordered = sorted(
+        events,
+        key=lambda event: (
+            float(event.get("norm_time") or 0),
+            int(event.get("row_id") or 0),
+        ),
+    )
     open_sets: dict[str, list[dict[str, Any]]] = {}
 
     for event in ordered:
@@ -371,7 +424,11 @@ def _derive_core_events(raw_events: list[dict[str, Any]], available_channels: li
                 continue
 
             set_event = queue.pop(0)
-            duration_seconds = max(0.0, float(event.get("norm_time") or 0) - float(set_event.get("norm_time") or 0))
+            duration_seconds = max(
+                0.0,
+                float(event.get("norm_time") or 0)
+                - float(set_event.get("norm_time") or 0),
+            )
             label = _format_duration_label(duration_seconds)
 
             set_event["pairedChannels"][channel] = {
@@ -394,13 +451,17 @@ def _derive_core_events(raw_events: list[dict[str, Any]], available_channels: li
             }
 
     for event in events:
-        event["matchSummary"] = _summarize_matches(event, event.get("pairedChannels", {}))
+        event["matchSummary"] = _summarize_matches(
+            event, event.get("pairedChannels", {})
+        )
         event["rowDisplay"] = _build_row_display(event)
 
     return events
 
 
-def _resolve_bounds(payload: dict[str, Any], events: list[dict[str, Any]]) -> dict[str, Any]:
+def _resolve_bounds(
+    payload: dict[str, Any], events: list[dict[str, Any]]
+) -> dict[str, Any]:
     start = _parse_datetime(payload.get("start"))
     end = _parse_datetime(payload.get("end"))
 
@@ -408,11 +469,19 @@ def _resolve_bounds(payload: dict[str, Any], events: list[dict[str, Any]]) -> di
     # requiring both.  This preserves the explicit session start time even
     # when the session is still active (ended_at is None / "end" is absent).
     if start is None or end is None:
-        ordered = sorted(events, key=lambda event: (float(event.get("norm_time") or 0), int(event.get("row_id") or 0)))
+        ordered = sorted(
+            events,
+            key=lambda event: (
+                float(event.get("norm_time") or 0),
+                int(event.get("row_id") or 0),
+            ),
+        )
         first = ordered[0] if ordered else None
         last = ordered[-1] if ordered else None
         if start is None:
-            start = _parse_datetime(first.get("utctime") if first else None) or datetime.fromtimestamp(0, tz=timezone.utc)
+            start = _parse_datetime(
+                first.get("utctime") if first else None
+            ) or datetime.fromtimestamp(0, tz=timezone.utc)
         if end is None:
             end = _parse_datetime(last.get("utctime") if last else None) or start
 
@@ -433,6 +502,7 @@ class CoreEventPlugin(EventLogSourcePlugin):
 
     def get_log_types(self, session_store=None) -> list:
         from .log_types import CoreEventBootLogType
+
         return [CoreEventBootLogType(self.plugin_id, self.build_page_data)]
 
     def _build_view_config(self, channels: list[str]) -> dict[str, Any]:
@@ -470,7 +540,9 @@ class CoreEventPlugin(EventLogSourcePlugin):
             channels,
         )
 
-    def normalize_stream_events(self, raw_events: list[dict[str, Any]], channels: list[str]) -> list[dict[str, Any]]:
+    def normalize_stream_events(
+        self, raw_events: list[dict[str, Any]], channels: list[str]
+    ) -> list[dict[str, Any]]:
         """Normalize a batch of raw events for live streaming (no set/clear pairing)."""
         fallback_start = _resolve_fallback_start(raw_events)
         result = []

@@ -66,7 +66,9 @@ class SessionManager:
 
     def start(self) -> str:
         with self._lock:
-            if self._active_session_id or self._store.get_active_live_record(self.log_type_id):
+            if self._active_session_id or self._store.get_active_live_record(
+                self.log_type_id
+            ):
                 raise RuntimeError("A live capture is already active")
             if not self._monitor.detect_system():
                 raise RuntimeError("System not detected")
@@ -138,7 +140,9 @@ class SessionManager:
             if record and record.started_at:
                 payload["start"] = record.started_at.isoformat()
             normalized_events = self._log_type.normalize_events(payload)
-            self._store.append_events(log_id, normalized_events, source="live", tags=("live",))
+            self._store.append_events(
+                log_id, normalized_events, source="live", tags=("live",)
+            )
 
             broadcast = {"type": "events", "events": normalized_events}
             with self._lock:
@@ -156,7 +160,9 @@ class SessionManager:
         if record:
             metadata = dict(record.metadata or {})
             if record.started_at:
-                metadata["hours"] = max(0.0, (ended_at - record.started_at).total_seconds() / 3600)
+                metadata["hours"] = max(
+                    0.0, (ended_at - record.started_at).total_seconds() / 3600
+                )
             header = dict(metadata.get("payload_header") or {})
             header["end"] = ended_at.isoformat()
             metadata["payload_header"] = header

@@ -38,7 +38,8 @@ class EventLogViewPlugin(ABC):
                 page_data, _ = decoder.raw_decode(text[match.end() :].lstrip())
             except json.JSONDecodeError as exc:
                 raise ValueError(
-                    f"{data_path} looks like a JavaScript page-data wrapper, but the assigned value is not valid JSON."
+                    f"{data_path} looks like a JavaScript page-data wrapper, "
+                    "but the assigned value is not valid JSON."
                 ) from exc
 
             if isinstance(page_data, dict):
@@ -50,7 +51,7 @@ class EventLogViewPlugin(ABC):
 
         raise ValueError(
             f"{data_path} is not valid JSON. Pass raw plugin input JSON or a simple "
-            'JavaScript assignment like `window.EVENTLOG2_PAGE_DATA = {...};`.'
+            "JavaScript assignment like `window.EVENTLOG2_PAGE_DATA = {...};`."
         )
 
     @abstractmethod
@@ -103,10 +104,14 @@ class EventLogSourcePlugin(EventLogViewPlugin):
     def read_source_path(self, data_path: Path) -> Any:
         return self.read_payload_file(data_path)
 
-    def build_documents(self, source: Any, source_path: Path | None = None) -> list[EventLogDocument]:
+    def build_documents(
+        self, source: Any, source_path: Path | None = None
+    ) -> list[EventLogDocument]:
         return [EventLogDocument(slug="report", payload=source)]
 
-    def build_page_data_for_document(self, document: EventLogDocument) -> dict[str, Any]:
+    def build_page_data_for_document(
+        self, document: EventLogDocument
+    ) -> dict[str, Any]:
         return self.build_page_data(document.payload)
 
     def parse_path(self, data_path: Path) -> dict[str, Any]:
@@ -117,7 +122,10 @@ class EventLogSourcePlugin(EventLogViewPlugin):
         documents = self.build_documents(source, source_path=data_path)
         results: list[dict[str, Any]] = []
         for index, document in enumerate(documents):
-            slug = str(document.slug or f"report-{index + 1}").strip() or f"report-{index + 1}"
+            slug = (
+                str(document.slug or f"report-{index + 1}").strip()
+                or f"report-{index + 1}"
+            )
             results.append(
                 {
                     "slug": slug,

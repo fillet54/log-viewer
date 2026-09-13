@@ -13,9 +13,7 @@ def validate_events(events: list[dict[str, Any]], log_type_id: str) -> None:
                 raise ValueError(f"{log_type_id}: event {index} missing {key}")
         row_id = event["row_id"]
         if isinstance(row_id, bool) or not isinstance(row_id, int):
-            raise ValueError(
-                f"{log_type_id}: event {index} row_id must be an integer"
-            )
+            raise ValueError(f"{log_type_id}: event {index} row_id must be an integer")
         if row_id in seen:
             raise ValueError(f"{log_type_id}: duplicate row_id {row_id}")
         seen.add(row_id)
@@ -31,6 +29,4 @@ def validate_events(events: list[dict[str, Any]], log_type_id: str) -> None:
                 f"{log_type_id}: event {index} time must include a timezone"
             )
         if event["log_type"] != log_type_id:
-            raise ValueError(
-                f"{log_type_id}: event {index} has the wrong log_type"
-            )
+            raise ValueError(f"{log_type_id}: event {index} has the wrong log_type")

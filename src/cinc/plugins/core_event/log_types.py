@@ -33,7 +33,9 @@ class CoreEventBootLogType(LogTypeDefinition):
         if file and getattr(file, "filename", None):
             try:
                 raw = file.read()
-                data = json.loads(raw.decode("utf-8") if isinstance(raw, bytes) else raw)
+                data = json.loads(
+                    raw.decode("utf-8") if isinstance(raw, bytes) else raw
+                )
             except (json.JSONDecodeError, UnicodeDecodeError) as exc:
                 raise ValueError(f"Invalid JSON file: {exc}") from exc
             name = Path(file.filename).stem
@@ -44,7 +46,9 @@ class CoreEventBootLogType(LogTypeDefinition):
             raise ValueError("Provide a JSON file or a JSON request body.")
 
         if not isinstance(data.get("events"), list):
-            raise ValueError("Invalid format: expected an object with an 'events' array.")
+            raise ValueError(
+                "Invalid format: expected an object with an 'events' array."
+            )
 
         return name, data
 
@@ -95,7 +99,9 @@ class CoreEventBootLogType(LogTypeDefinition):
             normalized.append(entry)
         return normalized
 
-    def build_payload_from_events(self, record: LogRecord, events: list[dict[str, Any]]) -> dict[str, Any]:
+    def build_payload_from_events(
+        self, record: LogRecord, events: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         payload = dict(record.metadata.get("payload_header") or {})
         payload["events"] = events
         channels = record.metadata.get("channels")
@@ -114,11 +120,28 @@ class CoreEventBootLogType(LogTypeDefinition):
         page_data["logType"] = {"id": self.full_id, "name": self.name}
         page_data["apiVersion"] = 1
         page_data["search"] = {
-            "fields": ["time", "utctime", "name", "system", "subsystem", "unit", "code", "color", "set_clear"],
-            "examples": ["color:Red", "system:Power", "set_clear:set", "data.$.*~voltage"],
+            "fields": [
+                "time",
+                "utctime",
+                "name",
+                "system",
+                "subsystem",
+                "unit",
+                "code",
+                "color",
+                "set_clear",
+            ],
+            "examples": [
+                "color:Red",
+                "system:Power",
+                "set_clear:set",
+                "data.$.*~voltage",
+            ],
         }
         page_data["view"].setdefault("charts", self.get_supported_charts()["charts"])
-        page_data["view"].setdefault("timelineViews", self.get_supported_charts()["timelineViews"])
+        page_data["view"].setdefault(
+            "timelineViews", self.get_supported_charts()["timelineViews"]
+        )
         return page_data
 
     def get_supported_charts(self) -> dict[str, list[str]]:

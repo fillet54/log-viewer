@@ -30,7 +30,9 @@ Options:
 """
 
 
-def _apply_runtime_overrides(args: dict[str, object]) -> tuple[str, int, bool, bool]:
+def _apply_runtime_overrides(
+    args: dict[str, object],
+) -> tuple[str, int, bool, bool]:
     host = str(args["--host"])
     try:
         port = int(args["--port"])
@@ -75,7 +77,9 @@ def main(argv: list[str] | None = None) -> None:
     try:
         from docopt import docopt
     except ImportError as exc:
-        raise SystemExit("docopt is required for the cinc CLI. Install project dependencies first.") from exc
+        raise SystemExit(
+            "docopt is required for the cinc CLI. Install project dependencies first."
+        ) from exc
 
     args = docopt(USAGE, argv=argv, version="cinc 0.1.0")
 
@@ -97,6 +101,7 @@ def main(argv: list[str] | None = None) -> None:
 
     if use_waitress:
         from waitress import serve
+
         serve(app, host=host, port=port)
         return
 

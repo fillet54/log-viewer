@@ -30,7 +30,9 @@ class LogTypeRegistry:
             self.register(log_type)
 
     def get(self, full_id: str) -> LogTypeDefinition | None:
-        return self._types.get(full_id) or self._types.get(self._aliases.get(full_id, ""))
+        return self._types.get(full_id) or self._types.get(
+            self._aliases.get(full_id, "")
+        )
 
     def all(self) -> list[LogTypeDefinition]:
         return list(self._types.values())

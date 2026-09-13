@@ -36,9 +36,7 @@ def assemble_page_data(
     scripts, styles = [], []
     for log_type, _ in sections:
         for item in log_type.inline_scripts() + log_type.inline_styles():
-            (scripts if item in log_type.inline_scripts() else styles).append(
-                item
-            )
+            (scripts if item in log_type.inline_scripts() else styles).append(item)
     return {
         "apiVersion": 2,
         "logTypes": configs,

@@ -13,11 +13,7 @@ class CoreEventLogType(LogType):
         self._impl = CoreEventPlugin()
 
     def parse_import(self, *, file=None, json_data=None):
-        payload = (
-            json_data
-            if json_data is not None
-            else __import__("json").load(file)
-        )
+        payload = json_data if json_data is not None else __import__("json").load(file)
         return ("import", payload)
 
     def normalize_events(self, payload, *, row_id_base=0):

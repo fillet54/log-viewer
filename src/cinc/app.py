@@ -42,7 +42,9 @@ app.register_blueprint(create_logs_blueprint(_log_registry, _log_store))
 def index():
     payload = json.loads(_plugin.read_asset_text("samples/dev-data.json"))
     page_data = _plugin.build_page_data(payload)
-    return render_template("index.html", page_data_script=build_page_data_script(page_data))
+    return render_template(
+        "index.html", page_data_script=build_page_data_script(page_data)
+    )
 
 
 if __name__ == "__main__":

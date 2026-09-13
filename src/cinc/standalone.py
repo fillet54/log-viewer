@@ -145,9 +145,7 @@ def build_page_data_script(page_data: dict[str, object]) -> str:
     return f"window.CINC_PAGE_DATA = {safe_payload};"
 
 
-def build_standalone_html(
-    data_script: str, title: str = "HTML Log Viewer"
-) -> str:
+def build_standalone_html(data_script: str, title: str = "HTML Log Viewer") -> str:
     styles = _read_package_text("static/styles.css")
 
     global_scripts = [data_script]
@@ -173,12 +171,8 @@ def build_standalone_html(
 
     esm_data = json.dumps(module_data)
 
-    logo_light = _read_package_data_uri(
-        "static/img/logo_lightmode.png", "image/png"
-    )
-    logo_dark = _read_package_data_uri(
-        "static/img/logo_darkmode.png", "image/png"
-    )
+    logo_light = _read_package_data_uri("static/img/logo_lightmode.png", "image/png")
+    logo_dark = _read_package_data_uri("static/img/logo_darkmode.png", "image/png")
 
     return TEMPLATE_ENV.get_template("standalone.html").render(
         title=title,
@@ -222,9 +216,7 @@ def build_standalone_files(
             )
         ]
 
-    output_dir = (
-        output_path if output_path.suffix == "" else output_path.parent
-    )
+    output_dir = output_path if output_path.suffix == "" else output_path.parent
     output_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     base_stem = output_path.stem if output_path.suffix else "report"

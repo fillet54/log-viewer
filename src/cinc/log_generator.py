@@ -149,7 +149,9 @@ def _level_weight(color: str, cluster_weight: float) -> float:
     return 0.3 + cluster_weight * 2.0
 
 
-def _choose_fault(rng: random.Random, candidates: list[Dict[str, Any]], cluster_value: float) -> Dict[str, Any]:
+def _choose_fault(
+    rng: random.Random, candidates: list[Dict[str, Any]], cluster_value: float
+) -> Dict[str, Any]:
     weights = [_level_weight(item["color"], cluster_value) for item in candidates]
     return rng.choices(candidates, weights=weights, k=1)[0]
 
@@ -201,12 +203,20 @@ def generate_logs(hours: float, seed_value: Optional[str]) -> Dict[str, Any]:
     for idx, offset in enumerate(time_offsets):
         weight = cluster_weight(offset)
         set_candidates = [
-            item for item in FAULT_CATALOG if len(open_channels_by_fault[_fault_key(item)]) < len(all_channels)
+            item
+            for item in FAULT_CATALOG
+            if len(open_channels_by_fault[_fault_key(item)]) < len(all_channels)
         ]
-        clear_candidates = [item for item in FAULT_CATALOG if open_channels_by_fault[_fault_key(item)]]
+        clear_candidates = [
+            item for item in FAULT_CATALOG if open_channels_by_fault[_fault_key(item)]
+        ]
 
-        should_clear = bool(clear_candidates) and (not set_candidates or rng.random() < 0.35)
-        choice = _choose_fault(rng, clear_candidates if should_clear else set_candidates, weight)
+        should_clear = bool(clear_candidates) and (
+            not set_candidates or rng.random() < 0.35
+        )
+        choice = _choose_fault(
+            rng, clear_candidates if should_clear else set_candidates, weight
+        )
         fault_open_channels = open_channels_by_fault[_fault_key(choice)]
         if should_clear:
             set_clear = "clear"
@@ -216,7 +226,11 @@ def generate_logs(hours: float, seed_value: Optional[str]) -> Dict[str, Any]:
                 fault_open_channels.discard(channel)
         else:
             set_clear = "set"
-            available_channels = [channel for channel in all_channels if channel not in fault_open_channels]
+            available_channels = [
+                channel
+                for channel in all_channels
+                if channel not in fault_open_channels
+            ]
             seen_channels = _choose_channels(rng, available_channels)
             fault_open_channels.update(seen_channels)
 

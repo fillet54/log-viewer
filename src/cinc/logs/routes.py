@@ -23,7 +23,9 @@ def create_logs_blueprint(registry: LogTypeRegistry, store: LogStore) -> Bluepri
     def index():
         entries = []
         for log_type in registry.all():
-            entries.append({"log_type": log_type, "count": store.count(log_type.full_id)})
+            entries.append(
+                {"log_type": log_type, "count": store.count(log_type.full_id)}
+            )
         return render_template("logs_index.html", entries=entries)
 
     @bp.route("/logs/<path:log_type_id>")
@@ -33,7 +35,9 @@ def create_logs_blueprint(registry: LogTypeRegistry, store: LogStore) -> Bluepri
             return "Log type not found", 404
         page = max(1, int(request.args.get("page", 1)))
         search = request.args.get("q", "").strip()
-        records, total = store.list_records(log_type.full_id, page=page, per_page=_PER_PAGE, search=search)
+        records, total = store.list_records(
+            log_type.full_id, page=page, per_page=_PER_PAGE, search=search
+        )
         pages = max(1, (total + _PER_PAGE - 1) // _PER_PAGE)
         columns = log_type.get_list_columns()
         rows = [(r, log_type.format_list_row(r)) for r in records]
@@ -91,8 +95,20 @@ def create_logs_blueprint(registry: LogTypeRegistry, store: LogStore) -> Bluepri
             record = store.get_record(record.id) or record
 
             if is_api:
-                return jsonify({"id": record.id, "name": record.name, "log_type_id": log_type.full_id})
-            return redirect(url_for("logs.view_log", log_type_id=log_type.full_id, log_id=record.id))
+                return jsonify(
+                    {
+                        "id": record.id,
+                        "name": record.name,
+                        "log_type_id": log_type.full_id,
+                    }
+                )
+            return redirect(
+                url_for(
+                    "logs.view_log",
+                    log_type_id=log_type.full_id,
+                    log_id=record.id,
+                )
+            )
 
         except ValueError as exc:
             if is_api:
@@ -107,7 +123,9 @@ def create_logs_blueprint(registry: LogTypeRegistry, store: LogStore) -> Bluepri
         record = store.get_record(log_type.full_id, log_id)
         if record is None:
             return "Log not found", 404
-        payload = log_type.build_payload_from_events(record, store.get_events(record.id))
+        payload = log_type.build_payload_from_events(
+            record, store.get_events(record.id)
+        )
         page_data = log_type.build_view_page_data(record, payload)
         if record.source == "live" and record.status == "active":
             page_data["live"] = {"sessionId": record.id}

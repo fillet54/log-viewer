@@ -74,8 +74,7 @@ class LogStore:
 
     def _init_db(self) -> None:
         with self._connect() as con:
-            con.executescript(
-                """
+            con.executescript("""
                 CREATE TABLE IF NOT EXISTS log_records (
                     id TEXT PRIMARY KEY,
                     log_type TEXT NOT NULL,
@@ -108,8 +107,7 @@ class LogStore:
                     ON log_events(log_id, row_id);
                 CREATE INDEX IF NOT EXISTS idx_log_events_log_time
                     ON log_events(log_id, time);
-                """
-            )
+                """)
 
     def _record_from_row(self, row: sqlite3.Row) -> LogRecord:
         return LogRecord(
@@ -117,7 +115,8 @@ class LogStore:
             log_type_id=str(row["log_type"]),
             plugin_id=str(row["plugin_id"] or ""),
             name=str(row["name"]),
-            imported_at=_parse_dt(row["imported_at"]) or datetime.fromtimestamp(0, tz=timezone.utc),
+            imported_at=_parse_dt(row["imported_at"])
+            or datetime.fromtimestamp(0, tz=timezone.utc),
             source=str(row["source"] or "import"),
             status=str(row["status"] or "completed"),
             started_at=_parse_dt(row["started_at"]),
@@ -210,7 +209,9 @@ class LogStore:
         with self._connect() as con:
             con.executemany(
                 """
-                INSERT INTO log_events (log_id, log_type, time, row_id, source, tags_json, event_json)
+                INSERT INTO log_events (
+                    log_id, log_type, time, row_id, source, tags_json, event_json
+                )
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 rows,
@@ -240,7 +241,9 @@ class LogStore:
                 (json.dumps(metadata), log_id),
             )
 
-    def get_record(self, log_type_id_or_log_id: str, log_id: str | None = None) -> LogRecord | None:
+    def get_record(
+        self, log_type_id_or_log_id: str, log_id: str | None = None
+    ) -> LogRecord | None:
         if log_id is None:
             sql = "SELECT * FROM log_records WHERE id = ?"
             params: tuple[Any, ...] = (log_type_id_or_log_id,)
@@ -297,7 +300,10 @@ class LogStore:
             where.append("status = ?")
             params.append(status)
         if search:
-            where.append("(lower(name) LIKE ? OR lower(source) LIKE ? OR lower(status) LIKE ? OR lower(metadata_json) LIKE ?)")
+            where.append(
+                "(lower(name) LIKE ? OR lower(source) LIKE ? OR "
+                "lower(status) LIKE ? OR lower(metadata_json) LIKE ?)"
+            )
             needle = f"%{search.lower()}%"
             params.extend([needle, needle, needle, needle])
 
@@ -307,7 +313,12 @@ class LogStore:
         offset = (page - 1) * per_page
 
         with self._connect() as con:
-            total = int(con.execute(f"SELECT COUNT(*) AS count FROM log_records {where_sql}", params).fetchone()["count"])
+            total = int(
+                con.execute(
+                    f"SELECT COUNT(*) AS count FROM log_records {where_sql}",
+                    params,
+                ).fetchone()["count"]
+            )
             rows = con.execute(
                 f"""
                 SELECT * FROM log_records
@@ -323,8 +334,12 @@ class LogStore:
         _, total = self.list_records(log_type_id, per_page=1)
         return total
 
-    def get_active_live_record(self, log_type_id: str | None = None) -> LogRecord | None:
-        records, _ = self.list_records(log_type_id, source="live", status="active", per_page=1)
+    def get_active_live_record(
+        self, log_type_id: str | None = None
+    ) -> LogRecord | None:
+        records, _ = self.list_records(
+            log_type_id, source="live", status="active", per_page=1
+        )
         return records[0] if records else None
 
     def delete(self, log_type_id_or_log_id: str, log_id: str | None = None) -> bool:
@@ -341,12 +356,19 @@ class LogStore:
         metadata: dict[str, Any],
         payload: dict[str, Any],
     ) -> LogRecord:
-        header = {key: value for key, value in payload.items() if key != "events"} if isinstance(payload, dict) else {}
+        header = (
+            {key: value for key, value in payload.items() if key != "events"}
+            if isinstance(payload, dict)
+            else {}
+        )
         record_metadata = dict(metadata or {})
         record_metadata.setdefault("payload_header", header)
         record_metadata["event_count"] = 0
         record = self.create_log(log_type_id, plugin_id, name, record_metadata)
         events = payload.get("events") if isinstance(payload, dict) else []
         if isinstance(events, list):
-            self.append_events(record.id, [event for event in events if isinstance(event, dict)])
+            self.append_events(
+                record.id,
+                [event for event in events if isinstance(event, dict)],
+            )
         return self.get_record(record.id) or record
