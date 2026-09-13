@@ -6,11 +6,5 @@
   "signals-core.mjs": {"version": "1.7.0", "sha256": "93284268a0e37da474d3a3fa80cfd7473ba0c00827b8ffd4aab61894bd74d69f"},
   "signals.mjs": {"version": "1.7.0", "sha256": "b62072decfda6ad4fa935dca2f03c574b99877b7d502fd077adf52d4d8f2136c"},
   "htm-core.mjs": {"version": "3.1.1", "sha256": "ab33dd3f38059b9be4d5f5350128eefb2356639c4e0bbe9d9e8b3ba75847e9e4"},
-  "htm-preact.mjs": {"version": "3.1.1", "sha256": "b3f51db71c12eabba61819feb74ace7cadc2744af41866c3fcad2ab960415746"},
-  "htm.min.js": {"version": "3.1.1", "sha256": "7a31776e04bd4afde0d4308177d26f377716fcf7e4bd70be590746d6aa594f08"},
-  "htm.mjs": {"version": "3.1.1", "sha256": "b3f51db71c12eabba61819feb74ace7cadc2744af41866c3fcad2ab960415746"},
-  "preact-hooks.min.js": {"version": "10.19.3", "sha256": "c2a0121123419a0788e7a3e0adde79f9f9dc9d455c918abbfe6f74651b4be054"},
-  "preact-signals-core.min.js": {"version": "1.7.0", "sha256": "4a617cf9c01ff66cd005151c34e1b26ec953a36157ca91174a335b968731fbe4"},
-  "preact-signals.min.js": {"version": "1.7.0", "sha256": "227bbeaea6ad2c8d77705745e94517bf97986a8bdbb0f3a429bf8e3f436d6e40"},
-  "preact.min.js": {"version": "10.19.3", "sha256": "559fa48d02721e70e4120ccf682e24370a6fcd691070792c93d106e58f6d68a6"}
+  "htm-preact.mjs": {"version": "3.1.1", "sha256": "b3f51db71c12eabba61819feb74ace7cadc2744af41866c3fcad2ab960415746"}
 }
