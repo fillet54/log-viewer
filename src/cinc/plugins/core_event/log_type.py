@@ -23,6 +23,19 @@ class CoreEventLogType(LogType):
             event["row_id"] = i
         return events
 
+    def detect(self, payload):
+        events = payload.get("events") if isinstance(payload, dict) else None
+        if (
+            not isinstance(events, list)
+            or not events
+            or not isinstance(events[0], dict)
+        ):
+            return 0.0
+        keys = set(events[0])
+        if {"set_clear", "channels"} & keys:
+            return 0.9
+        return 0.7 if {"norm_time", "utctime"} <= keys else 0.0
+
     def view_config(self, payload):
         channels = self._impl._build_log_data(payload)[1]
         return {

@@ -29,12 +29,19 @@ class TextLogType(LogType):
 
     def normalize_events(self, payload, *, row_id_base=0):
         result = []
-        for i, raw in enumerate(payload.get("events", []), row_id_base + 1):
+        source = payload.get("events", payload.get("lines", []))
+        for i, raw in enumerate(source, row_id_base + 1):
             event = dict(raw)
             event["row_id"] = i
             event.setdefault("time", "1970-01-01T00:00:00Z")
             result.append(event)
         return result
+
+    def detect(self, payload):
+        lines = payload.get("lines") if isinstance(payload, dict) else None
+        if not isinstance(lines, list) or not lines or not isinstance(lines[0], dict):
+            return 0.0
+        return 0.9 if {"ts", "level", "message"} <= set(lines[0]) else 0.0
 
     def search_config(self, payload):
         return {
