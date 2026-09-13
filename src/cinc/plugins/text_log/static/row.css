@@ -1,0 +1,5 @@
+/* Deliberately two-line 56px fixture for variable-height virtualization tests. */
+.log-line.tl-row { grid-template-columns: 1fr 28px; height: 56px; }
+.tl-message, .tl-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-level-error { color: var(--color-danger); }
+.tl-level-warn { color: var(--color-warning); }
