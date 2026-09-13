@@ -2,3 +2,7 @@
 .ce-sev-green { color: var(--color-success); }
 .ce-sev-yellow { color: var(--color-warning); }
 .ce-sev-red, .ce-sev-flashing-red { color: var(--color-danger); }
+.ce-channels { display: flex; align-items: center; justify-content: center; gap: .2rem; color: var(--color-text-faint); }
+.ce-channel { width: 18px; height: 18px; border: 1px solid var(--color-border); border-radius: 50%; text-align: center; font-size: .65rem; }
+.ce-channel.is-on { background: var(--color-accent); color: white; }
+.log-line.ce-row { grid-template-columns: 88px 180px 92px 164px minmax(220px, 1fr) 24px 28px; }

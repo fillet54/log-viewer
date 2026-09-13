@@ -145,54 +145,53 @@ const CoreEventRow = ({
   const configuredChannels = resolveConfiguredChannels(event, view);
   const summary = event?.matchSummary || { items: [] };
   const className = [
-    `log-line log-${colorClass}`,
+    `log-line ce-row ce-sev-${colorClass}`,
     bookmarkColor ? "is-bookmarked" : "",
     selected ? "log-selected" : "",
     highlighted ? "log-highlight" : "",
     ...(Array.isArray(extraClasses) ? extraClasses : []),
   ].filter(Boolean).join(" ");
-  const actionClassName = `log-action${!summary.collapsed && summary.items?.length > 1 ? " is-mixed" : ""}`;
+  const actionClassName = `ce-action${!summary.collapsed && summary.items?.length > 1 ? " is-mixed" : ""}`;
   const dataLabel = display.dataLabel || (display.hasData ? "Event has data" : "No event data");
 
   return html`
     <div
       class=${className}
       data-bookmark-color=${String(bookmarkColor || 0)}
-      data-set-clear=${String(event?.set_clear || "")}
-      data-seconds=${event?.norm_time}
+      data-ce-action=${String(event?.set_clear || "")}
       data-row-id=${event?.row_id}
       onClick=${() => onSelect?.(event)}
     >
-      <span class="log-channels">
+      <span class="ce-channels">
         ${configuredChannels.map(
           (channel) => html`
-            <span class=${`log-channel${channels.has(String(channel)) ? " is-on" : ""}`} data-channel=${channel}>
+            <span class=${`ce-channel${channels.has(String(channel)) ? " is-on" : ""}`} data-channel=${channel}>
               ${channel}
             </span>
           `
         )}
       </span>
-      <span class="log-time log-muted" data-field="time">${display.time}</span>
-      <span class="log-offset log-muted" data-field="offset">${display.offset}</span>
+      <span class="ce-time log-muted" data-field="time">${display.time}</span>
+      <span class="ce-offset log-muted" data-field="offset">${display.offset}</span>
       <span
         class=${actionClassName}
         data-field="action"
-        data-event-color=${colorClass}
+        data-ce-color=${colorClass}
         data-contrast=${ACTION_TEXT_COLORS[colorClass] || "light"}
       >
-        <span class="log-action-label" data-field="action-label">${display.actionLabel}</span>
+        <span class="ce-action-label" data-field="action-label">${display.actionLabel}</span>
         <${MatchLinks} event=${event} onJump=${onJump} />
       </span>
-      <span class="log-details">
-        <span class="log-title-row">
-          <span class="log-name" data-field="name">${display.name}</span>
-          <span class=${`log-prefix${display.prefix ? "" : " is-hidden"}`} data-field="fault-prefix">${display.prefix}</span>
-          <span class="log-meta" data-field="location">${display.location}</span>
+      <span class="ce-details">
+        <span class="ce-title-row">
+          <span class="ce-name" data-field="name">${display.name}</span>
+          <span class=${`ce-prefix${display.prefix ? "" : " is-hidden"}`} data-field="fault-prefix">${display.prefix}</span>
+          <span class="ce-meta" data-field="location">${display.location}</span>
         </span>
-        <span class="log-desc" data-field="description">${display.description}</span>
+        <span class="ce-desc" data-field="description">${display.description}</span>
       </span>
       <span
-        class="data-indicator"
+        class="ce-data-indicator"
         data-field="data-indicator"
         data-has-data=${display.hasData ? "true" : "false"}
         title=${dataLabel}

@@ -28,6 +28,10 @@ Phase 5 status: complete. `SampleReplaySource`, `SessionManager`, and
 random generator; registry-aware start/stop/SSE routes are wired; and stop/start plus
 deterministic replay tests pass.
 
+Phase 6 status: complete. Search is configuration-aware, detail summaries are runtime
+pluggable, core-event row classes are namespaced, plugin CSS is declared/inlined, and the
+core static/template isolation grep is clean.
+
 ## Completed
 
 - Phase foundation: introduced `LogType`, `Sample`, normalized-event validation, registry discovery, and the v2 page-data assembler.
@@ -56,6 +60,9 @@ deterministic replay tests pass.
 - `0f06c76` — absolute-time migration slice
 - `c19eecb` — generalized live capture and deterministic replay
 - pending — Phase 5 route integration completion
+- `b393584` — plugin detail summary and style assets
+- `1a39b28` — frontend search configuration
+- pending — Phase 6 completion
 - pending — Phase 4 completion (commit follows verification)
 
 ## Verification
