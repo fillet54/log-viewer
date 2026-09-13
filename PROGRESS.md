@@ -9,6 +9,11 @@ dependencies are constrained, and the vendor manifest is synchronized with the e
 active browser libraries. Local `cinc-data/sessions` was preserved because it contains
 populated local capture data.
 
+Phase 2 status: curated fixture replacement is complete. Core-event now has exactly two
+small, declared 3-channel and 4-channel samples with 40 ordered events each. The generic
+home and demo routes remain part of Phase 3 application wiring because they depend on the
+registry-backed app factory.
+
 ## Completed
 
 - Phase foundation: introduced `LogType`, `Sample`, normalized-event validation, registry discovery, and the v2 page-data assembler.
@@ -32,6 +37,7 @@ populated local capture data.
 - `14b46e3` — self-describing bundle resolution and type sniffing
 - `c52be9e` — storage memberships and mandatory event time
 - `2117834` — complete Phase 1 hygiene and vendor manifest
+- pending — Phase 2 curated samples
 
 ## Verification
 
