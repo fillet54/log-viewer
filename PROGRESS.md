@@ -8,17 +8,21 @@ Last updated: 2026-09-13
 - Added initial `CoreEventLogType` and `TextLogType` implementations plus a text-log sample.
 - Added the dependency policy and vendor SHA-256 manifest.
 - Began frontend identity migration: `CINC_PAGE_DATA`, `Cinc`, and renamed chart/timeline registration calls.
+- Added absolute-time helpers, prefix-sum row metrics, and normalized-event contract tests.
 
 ## Commits
 
 - `1413fb2` — v2 log-type contract and discovery foundation
 - `8398bd2` — text-log import stream handling
+- `db45e4b` — frontend identity migration and progress checkpoint
+- `21f2300` — standalone page-data global migration
+- `1eed74e` — v2 time helpers and contract tests
 
 ## Verification
 
 - Black: passing on changed Python modules.
 - flake8: passing on changed Python modules.
-- Existing tests: 8 passing, 2 legacy assertions still expect the v1 page-data/global names and must be migrated with the Phase 11 suite.
+- Existing tests: 15 passing.
 
 ## Next work
 
