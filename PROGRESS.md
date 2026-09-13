@@ -71,8 +71,8 @@ levels timeline, detail summary, live replay, and isolation coverage.
 - `2e40019` — text-log fixture and conformance tests
 
 Phase 8 status: mixed bundle fixture, multi-file standalone build, per-row dispatch, and
-row-metrics API alignment are implemented. The remaining work is wiring prefix-sum offsets
-through the main/search virtual list and completing mixed import/storage routes.
+offset-aware virtual-list range/scroll calculations are implemented. Mixed import/storage
+route integration remains part of the backend route migration.
 - pending — Phase 4 completion (commit follows verification)
 
 ## Verification

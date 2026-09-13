@@ -19,6 +19,23 @@ const buildRange = ({ scrollTop, clientHeight, itemCount, rowHeight, overscan, m
     };
 };
 
+const indexAtOffset = (offsets, value) => {
+    let low = 0;
+    let high = offsets.length - 2;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (offsets[middle + 1] <= value) low = middle + 1;
+      else high = middle;
+    }
+    return Math.max(0, low);
+};
+
+const buildOffsetRange = ({ scrollTop, clientHeight, itemCount, offsets, overscan }) => {
+    const startIndex = Math.max(0, indexAtOffset(offsets, scrollTop) - overscan);
+    const endIndex = Math.min(itemCount, indexAtOffset(offsets, scrollTop + clientHeight) + overscan + 1);
+    return { startIndex, endIndex, offsetY: offsets[startIndex] || 0, totalHeight: offsets[itemCount] || 0 };
+};
+
 const sameRange = (left, right) => {
     return (
       left.startIndex === right.startIndex &&
@@ -34,30 +51,33 @@ export const useVirtualList = ({
     rowHeight = 28,
     overscan = 4,
     maxVisible = 80,
+    offsets = null,
     dependencies = [],
 } = {}) => {
     const frameRef = useRef(0);
     const resizeObserverRef = useRef(null);
     const [range, setRange] = useState(() =>
-      buildRange({
+      (offsets ? buildOffsetRange : buildRange)({
         scrollTop: 0,
         clientHeight: 0,
         itemCount,
         rowHeight,
         overscan,
         maxVisible,
+        offsets,
       })
     );
 
     const recompute = () => {
       const container = containerRef?.current || null;
-      const nextRange = buildRange({
+      const nextRange = (offsets ? buildOffsetRange : buildRange)({
         scrollTop: container?.scrollTop || 0,
         clientHeight: container?.clientHeight || 0,
         itemCount,
         rowHeight,
         overscan,
         maxVisible,
+        offsets,
       });
       setRange((current) => (sameRange(current, nextRange) ? current : nextRange));
     };
@@ -72,7 +92,7 @@ export const useVirtualList = ({
 
     useLayoutEffect(() => {
       recompute();
-    }, [itemCount, rowHeight, overscan, maxVisible, ...dependencies]);
+    }, [itemCount, rowHeight, overscan, maxVisible, offsets, ...dependencies]);
 
     useEffect(() => {
       const container = containerRef?.current || null;
@@ -110,13 +130,15 @@ export const useVirtualList = ({
         if (!container || index == null) return;
 
         const safeRowHeight = Math.max(1, Number(rowHeight) || 1);
-        const targetTop = Math.max(0, Number(index) || 0) * safeRowHeight;
+        const targetIndex = Math.max(0, Number(index) || 0);
+        const targetTop = offsets ? offsets[targetIndex] || 0 : targetIndex * safeRowHeight;
+        const targetHeight = offsets ? (offsets[targetIndex + 1] - offsets[targetIndex]) : safeRowHeight;
         let nextTop = targetTop;
 
         if (align === "center") {
-          nextTop = targetTop - container.clientHeight / 2 + safeRowHeight / 2;
+          nextTop = targetTop - container.clientHeight / 2 + targetHeight / 2;
         } else if (align === "end") {
-          nextTop = targetTop - container.clientHeight + safeRowHeight;
+          nextTop = targetTop - container.clientHeight + targetHeight;
         }
 
         container.scrollTop = Math.max(0, nextTop);
@@ -124,4 +146,3 @@ export const useVirtualList = ({
       },
     };
 };
-
