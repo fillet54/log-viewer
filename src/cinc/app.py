@@ -9,6 +9,7 @@ from flask import Flask, abort, render_template
 
 from .core.registry import LogTypeRegistry
 from .logs.store import LogStore
+from .logs.routes import create_logs_blueprint
 from .live.session import LiveSessionRegistry
 from .live.routes import create_live_blueprint
 from .standalone import build_page_data_script
@@ -22,6 +23,7 @@ def create_app(data_dir: Path | None = None) -> Flask:
     app = Flask(__name__)
     app.extensions["cinc"] = {"registry": registry, "store": store, "live": live}
     app.register_blueprint(create_live_blueprint(live, registry))
+    app.register_blueprint(create_logs_blueprint(registry, store))
 
     @app.get("/")
     def home():
