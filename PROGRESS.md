@@ -32,6 +32,10 @@ Phase 6 status: complete. Search is configuration-aware, detail summaries are ru
 pluggable, core-event row classes are namespaced, plugin CSS is declared/inlined, and the
 core static/template isolation grep is clean.
 
+Phase 7 status: complete. The text-log conformance plugin has the distinct `lines`/`ts`
+input shape, plain-text parser, normalized events, 40-line fixture, fixed two-line row,
+levels timeline, detail summary, live replay, and isolation coverage.
+
 ## Completed
 
 - Phase foundation: introduced `LogType`, `Sample`, normalized-event validation, registry discovery, and the v2 page-data assembler.
@@ -63,6 +67,8 @@ core static/template isolation grep is clean.
 - `b393584` — plugin detail summary and style assets
 - `1a39b28` — frontend search configuration
 - pending — Phase 6 completion
+- `7666465` — text-log conformance assets and live support
+- `2e40019` — text-log fixture and conformance tests
 - pending — Phase 4 completion (commit follows verification)
 
 ## Verification
