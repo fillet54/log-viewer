@@ -88,3 +88,9 @@ implemented and smoke-tested.
 3. Generalize live replay/session handling and fix restart behavior.
 4. Finish frontend per-type dispatch, time model, and variable-height virtualization.
 5. Harden standalone output, add documentation, and replace the legacy tests with the normative suite.
+
+Phase 9 status: complete for standalone hardening. Frontend modules are auto-discovered,
+standalone explicitly suppresses live connections, and generated mixed output passes the
+offline self-containment checks.
+
+Latest commit: `a80e757` — standalone module discovery and offline-mode hardening.
