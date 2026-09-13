@@ -18,6 +18,7 @@ class LogRecord:
     started_at: datetime | None = None
     ended_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    log_type_ids: list[str] = field(default_factory=list)
 
     @property
     def imported_at_label(self) -> str:
@@ -40,7 +41,14 @@ class LogRecord:
         return f"{minutes}m {remainder}s"
 
 
-class LogTypeDefinition(ABC):
+@dataclass(frozen=True)
+class Sample:
+    slug: str
+    title: str
+    path: str
+
+
+class LogType(ABC):
     """Base class for a plugin-registered log type.
 
     Subclasses set class-level ``id``, ``name``, and optionally ``description``,
@@ -51,13 +59,25 @@ class LogTypeDefinition(ABC):
     name: str
     description: str = ""
 
-    def __init__(self, plugin_id: str) -> None:
-        self.plugin_id = plugin_id
+    asset_package: str | None = None
+    script_paths: tuple[str, ...] = ()
+    style_paths: tuple[str, ...] = ()
+    sample_paths: tuple[str, ...] = ()
 
-    @property
-    def full_id(self) -> str:
-        """Globally-unique identifier: ``'{plugin_id}.{id}'``."""
-        return f"{self.plugin_id}.{self.id}"
+    def view_config(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return {}
+
+    def search_config(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return {}
+
+    def log_summary(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return {}
+
+    def inline_scripts(self) -> list[str]:
+        return []
+
+    def inline_styles(self) -> list[str]:
+        return []
 
     @abstractmethod
     def parse_import(
@@ -85,13 +105,9 @@ class LogTypeDefinition(ABC):
         """Return display strings keyed by the columns from ``get_list_columns``."""
         return {}
 
-    def build_view_page_data(
-        self, record: LogRecord, payload: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Build the viewer ``page_data`` for viewing this log."""
-        return payload
-
-    def normalize_events(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
+    def normalize_events(
+        self, payload: dict[str, Any], *, row_id_base: int = 0
+    ) -> list[dict[str, Any]]:
         """Return normalized event maps for storage/search.
 
         The default expects payloads to already expose an ``events`` array.
@@ -99,9 +115,32 @@ class LogTypeDefinition(ABC):
         persisting events.
         """
         events = payload.get("events") if isinstance(payload, dict) else None
-        return [event for event in events if isinstance(event, dict)] if isinstance(events, list) else []
+        return (
+            [event for event in events if isinstance(event, dict)]
+            if isinstance(events, list)
+            else []
+        )
 
-    def build_payload_from_events(self, record: LogRecord, events: list[dict[str, Any]]) -> dict[str, Any]:
+    def build_page_data(self, payload: dict[str, Any]) -> dict[str, Any]:
+        from cinc.core.assemble import assemble_page_data
+
+        return assemble_page_data([(self, payload)])
+
+    def samples(self) -> list[Sample]:
+        from pathlib import PurePath
+
+        return [
+            Sample(
+                PurePath(path).stem,
+                PurePath(path).stem.replace("-", " ").title(),
+                path,
+            )
+            for path in self.sample_paths
+        ]
+
+    def build_payload_from_events(
+        self, record: LogRecord, events: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         """Rebuild a viewer payload from persisted normalized events."""
         payload = dict(record.metadata.get("payload_header") or {})
         payload["events"] = events

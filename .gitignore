@@ -8,3 +8,5 @@ build/
 .DS_Store
 *.pyc
 cinc-data/
+/standalone.html
+/standalone/

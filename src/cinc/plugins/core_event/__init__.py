@@ -1,3 +1,4 @@
 from .plugin import CoreEventPlugin
+from .log_type import CoreEventLogType
 
-__all__ = ["CoreEventPlugin"]
+__all__ = ["CoreEventLogType", "CoreEventPlugin"]
