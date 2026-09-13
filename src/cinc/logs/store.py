@@ -46,18 +46,6 @@ def _json_loads(value: str | None, fallback: Any) -> Any:
         return fallback
 
 
-def _event_time(event: dict[str, Any]) -> str:
-    for key in ("time", "utctime"):
-        value = event.get(key)
-        if value:
-            return str(value)
-    try:
-        seconds = float(event.get("norm_time") or 0)
-    except (TypeError, ValueError):
-        seconds = 0
-    return datetime.fromtimestamp(seconds, tz=timezone.utc).isoformat()
-
-
 class LogStore:
     def __init__(self, db_path: Path) -> None:
         self._db_path = Path(db_path)
@@ -99,6 +87,14 @@ class LogStore:
                     event_json TEXT NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS log_record_types (
+                    log_id TEXT NOT NULL REFERENCES log_records(id) ON DELETE CASCADE,
+                    log_type TEXT NOT NULL,
+                    PRIMARY KEY (log_id, log_type)
+                );
+                CREATE INDEX IF NOT EXISTS idx_log_record_types_type
+                    ON log_record_types(log_type);
+
                 CREATE INDEX IF NOT EXISTS idx_log_records_type_imported
                     ON log_records(log_type, imported_at);
                 CREATE INDEX IF NOT EXISTS idx_log_records_source_status
@@ -110,6 +106,14 @@ class LogStore:
                 """)
 
     def _record_from_row(self, row: sqlite3.Row) -> LogRecord:
+        with self._connect() as con:
+            memberships = con.execute(
+                "SELECT log_type FROM log_record_types WHERE log_id = ?",
+                (str(row["id"]),),
+            ).fetchall()
+        types = [str(item["log_type"]) for item in memberships]
+        if not types and row["log_type"]:
+            types = [str(row["log_type"])]
         return LogRecord(
             id=str(row["id"]),
             log_type_id=str(row["log_type"]),
@@ -122,6 +126,7 @@ class LogStore:
             started_at=_parse_dt(row["started_at"]),
             ended_at=_parse_dt(row["ended_at"]),
             metadata=_json_loads(row["metadata_json"], {}),
+            log_type_ids=types,
         )
 
     def create_log(
@@ -160,6 +165,11 @@ class LogStore:
                     json.dumps(metadata or {}),
                 ),
             )
+            con.execute(
+                "INSERT OR IGNORE INTO log_record_types "
+                "(log_id, log_type) VALUES (?, ?)",
+                (record_id, log_type_id),
+            )
         return LogRecord(
             id=record_id,
             log_type_id=log_type_id,
@@ -191,11 +201,12 @@ class LogStore:
         rows = []
         for event in events:
             normalized = dict(event)
-            normalized.setdefault("time", _event_time(normalized))
+            if not normalized.get("time"):
+                raise ValueError("Every event must contain an ISO-8601 time")
             rows.append(
                 (
                     log_id,
-                    record.log_type_id,
+                    normalized.get("log_type") or record.log_type_id,
                     normalized["time"],
                     normalized.get("row_id"),
                     source,
@@ -248,8 +259,12 @@ class LogStore:
             sql = "SELECT * FROM log_records WHERE id = ?"
             params: tuple[Any, ...] = (log_type_id_or_log_id,)
         else:
-            sql = "SELECT * FROM log_records WHERE log_type = ? AND id = ?"
-            params = (log_type_id_or_log_id, log_id)
+            sql = (
+                "SELECT * FROM log_records WHERE id = ? AND "
+                "(log_type = ? OR EXISTS (SELECT 1 FROM log_record_types rt "
+                "WHERE rt.log_id = log_records.id AND rt.log_type = ?))"
+            )
+            params = (log_id, log_type_id_or_log_id, log_type_id_or_log_id)
         with self._connect() as con:
             row = con.execute(sql, params).fetchone()
         return self._record_from_row(row) if row else None
@@ -291,8 +306,11 @@ class LogStore:
         where = []
         params: list[Any] = []
         if log_type_id:
-            where.append("log_type = ?")
-            params.append(log_type_id)
+            where.append(
+                "(log_type = ? OR EXISTS (SELECT 1 FROM log_record_types rt "
+                "WHERE rt.log_id = log_records.id AND rt.log_type = ?))"
+            )
+            params.extend([log_type_id, log_type_id])
         if source:
             where.append("source = ?")
             params.append(source)
