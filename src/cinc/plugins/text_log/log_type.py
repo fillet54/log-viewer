@@ -11,11 +11,8 @@ class TextLogType(LogType):
     def parse_import(self, *, file=None, json_data=None):
         if json_data is not None:
             return ("import", json_data)
-        text = (
-            file.read().decode()
-            if hasattr(file.read(0), "__class__")
-            else file.read()
-        )
+        raw = file.read()
+        text = raw.decode() if isinstance(raw, bytes) else raw
         rows = []
         for i, line in enumerate(text.splitlines(), 1):
             rows.append(
