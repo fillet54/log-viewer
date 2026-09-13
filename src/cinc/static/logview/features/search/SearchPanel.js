@@ -31,7 +31,7 @@ const getBookmarkEvents = ({ events, bookmarkState, commentState }) => {
     return Array.from(ids)
       .map((id) => events.find((entry) => String(entry.row_id) === String(id)))
       .filter(Boolean)
-      .sort((left, right) => (left.norm_time || 0) - (right.norm_time || 0));
+      .sort((left, right) => Date.parse(left.time || "") - Date.parse(right.time || ""));
   };
 
 export const SearchPanel = () => {

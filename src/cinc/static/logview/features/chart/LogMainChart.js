@@ -277,8 +277,8 @@ LogMainViewChart.mount = (root, services) => {
 };
 
 const getEventAbsoluteMs = (event) => {
-  const utc = new Date(event?.utctime).getTime();
-  return Number.isFinite(utc) ? utc : null;
+  const time = Date.parse(event?.time || "");
+  return Number.isFinite(time) ? time : null;
 };
 
 const getTimelineBounds = (logData, events) => {
@@ -288,18 +288,16 @@ const getTimelineBounds = (logData, events) => {
   const hasConfigEnd = Number.isFinite(configEnd);
 
   // Use absolute UTC timestamps from events when config bounds are missing.
-  // This avoids mixing epoch-scale startMs with norm_time-scale endMs which
-  // produces a negative spanMs for live sessions.
   const firstAbsMs = events.length > 0 ? getEventAbsoluteMs(events[0]) : null;
   const lastAbsMs = events.length > 0 ? getEventAbsoluteMs(events[events.length - 1]) : null;
 
   const startMs = hasConfigStart ? configStart
     : firstAbsMs != null ? firstAbsMs
-    : Number(events[0]?.norm_time || 0) * 1000;
+    : firstAbsMs ?? 0;
 
   let endMs = hasConfigEnd ? configEnd
     : lastAbsMs != null ? lastAbsMs
-    : startMs + Number(events[events.length - 1]?.norm_time || 1) * 1000;
+    : startMs + 1000;
 
   // For live sessions (no config end), add headroom so the X-axis doesn't
   // rescale on every incoming event — it only steps forward when rebuilt.
@@ -316,9 +314,8 @@ const buildTimelineHelpers = ({ logData, allEvents, panel }) => {
   const width = Math.max(320, Math.round(panel.getBoundingClientRect().width || 640));
   const defaultBucketCount = Math.max(24, Math.min(160, Math.ceil(width / 10)));
   const getEventMs = (event) => {
-    const utc = new Date(event?.utctime).getTime();
-    if (Number.isFinite(utc)) return utc;
-    return Number(event?.norm_time || 0) * 1000;
+    const time = Date.parse(event?.time || "");
+    return Number.isFinite(time) ? time : NaN;
   };
   const eventToSeconds = (event) => (getEventMs(event) - startMs) / 1000;
   const buildBucketPoints = (sourceEvents, spec = {}, reducer = null) => {

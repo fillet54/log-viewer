@@ -149,7 +149,7 @@ export const MainViewShell = () => {
       );
       const current = list[index] || null;
       if (current) {
-        viewerStore?.setLogScroll?.({ seconds: current.norm_time, rowId: current.row_id });
+        viewerStore?.setLogScroll?.({ timeMs: Date.parse(current.time || ""), rowId: current.row_id });
       }
     };
 

@@ -4,19 +4,19 @@ import { setSignal } from "./storage.js";
 const normalizeJumpTarget = (payload, nonce = 0) => {
   if (!payload || typeof payload !== "object") return null;
   const rowId = payload.rowId == null || payload.rowId === "" ? null : String(payload.rowId);
-  const secondsValue = Number(payload.seconds);
-  const seconds = Number.isFinite(secondsValue) ? Math.max(0, Math.floor(secondsValue)) : null;
-  if (rowId == null && seconds == null) return null;
-  return { rowId, seconds, nonce };
+  const timeMsValue = Number(payload.timeMs);
+  const timeMs = Number.isFinite(timeMsValue) ? timeMsValue : null;
+  if (rowId == null && timeMs == null) return null;
+  return { rowId, timeMs, nonce };
 };
 
 const normalizeScrollState = (payload, nonce = 0) => {
   if (!payload || typeof payload !== "object") return null;
   const rowId = payload.rowId == null || payload.rowId === "" ? null : String(payload.rowId);
-  const secondsValue = Number(payload.seconds);
-  const seconds = Number.isFinite(secondsValue) ? Math.max(0, secondsValue) : null;
-  if (rowId == null && seconds == null) return null;
-  return { rowId, seconds, nonce };
+  const timeMsValue = Number(payload.timeMs);
+  const timeMs = Number.isFinite(timeMsValue) ? timeMsValue : null;
+  if (rowId == null && timeMs == null) return null;
+  return { rowId, timeMs, nonce };
 };
 
 const sameEvent = (left, right) => {
