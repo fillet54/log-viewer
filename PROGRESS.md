@@ -13,6 +13,7 @@ Status: implementation in progress; the v2 specification remains the acceptance 
 - Added absolute-time helpers, prefix-sum row metrics, and normalized-event contract tests.
 - Repository-wide Black and flake8 cleanup completed.
 - Added bundle resolution, explicit type precedence, sniffing, and actionable ambiguity errors.
+- Added `log_record_types` membership storage and mandatory normalized event timestamps.
 
 ## Commits
 
@@ -24,6 +25,7 @@ Status: implementation in progress; the v2 specification remains the acceptance 
 - `a1980e0` — updated implementation progress checkpoint
 - `c9a97cb` — repository-wide formatting and lint cleanup
 - `14b46e3` — self-describing bundle resolution and type sniffing
+- `c52be9e` — storage memberships and mandatory event time
 
 ## Verification
 
@@ -33,7 +35,7 @@ Status: implementation in progress; the v2 specification remains the acceptance 
 
 ## Next work
 
-1. Finish the backend clean break: app factory, routes, CLI, and storage membership table.
+1. Finish the backend clean break: app factory, routes, and CLI.
 2. Replace generated core-event fixtures with curated 3-channel and 4-channel samples.
 3. Generalize live replay/session handling and fix restart behavior.
 4. Finish frontend per-type dispatch, time model, and variable-height virtualization.
