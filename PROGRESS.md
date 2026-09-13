@@ -70,9 +70,9 @@ levels timeline, detail summary, live replay, and isolation coverage.
 - `7666465` — text-log conformance assets and live support
 - `2e40019` — text-log fixture and conformance tests
 
-Phase 8 status: mixed bundle fixture, multi-file standalone build, per-row dispatch, and
-offset-aware virtual-list range/scroll calculations are implemented. Mixed import/storage
-route integration remains part of the backend route migration.
+Phase 8 status: complete. Mixed bundle resolution, multi-file standalone builds, per-row
+dispatch, offset-aware virtual-list calculations, multi-file imports, and record routes are
+implemented and smoke-tested.
 - pending — Phase 4 completion (commit follows verification)
 
 ## Verification
