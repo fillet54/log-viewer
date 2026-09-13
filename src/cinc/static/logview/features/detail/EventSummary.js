@@ -1,10 +1,11 @@
-import { html, Fragment } from "logview/lib";
+import { html } from "logview/lib";
+import { Cinc } from "../../../runtime.js";
 
-export const EventSummary = ({ event }) => html`
-  <${Fragment}>
-    <div class="detail-title">${event.name}</div>
-    <div class="detail-meta">${event.time} • ${event.set_clear}</div>
-    <div class="detail-summary">${event.description}</div>
-    <div class="detail-path">${event.system}/${event.subsystem}/${event.unit}/${event.code}</div>
-  </${Fragment}>
-`;
+export const EventSummary = ({ event, view }) => {
+  const Component = Cinc.resolveDetailSummary(event?.log_type);
+  if (Component) return html`<${Component} event=${event} view=${view} />`;
+  return html`
+    <div class="detail-title">${event?.name ?? event?.row_id}</div>
+    <div class="detail-meta">${event?.time}</div>
+  `;
+};

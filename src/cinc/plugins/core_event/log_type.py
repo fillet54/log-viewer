@@ -10,6 +10,7 @@ class CoreEventLogType(LogType):
     description = "Timestamped system events and fault transitions."
     script_paths = ("static/row.js", "static/charts.js")
     sample_paths = ("samples/sample-3ch.json", "samples/sample-4ch.json")
+    style_paths = ("static/row.css",)
 
     def __init__(self):
         self._impl = CoreEventPlugin()

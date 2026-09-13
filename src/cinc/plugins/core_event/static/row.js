@@ -218,3 +218,9 @@ const CoreEventRow = ({
 };
 
 Cinc.registerLogRowComponent("core_event", CoreEventRow);
+Cinc.registerDetailSummary("core_event", ({ event }) => html`
+  <div class="detail-title">${event?.name ?? event?.row_id}</div>
+  <div class="detail-meta">${event?.time} • ${event?.set_clear ?? ""}</div>
+  <div class="detail-summary">${event?.description ?? ""}</div>
+  <div class="detail-path">${event?.system ?? ""}/${event?.subsystem ?? ""}/${event?.unit ?? ""}/${event?.code ?? ""}</div>
+`);

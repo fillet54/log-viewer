@@ -1,0 +1,4 @@
+.log-line.ce-row { min-height: 48px; }
+.ce-sev-green { color: var(--color-success); }
+.ce-sev-yellow { color: var(--color-warning); }
+.ce-sev-red, .ce-sev-flashing-red { color: var(--color-danger); }

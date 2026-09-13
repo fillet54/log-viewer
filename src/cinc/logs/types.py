@@ -74,10 +74,16 @@ class LogType(ABC):
         return {}
 
     def inline_scripts(self) -> list[str]:
-        return []
+        return [self.read_asset_text(path) for path in self.script_paths]
 
     def inline_styles(self) -> list[str]:
-        return []
+        return [self.read_asset_text(path) for path in self.style_paths]
+
+    def read_asset_text(self, relative_path: str) -> str:
+        from importlib.resources import files
+
+        package = self.asset_package or self.__class__.__module__.rsplit(".", 1)[0]
+        return files(package).joinpath(relative_path).read_text(encoding="utf-8")
 
     def create_live_source(self):
         return None

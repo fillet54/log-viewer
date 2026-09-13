@@ -1,5 +1,6 @@
 const rowComponents = new Map();
 const pendingViewRegistrations = [];
+const detailSummaries = new Map();
 const idVariants = (id) => {
   const text = String(id || "").trim();
   if (!text) return [];
@@ -7,6 +8,13 @@ const idVariants = (id) => {
 };
 
 export const Cinc = {
+  registerDetailSummary(logTypeId, Component) {
+    detailSummaries.set(String(logTypeId), Component);
+    return Component;
+  },
+  resolveDetailSummary(logTypeId) {
+    return detailSummaries.get(String(logTypeId)) || null;
+  },
   _rowComponents: rowComponents,
   _pendingViewRegistrations: pendingViewRegistrations,
   registerLogRowComponent(logTypeId, Component) {
