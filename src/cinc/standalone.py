@@ -9,7 +9,10 @@ import os
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
-from .plugin_manager import build_page_data_documents_from_path, build_page_data_from_path
+from .plugin_manager import (
+    build_page_data_documents_from_path,
+    build_page_data_from_path,
+)
 
 SCRIPT_PATHS = [
     "static/vendor/chart.umd.min.js",
@@ -97,15 +100,18 @@ TEMPLATE_ENV = Environment(
 def _read_package_text(relative_path: str) -> str:
     return files("cinc").joinpath(relative_path).read_text(encoding="utf-8")
 
+
 def _read_package_data_uri(relative_path: str, mime_type: str) -> str:
     data = files("cinc").joinpath(relative_path).read_bytes()
     encoded = base64.b64encode(data).decode("ascii")
     return f"data:{mime_type};base64,{encoded}"
 
+
 def _resolve_relative(current_path: str, rel_path: str) -> str:
     base_dir = os.path.dirname(current_path)
     resolved = os.path.normpath(os.path.join(base_dir, rel_path))
     return resolved.replace(os.sep, "/")
+
 
 def _normalize_imports(path: str, content: str) -> str:
     def replace_import(match: re.Match) -> str:
@@ -121,51 +127,58 @@ def _normalize_imports(path: str, content: str) -> str:
         r'((?:import|export)\s+.*?\s+from\s+)["\']([^"\']+)["\']',
         replace_import,
         content,
-        flags=re.DOTALL
+        flags=re.DOTALL,
     )
     # Handle 'import "..."'
     content = re.sub(
         r'(import\s+)["\'](\.[^"\']+)["\']',
         replace_import,
         content,
-        flags=re.DOTALL
+        flags=re.DOTALL,
     )
     return content
+
 
 def build_page_data_script(page_data: dict[str, object]) -> str:
     payload = json.dumps(page_data, separators=(",", ":"), sort_keys=True)
     safe_payload = payload.replace("</script", "<\\/script")
-    return f"window.EVENTLOG2_PAGE_DATA = {safe_payload};"
+    return f"window.CINC_PAGE_DATA = {safe_payload};"
 
 
-def build_standalone_html(data_script: str, title: str = "HTML Log Viewer") -> str:
+def build_standalone_html(
+    data_script: str, title: str = "HTML Log Viewer"
+) -> str:
     styles = _read_package_text("static/styles.css")
-    
+
     global_scripts = [data_script]
     for path in GLOBAL_SCRIPTS:
         global_scripts.append(_read_package_text(path))
-    
+
     module_data = {}
-    
+
     # 1. Normalize and collect all modules
     for path in SCRIPT_PATHS:
         if path in GLOBAL_SCRIPTS:
             continue
         content = _read_package_text(path)
         module_data[path] = _normalize_imports(path, content)
-    
+
     # 2. Add bare modules
     for name, path in BARE_MODULES.items():
         if name in module_data:
             continue
         content = _read_package_text(path)
-        # Bare modules shouldn't have relative imports usually, but let's be safe
+        # Normalize defensively.
         module_data[name] = _normalize_imports(path, content)
-            
+
     esm_data = json.dumps(module_data)
 
-    logo_light = _read_package_data_uri("static/img/logo_lightmode.png", "image/png")
-    logo_dark = _read_package_data_uri("static/img/logo_darkmode.png", "image/png")
+    logo_light = _read_package_data_uri(
+        "static/img/logo_lightmode.png", "image/png"
+    )
+    logo_dark = _read_package_data_uri(
+        "static/img/logo_darkmode.png", "image/png"
+    )
 
     return TEMPLATE_ENV.get_template("standalone.html").render(
         title=title,
@@ -200,9 +213,18 @@ def build_standalone_files(
 ) -> list[Path]:
     documents = build_page_data_documents_from_path(plugin_id, data_path)
     if len(documents) <= 1:
-        return [build_standalone_file(plugin_id=plugin_id, data_path=data_path, output_path=output_path, title=title)]
+        return [
+            build_standalone_file(
+                plugin_id=plugin_id,
+                data_path=data_path,
+                output_path=output_path,
+                title=title,
+            )
+        ]
 
-    output_dir = output_path if output_path.suffix == "" else output_path.parent
+    output_dir = (
+        output_path if output_path.suffix == "" else output_path.parent
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     base_stem = output_path.stem if output_path.suffix else "report"
@@ -211,7 +233,10 @@ def build_standalone_files(
         data_script = build_page_data_script(page_data)
         doc_title = str(document.get("title") or title)
         html = build_standalone_html(data_script=data_script, title=doc_title)
-        slug = str(document.get("slug") or f"{base_stem}-{index}").strip() or f"{base_stem}-{index}"
+        slug = (
+            str(document.get("slug") or f"{base_stem}-{index}").strip()
+            or f"{base_stem}-{index}"
+        )
         target = output_dir / f"{slug}.html"
         target.write_text(html, encoding="utf-8")
         written.append(target)
