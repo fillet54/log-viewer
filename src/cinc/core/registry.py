@@ -22,7 +22,12 @@ class LogTypeRegistry:
     @classmethod
     def discover(cls) -> "LogTypeRegistry":
         registry = cls()
+        loaded_points = set()
         for point in entry_points(group="cinc.log_types"):
+            identity = (point.name, point.value)
+            if identity in loaded_points:
+                continue
+            loaded_points.add(identity)
             loaded = point.load()
             obj = loaded() if isinstance(loaded, type) else loaded
             registry.register(obj)

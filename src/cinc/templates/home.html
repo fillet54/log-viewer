@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<main class="home-page">
+  <h1>Cinc Log Viewer</h1>
+  {% for entry in entries %}
+  <section class="log-type-card">
+    <h2>{{ entry.log_type.name }}</h2>
+    <p>{{ entry.log_type.description }}</p>
+    <p>{{ entry.count }} saved logs</p>
+    {% for sample in entry.samples %}
+    <a href="{{ url_for('demo', log_type_id=entry.log_type.id, sample_slug=sample.slug) }}">View {{ sample.title }}</a>
+    {% endfor %}
+  </section>
+  {% endfor %}
+</main>
+{% endblock %}

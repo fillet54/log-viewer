@@ -4,48 +4,53 @@ import json
 import os
 from pathlib import Path
 
-from flask import Flask, render_template
+from flask import Flask, abort, render_template
 
-from .plugin_manager import get_plugin
-from .standalone import build_page_data_script
-from .live.monitor import SessionManager
-from .live.routes import create_live_blueprint
-from .logs.registry import LogTypeRegistry
+from .core.registry import LogTypeRegistry
 from .logs.store import LogStore
-from .logs.routes import create_logs_blueprint
-from .plugins.core_event.live_monitor import CoreEventLiveMonitor
-
-app = Flask(__name__)
-
-_plugin = get_plugin("core-event")
-
-_data_root = Path(os.environ.get("CINC_DATA_DIR", "./cinc-data"))
-
-_log_registry = LogTypeRegistry()
-_log_registry.register_plugin(_plugin)
-_core_event_log_type = _log_registry.get("core_event")
-if _core_event_log_type is None:
-    raise RuntimeError("Core event log type was not registered")
-
-_log_store = LogStore(_data_root / "cinc.sqlite")
-_manager = SessionManager(
-    store=_log_store,
-    monitor=CoreEventLiveMonitor(),
-    log_type=_core_event_log_type,
-)
-app.register_blueprint(create_live_blueprint(_manager))
-
-app.register_blueprint(create_logs_blueprint(_log_registry, _log_store))
+from .standalone import build_page_data_script
 
 
-@app.route("/")
-def index():
-    payload = json.loads(_plugin.read_asset_text("samples/dev-data.json"))
-    page_data = _plugin.build_page_data(payload)
-    return render_template(
-        "index.html", page_data_script=build_page_data_script(page_data)
-    )
+def create_app(data_dir: Path | None = None) -> Flask:
+    registry = LogTypeRegistry.discover()
+    root = data_dir or Path(os.environ.get("CINC_DATA_DIR", "./cinc-data"))
+    store = LogStore(root / "cinc.sqlite")
+    app = Flask(__name__)
+    app.extensions["cinc"] = {"registry": registry, "store": store}
+
+    @app.get("/")
+    def home():
+        entries = []
+        for log_type in registry.all():
+            entries.append(
+                {
+                    "log_type": log_type,
+                    "count": store.count(log_type.id),
+                    "samples": log_type.samples(),
+                }
+            )
+        return render_template("home.html", entries=entries)
+
+    @app.get("/demo/<log_type_id>/<sample_slug>")
+    def demo(log_type_id: str, sample_slug: str):
+        log_type = registry.get(log_type_id)
+        if log_type is None:
+            abort(404)
+        sample = next(
+            (item for item in log_type.samples() if item.slug == sample_slug), None
+        )
+        if sample is None:
+            abort(404)
+        path = (
+            Path(log_type.__class__.__module__.replace(".", "/")).parent / sample.path
+        )
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        page_data = log_type.build_page_data(payload)
+        return render_template(
+            "index.html", page_data_script=build_page_data_script(page_data)
+        )
+
+    return app
 
 
-if __name__ == "__main__":
-    app.run(debug=True, port=8080)
+app = create_app()
