@@ -14,6 +14,11 @@ small, declared 3-channel and 4-channel samples with 40 ordered events each. The
 home and demo routes remain part of Phase 3 application wiring because they depend on the
 registry-backed app factory.
 
+Phase 3 status: registry-backed app and standalone paths are in place, legacy registry and
+plugin-manager modules are removed, and the old v1 plugin test was retired for replacement
+by the normative suite. Remaining route/CLI/live integration is being completed in the
+subsequent phases.
+
 ## Completed
 
 - Phase foundation: introduced `LogType`, `Sample`, normalized-event validation, registry discovery, and the v2 page-data assembler.
@@ -38,6 +43,7 @@ registry-backed app factory.
 - `c52be9e` — storage memberships and mandatory event time
 - `2117834` — complete Phase 1 hygiene and vendor manifest
 - pending — Phase 2 curated samples
+- `083c54c` — registry-backed app and standalone migration slice
 
 ## Verification
 
