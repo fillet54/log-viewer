@@ -1,51 +1,16 @@
 {% extends "base.html" %}
-
-{% block title %}Live Monitoring — Cinc{% endblock %}
-
 {% block content %}
-<div class="pane-body" style="max-width: 760px; margin: 0 auto;">
-  <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem;">
-    <div>
-      <h1 style="margin: 0; font-size: 1.35rem; font-weight: 700;">Live Monitoring</h1>
-      <p class="page-subtitle">Capture a core event log from the connected system</p>
-    </div>
-    {% if active_session_id %}
-      <form method="post" action="{{ url_for('live.stop') }}" style="margin: 0;">
-        <button type="submit" class="button button-danger">Stop Monitoring</button>
-      </form>
-    {% else %}
-      <form method="post" action="{{ url_for('live.start') }}" style="margin: 0;">
-        <button type="submit" class="button button-primary">Start Monitoring</button>
-      </form>
-    {% endif %}
-  </div>
-
-  {% if error %}
-    <div style="padding: 0.75rem 1rem; border-radius: 0.75rem; background: var(--color-danger-soft); border: 1px solid color-mix(in srgb, var(--color-danger) 40%, var(--color-border)); color: var(--color-danger); margin-bottom: 1rem; font-size: 0.9rem;">
-      {{ error }}
-    </div>
-  {% endif %}
-
-  {% if active_session_id %}
-    <div style="padding: 1rem; border-radius: 0.8rem; background: var(--color-success-soft); border: 1px solid color-mix(in srgb, var(--color-success) 40%, var(--color-border)); display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
-      <span style="display: inline-flex; align-items: center; gap: 0.55rem; font-size: 0.9rem;">
-        <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); flex-shrink: 0; animation: pulse-dot 1.5s ease-in-out infinite;"></span>
-        <strong>Live capture active</strong>
-      </span>
-      <a href="{{ url_for('logs.view_log', log_type_id='core_event', log_id=active_session_id) }}" class="button button-outline button-small">View Live Log</a>
-    </div>
-  {% else %}
-    <div class="no-results" style="min-height: 180px; flex-direction: column; gap: 0.5rem;">
-      <span>No live capture is active</span>
-      <a href="{{ url_for('logs.list_logs', log_type_id='core_event', q='live') }}" class="button button-ghost button-small" style="margin-top: 0.5rem;">Browse live captures</a>
-    </div>
-  {% endif %}
-</div>
-
-<style>
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-</style>
+<main class="live-page">
+  <h1>Live captures</h1>
+  {% for log_type in registry.all() %}
+  <section class="log-type-card">
+    <h2>{{ log_type.name }}</h2>
+    {% if live.get(log_type.id) %}
+    <form method="post" action="{{ url_for('live.start', log_type_id=log_type.id) }}">
+      <button type="submit">Start capture</button>
+    </form>
+    {% else %}<p>Live capture unavailable.</p>{% endif %}
+  </section>
+  {% endfor %}
+</main>
 {% endblock %}

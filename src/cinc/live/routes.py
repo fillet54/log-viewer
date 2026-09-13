@@ -3,78 +3,54 @@ from __future__ import annotations
 import json
 import queue
 
-from flask import (
-    Blueprint,
-    Response,
-    redirect,
-    render_template,
-    stream_with_context,
-    url_for,
-)
-
-from .monitor import SessionManager
+from flask import Blueprint, Response, jsonify, render_template, stream_with_context
 
 
-def create_live_blueprint(manager: SessionManager) -> Blueprint:
+def create_live_blueprint(live, registry):
     bp = Blueprint("live", __name__)
 
-    @bp.route("/live")
+    @bp.get("/live")
     def sessions():
-        return render_template(
-            "live_sessions.html", active_session_id=manager.active_session_id
-        )
+        return render_template("live_sessions.html", live=live, registry=registry)
 
-    @bp.route("/live/start", methods=["POST"])
-    def start():
+    @bp.post("/live/<log_type_id>/start")
+    def start(log_type_id):
+        manager = live.get(log_type_id)
+        if manager is None:
+            return jsonify({"error": "Live capture is unavailable"}), 404
         try:
-            log_id = manager.start()
+            return jsonify({"sessionId": manager.start()})
         except RuntimeError as exc:
-            return render_template(
-                "live_sessions.html",
-                active_session_id=manager.active_session_id,
-                error=str(exc),
-            )
-        return redirect(
-            url_for("logs.view_log", log_type_id=manager.log_type_id, log_id=log_id)
-        )
+            return jsonify({"error": str(exc)}), 409
 
-    @bp.route("/live/stop", methods=["POST"])
-    def stop():
-        active_id = manager.active_session_id
+    @bp.post("/live/<log_type_id>/stop")
+    def stop(log_type_id):
+        manager = live.get(log_type_id)
+        if manager is None:
+            return jsonify({"error": "Live capture is unavailable"}), 404
         manager.stop()
-        if active_id:
-            return redirect(
-                url_for(
-                    "logs.view_log",
-                    log_type_id=manager.log_type_id,
-                    log_id=active_id,
-                )
-            )
-        return redirect(url_for("live.sessions"))
+        return jsonify({"ok": True})
 
-    @bp.route("/live/<session_id>")
-    def session_view(session_id):
-        return redirect(
-            url_for(
-                "logs.view_log",
-                log_type_id=manager.log_type_id,
-                log_id=session_id,
-            )
-        )
-
-    @bp.route("/live/<session_id>/stream")
+    @bp.get("/live/<session_id>/stream")
     def event_stream(session_id):
-        if manager.active_session_id != session_id:
+        manager = next(
+            (
+                item
+                for item in live.managers().values()
+                if item.active_session_id == session_id
+            ),
+            None,
+        )
+        if manager is None:
             return "Not an active live capture", 404
-
-        q = manager.subscribe()
+        subscriber = manager.subscribe()
 
         @stream_with_context
         def generate():
             try:
                 while True:
                     try:
-                        payload = q.get(timeout=25)
+                        payload = subscriber.get(timeout=25)
                     except queue.Empty:
                         yield 'data: {"type":"ping"}\n\n'
                         continue
@@ -83,12 +59,12 @@ def create_live_blueprint(manager: SessionManager) -> Blueprint:
                         return
                     yield f"data: {json.dumps(payload)}\n\n"
             finally:
-                manager.unsubscribe(q)
+                manager.unsubscribe(subscriber)
 
         return Response(
             generate(),
             mimetype="text/event-stream",
-            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+            headers={"Cache-Control": "no-cache"},
         )
 
     return bp

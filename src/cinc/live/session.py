@@ -62,6 +62,8 @@ class SessionManager:
                 rows = self._source.poll()
                 if rows:
                     events = self._log_type.normalize_events({"events": rows, **header})
+                    for event in events:
+                        event["log_type"] = self._log_type.id
                     self._store.append_events(
                         log_id, events, source="live", tags=("live",)
                     )
