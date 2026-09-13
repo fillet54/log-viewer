@@ -4,7 +4,7 @@ import {
   MainLogPane,
   buildEventByRowId,
   buildIndexByRowId,
-  findClosestIndexBySeconds,
+  findClosestIndexByTime,
 } from "./LogVirtualList.js";
 import { MainViewToolbar } from "./MainViewToolbar.js";
 import { html, hooks, appHooks } from "logview/lib";
@@ -256,15 +256,15 @@ export const MainViewShell = () => {
             smoothScrollToIndex(rowIndex);
             return;
           }
-          if (target.seconds == null) {
+          if (target.timeMs == null) {
             pendingJumpRef.current = null;
             return;
           }
         }
 
-        if (target.seconds != null) {
+        if (target.timeMs != null) {
           pendingJumpRef.current = null;
-          smoothScrollToIndex(findClosestIndexBySeconds(filteredEvents, target.seconds));
+          smoothScrollToIndex(findClosestIndexByTime(filteredEvents, target.timeMs));
         }
       }, [filteredEvents, rowStride, jumpTarget?.nonce ?? 0]);
 

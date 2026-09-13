@@ -21,7 +21,7 @@ const resolveRowDisplay = (event) => {
   const provided = event?.rowDisplay;
   if (provided && typeof provided === "object") {
     return {
-      utctime: String(provided.utctime ?? ""),
+      time: String(provided.time ?? event?.time ?? ""),
       actionLabel: String(provided.actionLabel ?? event?.set_clear ?? ""),
       name: String(provided.name ?? event?.name ?? ""),
       prefix: String(provided.prefix ?? ""),
@@ -36,7 +36,7 @@ const resolveRowDisplay = (event) => {
   const offsetValue = Number(event?.norm_time);
   const fallbackHasData = hasEventData(event?.data);
   return {
-    utctime: String(event?.utctime ?? ""),
+    time: String(event?.time ?? ""),
     actionLabel: String(event?.set_clear ?? ""),
     name: String(event?.name ?? ""),
     prefix: "",
@@ -172,7 +172,7 @@ const CoreEventRow = ({
           `
         )}
       </span>
-      <span class="log-time log-muted" data-field="utctime">${display.utctime}</span>
+      <span class="log-time log-muted" data-field="time">${display.time}</span>
       <span class="log-offset log-muted" data-field="offset">${display.offset}</span>
       <span
         class=${actionClassName}

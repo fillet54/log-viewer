@@ -19,7 +19,7 @@ const buildSystemStatusSnapshots = (events) => {
     .slice()
     .sort(
       (a, b) =>
-        (Number(a.norm_time) || 0) - (Number(b.norm_time) || 0) ||
+        Date.parse(a.time || "") - Date.parse(b.time || "") ||
         (Number(a.row_id) || 0) - (Number(b.row_id) || 0)
     );
 

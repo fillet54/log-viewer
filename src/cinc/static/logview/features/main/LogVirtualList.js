@@ -17,22 +17,22 @@ export const buildIndexByRowId = (events) => {
     return map;
 };
 
-export const findClosestIndexBySeconds = (events, targetSeconds) => {
+export const findClosestIndexByTime = (events, targetTimeMs) => {
     if (!events.length) return null;
     let lo = 0;
     let hi = events.length - 1;
 
     while (lo <= hi) {
       const mid = Math.floor((lo + hi) / 2);
-      const seconds = events[mid].norm_time;
-      if (seconds === targetSeconds) return mid;
-      if (seconds < targetSeconds) lo = mid + 1;
+      const timeMs = Date.parse(events[mid].time || "");
+      if (timeMs === targetTimeMs) return mid;
+      if (timeMs < targetTimeMs) lo = mid + 1;
       else hi = mid - 1;
     }
 
     if (lo >= events.length) return events.length - 1;
     if (hi < 0) return 0;
-    return Math.abs(events[lo].norm_time - targetSeconds) < Math.abs(events[hi].norm_time - targetSeconds)
+    return Math.abs(Date.parse(events[lo].time || "") - targetTimeMs) < Math.abs(Date.parse(events[hi].time || "") - targetTimeMs)
       ? lo
       : hi;
 };

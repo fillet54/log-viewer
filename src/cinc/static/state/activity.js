@@ -23,9 +23,8 @@ const sameComments = (left, right) => {
   return true;
 };
 
-export const createActivityState = ({ logData, standalone = false }) => {
-  const events = Array.isArray(logData?.events) ? logData.events : [];
-  const validIds = new Set(events.map((event) => String(event.row_id)));
+export const createActivityState = ({ logData, allEventsSignal, standalone = false }) => {
+  const validIds = () => new Set((allEventsSignal?.value || logData?.events || []).map((event) => String(event.row_id)));
   const enabled = !standalone;
 
   const normalizeBookmarks = (value) => {
@@ -33,7 +32,7 @@ export const createActivityState = ({ logData, standalone = false }) => {
     const next = {};
     Object.entries(value).forEach(([key, colorIndex]) => {
       const normalizedKey = String(key);
-      if (!validIds.has(normalizedKey)) return;
+      if (!validIds().has(normalizedKey)) return;
       const index = Math.max(0, Math.min(5, Number(colorIndex) || 0));
       if (index > 0) next[normalizedKey] = index;
     });
@@ -43,7 +42,7 @@ export const createActivityState = ({ logData, standalone = false }) => {
   const normalizeComments = (value) => {
     if (!enabled || !Array.isArray(value)) return [];
     return value
-      .filter((item) => item && validIds.has(String(item.row_id)) && typeof item.body === "string")
+      .filter((item) => item && validIds().has(String(item.row_id)) && typeof item.body === "string")
       .map((item) => ({
         id: item.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         row_id: Number(item.row_id),
@@ -81,7 +80,7 @@ export const createActivityState = ({ logData, standalone = false }) => {
   const setColor = (rowId, colorIndex) => {
     if (!enabled) return 0;
     const key = String(rowId);
-    if (!validIds.has(key)) return 0;
+    if (!validIds().has(key)) return 0;
     const next = Math.max(0, Math.min(5, Number(colorIndex) || 0));
     setBookmarks((current) => {
       const updated = { ...current };

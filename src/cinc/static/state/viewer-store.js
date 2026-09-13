@@ -22,6 +22,6 @@ export const createViewerStore = ({ logData, standalone = false }) => {
     ...createLayoutState(),
     ...createSearchState(),
     ...createChartState(),
-    ...createActivityState({ logData, standalone }),
+    ...createActivityState({ logData, allEventsSignal, standalone }),
   };
 };

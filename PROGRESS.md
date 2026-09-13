@@ -19,10 +19,9 @@ plugin-manager modules are removed, and the old v1 plugin test was retired for r
 by the normative suite. Remaining route/CLI/live integration is being completed in the
 subsequent phases.
 
-Phase 4 status: core time consumers now use ISO `time`/absolute milliseconds, storage no
-longer synthesizes epoch timestamps, and navigation/bookmark/detail paths use time values.
-Remaining legacy core-event presentation fields are plugin-owned and will be finalized with
-the plugin UI work.
+Phase 4 status: complete. Core time consumers use ISO `time`/absolute milliseconds, storage
+requires event time and type, navigation/bookmark/detail paths use time values, frontend
+seeking and chart jumps use `timeMs`, and the temporal-leak grep is clean outside plugins.
 
 ## Completed
 
@@ -49,7 +48,8 @@ the plugin UI work.
 - `2117834` — complete Phase 1 hygiene and vendor manifest
 - pending — Phase 2 curated samples
 - `083c54c` — registry-backed app and standalone migration slice
-- pending — Phase 4 absolute-time migration
+- `0f06c76` — absolute-time migration slice
+- pending — Phase 4 completion (commit follows verification)
 
 ## Verification
 
