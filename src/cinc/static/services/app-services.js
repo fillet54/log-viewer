@@ -3,7 +3,8 @@ import { createViewerStore } from "../state/viewer-store.js";
 export const isStandalone = () => document.body.classList.contains("app-body-standalone");
 
 export const createRootServices = ({ pageData }) => {
-  const logType = pageData?.logType ?? null;
+  const logTypes = pageData?.logTypes || {};
+  const presentTypes = [...new Set((pageData?.logData?.events || []).map((event) => event.log_type))];
   const logData = (() => {
     if (!pageData || typeof pageData !== "object") return null;
     if (pageData.logData && typeof pageData.logData === "object") return pageData.logData;
@@ -26,7 +27,8 @@ export const createRootServices = ({ pageData }) => {
     : null;
 
   return {
-    logType,
+    logTypes,
+    presentTypes,
     search: pageData?.search || {},
     view,
     logData: reactiveLogData,

@@ -238,3 +238,13 @@ def build_standalone_files(
         target.write_text(html, encoding="utf-8")
         written.append(target)
     return written
+
+
+def build_standalone_bundle(
+    data_paths: list[Path], output_path: Path, title: str = "HTML Log Viewer"
+) -> Path:
+    page_data = build_from_paths(data_paths, LogTypeRegistry.discover())
+    html = build_standalone_html(build_page_data_script(page_data), title=title)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html, encoding="utf-8")
+    return output_path

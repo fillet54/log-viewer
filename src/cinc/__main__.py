@@ -1,111 +1,49 @@
-from __future__ import annotations
-
 from pathlib import Path
 
 from .app import app
-from .plugin_manager import get_plugin, list_plugins
-from .standalone import build_standalone_files
+from .core.registry import LogTypeRegistry
+from .standalone import build_standalone_bundle
 
 USAGE = """cinc
 
 Usage:
-  cinc serve [--host HOST] [--port PORT] [--debug] [--waitress]
-  cinc build --plugin PLUGIN --data PATH [--output PATH] [--title TITLE]
-  cinc plugins
-  cinc [--host HOST] [--port PORT] [--debug] [--waitress]
-  cinc (-h | --help)
-  cinc --version
+  cinc serve [--host HOST] [--port PORT] [--debug]
+  cinc build [--log-type TYPE] --data PATH... [--output PATH] [--title TITLE]
+  cinc log-types
+  cinc samples
 
 Options:
-  --host HOST       Bind host. [default: 127.0.0.1]
-  --port PORT       Bind port. [default: 8080]
-  --debug           Run the Flask development server with debug enabled.
-  --waitress        Run with Waitress instead of Flask's development server.
-  --plugin PLUGIN   Log parser plugin id.
-  --data PATH       Path to the input file for the selected plugin.
-  --output PATH     Output HTML path. [default: standalone.html]
-  --title TITLE     HTML document title. [default: HTML Log Viewer]
-  -h --help         Show this screen.
-  --version         Show version.
+  --host HOST    Bind host. [default: 127.0.0.1]
+  --port PORT    Bind port. [default: 8080]
+  --debug        Enable Flask debug mode.
+  --log-type TYPE  Override type for untyped input.
+  --data PATH    Input file; may be repeated.
+  --output PATH  Output HTML path. [default: standalone.html]
+  --title TITLE  Document title. [default: HTML Log Viewer]
 """
 
 
-def _apply_runtime_overrides(
-    args: dict[str, object],
-) -> tuple[str, int, bool, bool]:
-    host = str(args["--host"])
-    try:
-        port = int(args["--port"])
-    except (TypeError, ValueError) as exc:
-        raise SystemExit("--port must be an integer") from exc
-    if port <= 0 or port > 65535:
-        raise SystemExit("--port must be between 1 and 65535")
+def main(argv=None):
+    from docopt import docopt
 
-    debug = bool(args["--debug"])
-    use_waitress = bool(args["--waitress"]) and not debug
-
-    return host, port, debug, use_waitress
-
-
-def _build_standalone(args: dict[str, object]) -> list[Path]:
-    plugin_id = str(args["--plugin"])
-    try:
-        get_plugin(plugin_id)
-    except LookupError as exc:
-        raise SystemExit(str(exc)) from exc
-
-    data_path = Path(str(args["--data"])).expanduser().resolve()
-    if not data_path.is_file():
-        raise SystemExit(f"--data file not found: {data_path}")
-
-    output_path = Path(str(args["--output"])).expanduser().resolve()
-    title = str(args["--title"])
-    return build_standalone_files(
-        plugin_id=plugin_id,
-        data_path=data_path,
-        output_path=output_path,
-        title=title,
-    )
-
-
-def _print_plugins() -> None:
-    for plugin in list_plugins():
-        print(f"{plugin.plugin_id}\t{plugin.plugin_name}")
-
-
-def main(argv: list[str] | None = None) -> None:
-    try:
-        from docopt import docopt
-    except ImportError as exc:
-        raise SystemExit(
-            "docopt is required for the cinc CLI. Install project dependencies first."
-        ) from exc
-
-    args = docopt(USAGE, argv=argv, version="cinc 0.1.0")
-
-    if args["plugins"]:
-        _print_plugins()
+    args = docopt(USAGE, argv=argv)
+    registry = LogTypeRegistry.discover()
+    if args.get("log-types"):
+        for item in registry.all():
+            print(f"{item.id}\t{item.name}")
         return
-
-    if args["build"]:
-        output_paths = _build_standalone(args)
-        if len(output_paths) == 1:
-            print(f"Wrote standalone viewer: {output_paths[0]}")
-        else:
-            print(f"Wrote {len(output_paths)} standalone viewers:")
-            for path in output_paths:
-                print(path)
+    if args.get("samples"):
+        for item in registry.all():
+            for sample in item.samples():
+                print(f"{item.id}\t{sample.slug}\t{sample.title}")
         return
-
-    host, port, debug, use_waitress = _apply_runtime_overrides(args)
-
-    if use_waitress:
-        from waitress import serve
-
-        serve(app, host=host, port=port)
+    if args.get("build"):
+        paths = [Path(value).expanduser().resolve() for value in args["--data"]]
+        output = Path(args["--output"]).expanduser().resolve()
+        build_standalone_bundle(paths, output, args["--title"])
+        print(f"Wrote standalone viewer: {output}")
         return
-
-    app.run(host=host, port=port, debug=debug)
+    app.run(host=args["--host"], port=int(args["--port"]), debug=bool(args["--debug"]))
 
 
 if __name__ == "__main__":
