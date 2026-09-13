@@ -1257,7 +1257,7 @@ button {
   background: var(--event-dark-red);
 }
 
-.ce-match {
+.log-match {
   min-width: 0;
   display: flex;
   align-items: center;
@@ -1268,7 +1268,7 @@ button {
   letter-spacing: 0;
 }
 
-.ce-match-link {
+.match-link {
   border: none;
   background: transparent;
   color: inherit;
@@ -1280,17 +1280,17 @@ button {
   cursor: pointer;
 }
 
-.ce-match-link:hover {
+.match-link:hover {
   text-decoration: underline;
 }
 
-.ce-match-preview,
-.ce-match-value,
-.ce-match-separator {
+.match-preview,
+.match-value,
+.match-separator {
   font-family: var(--font-mono);
 }
 
-.ce-match-detail {
+.match-detail {
   display: none;
   align-items: center;
   gap: 0.16rem;
@@ -1301,11 +1301,11 @@ button {
   z-index: 2;
 }
 
-.ce-action.is-mixed:hover .ce-match-preview {
+.ce-action.is-mixed:hover .match-preview {
   display: none;
 }
 
-.ce-action.is-mixed:hover .ce-match-detail {
+.ce-action.is-mixed:hover .match-detail {
   display: inline-flex;
 }
 
