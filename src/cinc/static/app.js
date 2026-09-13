@@ -6,7 +6,7 @@ import { AppServicesContext } from "./context.js";
 import { ViewerRoot } from "./logview/ViewerRoot.js";
 import { createRootServices } from "./services/app-services.js";
 
-const loadPageData = () => window.EVENTLOG2_PAGE_DATA || null;
+const loadPageData = () => window.CINC_PAGE_DATA || null;
 
 const renderStartupError = (host, message) => {
   if (!host) return;

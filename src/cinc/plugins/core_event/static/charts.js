@@ -1,5 +1,5 @@
 import { effect as signalEffect } from "preact/signals";
-import { EventLog2 } from "static/runtime.js";
+import { Cinc } from "static/runtime.js";
 
 const getEvents = (logData) => (Array.isArray(logData?.events) ? logData.events : []);
 
@@ -135,7 +135,7 @@ const mountSystemsPanel = (panel, context) => {
   };
 };
 
-EventLog2.registerLogTimelineView("core_event", {
+Cinc.registerTimelineView("core_event", {
   id: "severity",
   label: "Severity",
   kind: "histogram",
@@ -168,7 +168,7 @@ EventLog2.registerLogTimelineView("core_event", {
   ],
 });
 
-EventLog2.registerLogTimelineView("core_event", {
+Cinc.registerTimelineView("core_event", {
   id: "bus-load",
   label: "Bus Load",
   kind: "line",
@@ -189,7 +189,7 @@ EventLog2.registerLogTimelineView("core_event", {
   },
 });
 
-EventLog2.registerLogChartType("core_event", {
+Cinc.registerChartType("core_event", {
   id: "systems",
   label: "Subsystem Status",
   renderPanel(panel, context) {

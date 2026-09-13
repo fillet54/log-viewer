@@ -1,5 +1,5 @@
 import { html } from "htm/preact";
-import { EventLog2 } from "static/runtime.js";
+import { Cinc } from "static/runtime.js";
 
 const ACTION_TEXT_COLORS = {
   green: "dark",
@@ -217,4 +217,4 @@ const CoreEventRow = ({
   `;
 };
 
-EventLog2.registerLogRowComponent("core_event", CoreEventRow);
+Cinc.registerLogRowComponent("core_event", CoreEventRow);

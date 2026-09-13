@@ -69,7 +69,7 @@ def test_core_event_plugin_builds_normalized_page_data() -> None:
     assert "rowTemplate" not in page_data["view"]
     assert len(page_data["view"]["scripts"]) == 2
     assert "registerLogRowComponent" in page_data["view"]["scripts"][0]
-    assert "registerLogChartType" in page_data["view"]["scripts"][1]
+    assert "registerChartType" in page_data["view"]["scripts"][1]
 
 
 def test_core_event_plugin_supports_variable_channel_catalog() -> None:
@@ -152,8 +152,8 @@ def test_core_event_plugin_adds_virtual_search_columns() -> None:
 
 def test_page_data_script_emits_json_assignment() -> None:
     script = build_page_data_script({"plugin": {"id": "core-event"}, "logData": {"events": []}})
-    assert script.startswith("window.EVENTLOG2_PAGE_DATA = ")
-    payload = json.loads(script.removeprefix("window.EVENTLOG2_PAGE_DATA = ").removesuffix(";"))
+    assert script.startswith("window.CINC_PAGE_DATA = ")
+    payload = json.loads(script.removeprefix("window.CINC_PAGE_DATA = ").removesuffix(";"))
     assert payload["plugin"]["id"] == "core-event"
 
 
