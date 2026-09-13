@@ -23,6 +23,11 @@ Phase 4 status: complete. Core time consumers use ISO `time`/absolute millisecon
 requires event time and type, navigation/bookmark/detail paths use time values, frontend
 seeking and chart jumps use `timeMs`, and the temporal-leak grep is clean outside plugins.
 
+Phase 5 status: complete for the generic capture layer. `SampleReplaySource`,
+`SessionManager`, and `LiveSessionRegistry` are implemented; core-event now uses replayed
+sample data instead of a random generator, and stop/start plus deterministic replay tests
+pass. HTTP live routes and the final UI integration remain in the later integration work.
+
 ## Completed
 
 - Phase foundation: introduced `LogType`, `Sample`, normalized-event validation, registry discovery, and the v2 page-data assembler.
@@ -49,6 +54,7 @@ seeking and chart jumps use `timeMs`, and the temporal-leak grep is clean outsid
 - pending — Phase 2 curated samples
 - `083c54c` — registry-backed app and standalone migration slice
 - `0f06c76` — absolute-time migration slice
+- `c19eecb` — generalized live capture and deterministic replay
 - pending — Phase 4 completion (commit follows verification)
 
 ## Verification
