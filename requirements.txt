@@ -1,4 +1,0 @@
-flask
-waitress
-docopt
-docutils
