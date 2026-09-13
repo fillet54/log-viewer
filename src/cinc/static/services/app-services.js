@@ -3,21 +3,10 @@ import { createViewerStore } from "../state/viewer-store.js";
 export const isStandalone = () => document.body.classList.contains("app-body-standalone");
 
 export const createRootServices = ({ pageData }) => {
-  const logType =
-    pageData?.logType && typeof pageData.logType === "object"
-      ? pageData.logType
-      : null;
-  const pluginValue = pageData && typeof pageData === "object" ? pageData.plugin : null;
-  const plugin =
-    pluginValue && typeof pluginValue === "object"
-      ? pluginValue
-      : typeof pluginValue === "string"
-        ? { id: pluginValue, name: pluginValue }
-        : null;
+  const logType = pageData?.logType ?? null;
   const logData = (() => {
     if (!pageData || typeof pageData !== "object") return null;
     if (pageData.logData && typeof pageData.logData === "object") return pageData.logData;
-    if (pageData.payload && typeof pageData.payload === "object") return pageData.payload;
     return null;
   })();
   const view =
@@ -38,7 +27,7 @@ export const createRootServices = ({ pageData }) => {
 
   return {
     logType,
-    plugin,
+    search: pageData?.search || {},
     view,
     logData: reactiveLogData,
     viewerStore,

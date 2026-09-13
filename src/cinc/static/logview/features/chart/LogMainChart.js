@@ -69,7 +69,7 @@ if (Cinc._pendingViewRegistrations.length) {
 }
 
 LogMainViewChart.mount = (root, services) => {
-  const { logData, plugin, viewerStore } = services;
+  const { logData, logType, viewerStore } = services;
   if (!logData) return null;
 
   const chartRegion = queryById(root, "chart-region");
@@ -90,7 +90,7 @@ LogMainViewChart.mount = (root, services) => {
 
   const buildContext = (extra = {}) => ({
     root,
-    plugin,
+    plugin: logType,
     logType: services.logType || null,
     viewerStore,
     logData,

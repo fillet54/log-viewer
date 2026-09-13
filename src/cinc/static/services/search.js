@@ -1,3 +1,9 @@
+export const DEFAULT_SEARCH_CONFIG = {
+  labelField: "name",
+  excludeFromBareTerms: ["data"],
+  aliasSuffix: "_search",
+};
+
 export const buildParser = () => {
   const getFieldValue = (event, path) => {
     if (!event || !path) return null;
@@ -111,13 +117,13 @@ export const buildParser = () => {
     return false;
   };
 
-  const matchBareTerm = (event, term) => {
+  const matchBareTerm = (event, term, config = DEFAULT_SEARCH_CONFIG) => {
     if (!term) return true;
     const nameValue = toComparable(event?.name || "");
     if (globToRegex(`${term}*`).test(nameValue)) return true;
     const entries = Object.entries(event || {});
     for (const [key, value] of entries) {
-      if (key === "data") continue;
+      if ((config.excludeFromBareTerms || []).includes(key)) continue;
       if (Array.isArray(value)) {
         if (value.some((item) => toComparable(item).toLowerCase() === term.toLowerCase())) {
           return true;
@@ -147,7 +153,7 @@ export const buildParser = () => {
         case "NOT":
           return !evaluate(node.term, obj);
         case "TEXT":
-          return matchBareTerm(obj, node.value);
+          return matchBareTerm(obj, node.value, options.config);
         case "FILTER":
           return evalFilter(node, obj);
         default:
@@ -320,10 +326,10 @@ export const buildParser = () => {
 
   const getQueryPredicate = (() => {
     const cache = new Map();
-    return (query) => {
-      const key = query || "";
+    return (query, config = DEFAULT_SEARCH_CONFIG) => {
+      const key = `${query || ""}:${JSON.stringify(config)}`;
       if (cache.has(key)) return cache.get(key);
-      const predicate = makePredicate(key);
+      const predicate = makePredicate(query, { config });
       cache.set(key, predicate);
       return predicate;
     };
