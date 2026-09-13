@@ -12,7 +12,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from .core.bundle import build_from_paths
 from .core.registry import LogTypeRegistry
 
-SCRIPT_PATHS = [
+_LEGACY_SCRIPT_PATHS = [
     "static/vendor/chart.umd.min.js",
     "static/vendor/split.min.js",
     "static/vendor/preact.mjs",
@@ -87,6 +87,16 @@ BARE_MODULES = {
     "logview/lib": "static/logview/lib.js",
 }
 
+
+def _discover_frontend_modules() -> list[str]:
+    root = files("cinc").joinpath("static")
+    modules = []
+    for item in root.rglob("*"):
+        if item.suffix in {".js", ".mjs"} and "vendor" not in item.parts:
+            modules.append(str(item.relative_to(files("cinc"))).replace("\\", "/"))
+    return sorted(set(modules + list(BARE_MODULES.values())))
+
+
 ENTRY_POINT = "static/app.js"
 
 TEMPLATE_ENV = Environment(
@@ -153,7 +163,7 @@ def build_standalone_html(data_script: str, title: str = "HTML Log Viewer") -> s
     module_data = {}
 
     # 1. Normalize and collect all modules
-    for path in SCRIPT_PATHS:
+    for path in _discover_frontend_modules():
         if path in GLOBAL_SCRIPTS:
             continue
         content = _read_package_text(path)

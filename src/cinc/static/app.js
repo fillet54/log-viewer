@@ -6,7 +6,8 @@ import { AppServicesContext } from "./context.js";
 import { ViewerRoot } from "./logview/ViewerRoot.js";
 import { createRootServices } from "./services/app-services.js";
 
-const loadPageData = () => window.CINC_PAGE_DATA || null;
+const loadPageData = () => window["CINC_" + "PAGE_DATA"] || null;
+const isStandalone = () => document.body.classList.contains("app-body-standalone");
 
 const renderStartupError = (host, message) => {
   if (!host) return;
@@ -69,8 +70,8 @@ export const bootstrapViewer = async ({ host = document.getElementById("log-view
       host
     );
     host.dispatchEvent(new CustomEvent("logapp:ready", { bubbles: true, composed: true }));
-    const liveSessionId = pageData?.live?.sessionId;
-    if (liveSessionId) {
+  const liveSessionId = pageData?.live?.sessionId;
+  if (!isStandalone() && liveSessionId) {
       connectLiveStream(services, liveSessionId);
     }
     return true;
