@@ -9,6 +9,7 @@ from flask import Flask, abort, render_template
 
 from .core.registry import LogTypeRegistry
 from .logs.store import LogStore
+from .live.session import LiveSessionRegistry
 from .standalone import build_page_data_script
 
 
@@ -16,8 +17,9 @@ def create_app(data_dir: Path | None = None) -> Flask:
     registry = LogTypeRegistry.discover()
     root = data_dir or Path(os.environ.get("CINC_DATA_DIR", "./cinc-data"))
     store = LogStore(root / "cinc.sqlite")
+    live = LiveSessionRegistry(registry, store)
     app = Flask(__name__)
-    app.extensions["cinc"] = {"registry": registry, "store": store}
+    app.extensions["cinc"] = {"registry": registry, "store": store, "live": live}
 
     @app.get("/")
     def home():

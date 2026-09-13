@@ -79,6 +79,9 @@ class LogType(ABC):
     def inline_styles(self) -> list[str]:
         return []
 
+    def create_live_source(self):
+        return None
+
     @abstractmethod
     def parse_import(
         self,

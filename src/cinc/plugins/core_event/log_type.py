@@ -1,4 +1,6 @@
 from cinc.logs.types import LogType
+from cinc.live.replay import SampleReplaySource
+from importlib.resources import files
 from .plugin import CoreEventPlugin
 
 
@@ -35,6 +37,11 @@ class CoreEventLogType(LogType):
         if {"set_clear", "channels"} & keys:
             return 0.9
         return 0.7 if {"norm_time", "utctime"} <= keys else 0.0
+
+    def create_live_source(self):
+        return SampleReplaySource(
+            files(__package__).joinpath("samples/sample-4ch.json"), speed=20.0
+        )
 
     def view_config(self, payload):
         channels = self._impl._build_log_data(payload)[1]
