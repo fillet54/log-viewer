@@ -9,10 +9,8 @@ import os
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
-from .plugin_manager import (
-    build_page_data_documents_from_path,
-    build_page_data_from_path,
-)
+from .core.bundle import build_from_paths
+from .core.registry import LogTypeRegistry
 
 SCRIPT_PATHS = [
     "static/vendor/chart.umd.min.js",
@@ -191,7 +189,8 @@ def build_standalone_file(
     output_path: Path,
     title: str = "HTML Log Viewer",
 ) -> Path:
-    page_data = build_page_data_from_path(plugin_id, data_path)
+    registry = LogTypeRegistry.discover()
+    page_data = build_from_paths([data_path], registry, log_type_id=plugin_id)
     data_script = build_page_data_script(page_data)
     html = build_standalone_html(data_script=data_script, title=title)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -205,7 +204,13 @@ def build_standalone_files(
     output_path: Path,
     title: str = "HTML Log Viewer",
 ) -> list[Path]:
-    documents = build_page_data_documents_from_path(plugin_id, data_path)
+    documents = [
+        {
+            "pageData": build_from_paths(
+                [data_path], LogTypeRegistry.discover(), log_type_id=plugin_id
+            )
+        }
+    ]
     if len(documents) <= 1:
         return [
             build_standalone_file(
