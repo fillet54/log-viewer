@@ -22,8 +22,19 @@ class CoreEventLogType(LogType):
     def normalize_events(self, payload, *, row_id_base=0):
         data = self._impl._build_log_data(payload)[0]
         events = data["events"]
+        row_id_map = {}
         for i, event in enumerate(events, row_id_base + 1):
+            row_id_map[event["row_id"]] = i
             event["row_id"] = i
+        for event in events:
+            for match in event.get("pairedChannels", {}).values():
+                match["linkedRowId"] = row_id_map.get(
+                    match.get("linkedRowId"), match.get("linkedRowId")
+                )
+            for match in event.get("matchSummary", {}).get("items", []):
+                match["linkedRowId"] = row_id_map.get(
+                    match.get("linkedRowId"), match.get("linkedRowId")
+                )
         return events
 
     def detect(self, payload):

@@ -350,8 +350,13 @@ def _normalize_event(
     fallback_start: datetime | None,
     available_channels: list[str],
 ) -> dict[str, Any]:
-    norm_time = _normalize_norm_time(raw_event.get("norm_time"), index)
     parsed_utc = _parse_datetime(raw_event.get("utctime"))
+    if raw_event.get("norm_time") is not None:
+        norm_time = _normalize_norm_time(raw_event.get("norm_time"), index)
+    elif parsed_utc is not None and fallback_start is not None:
+        norm_time = max(0.0, (parsed_utc - fallback_start).total_seconds())
+    else:
+        norm_time = float(index)
     if parsed_utc is not None:
         utctime = _isoformat_seconds(parsed_utc)
     elif fallback_start is not None:
