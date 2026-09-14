@@ -1,5 +1,6 @@
 from typing import Any
 from .contract import validate_events
+from .chart_config import validate_chart_config
 
 
 def assemble_page_data(
@@ -32,7 +33,9 @@ def assemble_page_data(
             "charts": view.get("charts", []),
             "timelineViews": view.get("timelineViews", []),
             "search": log_type.search_config(payload),
-            "chartConfig": log_type.chart_config(payload),
+            "chartConfig": validate_chart_config(
+                log_type.chart_config(payload), log_type.id
+            ),
         }
         payloads[log_type.id] = payload
     events.sort(key=lambda event: (event["time"], event["row_id"]))
