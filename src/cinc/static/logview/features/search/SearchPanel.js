@@ -145,9 +145,17 @@ export const SearchPanel = () => {
       }
 
       const requestId = ++pendingSearchRef.current;
+      const predicatesByConfig = new Map();
+      const getPredicate = (config) => {
+        const key = JSON.stringify(config || {});
+        if (!predicatesByConfig.has(key)) {
+          predicatesByConfig.set(key, getQueryPredicate(trimmedQuery, config));
+        }
+        return predicatesByConfig.get(key);
+      };
       const filtered = source.filter((event) => {
         const config = logTypes[event?.log_type]?.search || undefined;
-        const predicate = getQueryPredicate(trimmedQuery, config);
+        const predicate = getPredicate(config);
         return typeof predicate === "function" && predicate(event);
       });
       if (requestId !== pendingSearchRef.current) return;

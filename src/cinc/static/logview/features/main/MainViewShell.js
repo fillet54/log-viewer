@@ -144,9 +144,20 @@ export const MainViewShell = () => {
 
       const query = terms.join(" OR ");
       if (requestId !== pendingFilterRef.current) return;
+      const predicatesByConfig = new Map();
+      const getPredicates = (config) => {
+        const key = JSON.stringify(config || {});
+        if (!predicatesByConfig.has(key)) {
+          predicatesByConfig.set(
+            key,
+            terms.map((term) => getQueryPredicate(term, config))
+          );
+        }
+        return predicatesByConfig.get(key);
+      };
       viewerStore?.setFilteredEvents(events.filter((event) => {
         const config = logTypes[event?.log_type]?.search || undefined;
-        return terms.some((term) => getQueryPredicate(term, config)(event));
+        return getPredicates(config).some((predicate) => predicate(event));
       }));
     };
 
