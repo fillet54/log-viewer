@@ -1254,8 +1254,8 @@ button {
   gap: 0.08rem;
   width: 84px;
   min-width: 84px;
-  min-height: 30px;
-  padding: 0.2rem 0.45rem 0.25rem;
+  min-height: 24px;
+  padding: 0.12rem 0.38rem 0.14rem;
   border-radius: 0.35rem;
   font-size: 0.68rem;
   line-height: 1;
