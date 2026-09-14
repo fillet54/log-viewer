@@ -16,6 +16,7 @@ export const ViewModeButton = ({ id, active, title, label, icon, onClick }) => h
 
 export const MainViewToolbar = ({
     chartTypes,
+    timelineViews = [],
     selectedChartType,
     commandBarRef,
     viewMode,
@@ -30,9 +31,6 @@ export const MainViewToolbar = ({
     const VIEW_MODE_LIST = "list";
     const chartPanels = (chartTypes || []).filter(
       (type) => !String(type?.id || "").startsWith("timeline-")
-    );
-    const timelineViews = (chartTypes || []).filter((type) =>
-      String(type?.id || "").startsWith("timeline-")
     );
 
     return html`
@@ -54,8 +52,8 @@ export const MainViewToolbar = ({
         <div id="chart-command-bar" ref=${commandBarRef} class="chart-command-bar"></div>
         ${selectedChartType === "timeline" && timelineViews.length
           ? html`<div class="chart-view-switcher" role="group" aria-label="Timeline views">
-              ${timelineViews.map((type) => html`
-                <button type="button" class="button button-ghost button-xs" onClick=${() => onTimelineViewChange?.(type.id.slice("timeline-".length))}>${type.label}</button>
+              ${timelineViews.map((view) => html`
+                <button type="button" class="button button-ghost button-xs" onClick=${() => onTimelineViewChange?.(view.id)}>${view.label}</button>
               `)}
             </div>`
           : null}

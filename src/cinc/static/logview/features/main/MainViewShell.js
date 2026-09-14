@@ -50,6 +50,16 @@ export const MainViewShell = () => {
     const viewMode = viewerStore?.mainViewMode?.value || VIEW_MODE_SPLIT;
     const chartSplit = viewerStore?.mainViewSplitSizes?.value || [36, 64];
     const [chartTypes, setChartTypes] = useState([]);
+    const timelineViews = [
+      { id: "events", label: "Events" },
+      ...Object.values(services?.logTypes || {}).flatMap((config) =>
+        (config.timelineViews || []).map((id) => ({
+          id,
+          label: String(id).replace(/(^|-)(\w)/g, (_, separator, letter) =>
+            `${separator ? " " : ""}${letter.toUpperCase()}`),
+        }))
+      ),
+    ].filter((view, index, all) => all.findIndex((item) => item.id === view.id) === index);
     const selectedChartType = viewerStore?.chartType?.value || "";
     const [rowStride, setRowStride] = useState(38);
     const rowHeights = new Map(
@@ -329,6 +339,7 @@ export const MainViewShell = () => {
       <div ref=${rootRef} class="main-view-shell">
         <${MainViewToolbar}
           chartTypes=${chartTypes}
+          timelineViews=${timelineViews}
           selectedChartType=${selectedChartType}
           commandBarRef=${commandBarRef}
           viewMode=${safeViewMode}
