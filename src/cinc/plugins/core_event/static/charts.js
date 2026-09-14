@@ -77,8 +77,9 @@ const buildSystemStatusSnapshots = (events) => {
 };
 
 const mountSystemsPanel = (panel, context) => {
+  const typeId = context.logType?.id || context.plugin?.id || context.type?.pluginId;
   const events = getEvents(context.logData).filter(
-    (event) => !event.log_type || event.log_type === "core_event"
+    (event) => !typeId || !event.log_type || event.log_type === typeId
   );
   const { systems, snapshots } = buildSystemStatusSnapshots(events);
   const systemStatusClass = {

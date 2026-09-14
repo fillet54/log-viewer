@@ -443,7 +443,8 @@ const createTimelineChartController = (panel, context) => {
   // Use a getter so we always read the latest events — supports live streaming.
   const getAllEvents = () => {
     const events = Array.isArray(context.logData?.events) ? context.logData.events : [];
-    const typeId = context.logType?.id || context.plugin?.id;
+    const typeId =
+      context.logType?.id || context.plugin?.id || context.type?.pluginId;
     return typeId
       ? events.filter((event) => !event.log_type || event.log_type === typeId)
       : events;
@@ -461,7 +462,13 @@ const createTimelineChartController = (panel, context) => {
     window.EVENTLOG2_DEBUG_TIMELINE === true;
 
   const listViews = () => {
-    const activeId = normalizePluginId(context.logType?.id || context.plugin?.id || context.logData?.logTypeId || context.logData?.pluginId);
+    const activeId = normalizePluginId(
+      context.logType?.id ||
+        context.plugin?.id ||
+        context.type?.pluginId ||
+        context.logData?.logTypeId ||
+        context.logData?.pluginId
+    );
     return Array.from(LogMainViewTimeline.registry.values()).filter(
       (view) => !view.pluginId || normalizePluginId(view.pluginId) === activeId
     );
