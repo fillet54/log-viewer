@@ -623,7 +623,7 @@ const createTimelineChartController = (panel, context) => {
         }
         const seconds = chart.scales.x.getValueForPixel(pos.x);
         if (Number.isFinite(seconds)) {
-          const payload = { timeMs: seconds };
+          const payload = { timeMs: helpers.startMs + seconds * 1000 };
           context.viewerStore?.setLogJump(payload);
         }
       },
@@ -814,8 +814,10 @@ const createTimelineChartController = (panel, context) => {
     off.push(
       signalEffect(() => {
         const payload = context.viewerStore.logScroll?.value || null;
-        chart.$scrollTimeMs =
-          payload && typeof payload.timeMs === "number" ? payload.timeMs : undefined;
+        chart.$scrollSeconds =
+          payload && typeof payload.timeMs === "number"
+            ? (payload.timeMs - helpers.startMs) / 1000
+            : undefined;
         chart.update("none");
         syncHoverOverlay();
       })
