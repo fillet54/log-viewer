@@ -1264,6 +1264,14 @@ button {
   letter-spacing: 0.04em;
 }
 
+.ce-action-group {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
 .ce-action[data-contrast="dark"] {
   color: var(--event-text-dark);
 }
@@ -1322,22 +1330,28 @@ button {
   font-family: var(--font-mono);
 }
 
+.match-direction {
+  color: var(--color-accent-strong);
+  font-family: var(--font-sans);
+  font-weight: 700;
+}
+
 .match-detail {
   display: none;
   align-items: center;
   gap: 0.16rem;
 }
 
-.ce-action.is-mixed:hover {
+.ce-action-group:hover {
   width: max-content;
   z-index: 2;
 }
 
-.ce-action.is-mixed:hover .match-preview {
+.ce-action-group:hover .match-preview {
   display: none;
 }
 
-.ce-action.is-mixed:hover .match-detail {
+.ce-action-group:hover .match-detail {
   display: inline-flex;
 }
 

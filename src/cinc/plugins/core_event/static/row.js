@@ -91,6 +91,7 @@ const MatchButton = ({ item, onJump }) => html`
       onJump?.(item.linkedRowId);
     }}
   >
+    <span class="match-direction" aria-hidden="true">${item.direction === "back" ? "↑" : "↓"}</span>
     <span class="match-value">${item.label}</span>
   </button>
 `;
@@ -178,13 +179,15 @@ const CoreEventRow = ({
           `
         )}
       </span>
-      <span
-        class=${actionClassName}
-        data-field="action"
-        data-ce-color=${colorClass}
-        data-contrast=${ACTION_TEXT_COLORS[colorClass] || "light"}
-      >
-        <span class="ce-action-label" data-field="action-label">${display.actionLabel}</span>
+      <span class="ce-action-group">
+        <span
+          class=${actionClassName}
+          data-field="action"
+          data-ce-color=${colorClass}
+          data-contrast=${ACTION_TEXT_COLORS[colorClass] || "light"}
+        >
+          <span class="ce-action-label" data-field="action-label">${display.actionLabel}</span>
+        </span>
         <${MatchLinks} event=${event} onJump=${onJump} />
       </span>
       <span class="ce-details">
