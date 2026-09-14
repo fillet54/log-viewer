@@ -69,7 +69,7 @@ if (Cinc._pendingViewRegistrations.length) {
 }
 
 LogMainViewChart.mount = (root, services) => {
-  const { logData, logTypes, viewerStore } = services;
+  const { logData, logTypes, presentTypes, viewerStore } = services;
   if (!logData) return null;
 
   const chartRegion = queryById(root, "chart-region");
@@ -77,7 +77,12 @@ LogMainViewChart.mount = (root, services) => {
   if (!chartRegion || !chartPanelHost) return null;
 
   const logType = logTypes?.[logData?.logTypeId] || null;
-  const activePluginId = normalizePluginId(logType?.id || logData?.logTypeId || logData?.pluginId);
+  const activePluginId = normalizePluginId(
+    logType?.id ||
+      logData?.logTypeId ||
+      logData?.pluginId ||
+      (presentTypes?.length === 1 ? presentTypes[0] : null)
+  );
   const mountedPanels = new Map();
   let activeType = null;
   let activePanel = null;
