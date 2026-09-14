@@ -64,6 +64,50 @@ class LogType(ABC):
     style_paths: tuple[str, ...] = ()
     sample_paths: tuple[str, ...] = ()
 
+    def __init__(self):
+        self._event_augmenters: list[tuple[str, Any]] = []
+
+    def chart_config(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return {}
+
+    def register_event_augmenter(self, name: str, callback: Any) -> None:
+        name = str(name or "").strip()
+        if not name or not callable(callback):
+            raise ValueError(f"{self.id}: augmenter requires a name and callback")
+        if any(existing == name for existing, _ in self._event_augmenters):
+            raise ValueError(f"{self.id}: duplicate augmenter {name!r}")
+        self._event_augmenters.append((name, callback))
+
+    def augment_events(
+        self,
+        events: list[dict[str, Any]],
+        *,
+        payload: dict[str, Any],
+        mode: str = "batch",
+    ) -> list[dict[str, Any]]:
+        current = [dict(event) for event in events]
+        protected = {
+            key: [event.get(key) for event in current]
+            for key in ("row_id", "time", "log_type")
+        }
+        context = {"log_type": self.id, "payload": dict(payload or {}), "mode": mode}
+        for name, callback in getattr(self, "_event_augmenters", []):
+            try:
+                result = callback([dict(event) for event in current], context)
+            except Exception as exc:
+                raise ValueError(
+                    f"{self.id}: augmenter {name!r} failed: {exc}"
+                ) from exc
+            if not isinstance(result, list) or len(result) != len(current):
+                raise ValueError(f"{self.id}: augmenter {name!r} changed event count")
+            if any(not isinstance(event, dict) for event in result):
+                raise ValueError(f"{self.id}: augmenter {name!r} returned a non-object")
+            for key, values in protected.items():
+                if [event.get(key) for event in result] != values:
+                    raise ValueError(f"{self.id}: augmenter {name!r} changed {key}")
+            current = [dict(event) for event in result]
+        return current
+
     def view_config(self, payload: dict[str, Any]) -> dict[str, Any]:
         return {}
 

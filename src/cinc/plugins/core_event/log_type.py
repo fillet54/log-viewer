@@ -79,6 +79,28 @@ class CoreEventLogType(LogType):
             "timelineViews": ["severity", "bus-load"],
         }
 
+    def chart_config(self, payload):
+        return {
+            "severity": {
+                "field": "color",
+                "mapping": {
+                    "Green": "green",
+                    "Yellow": "yellow",
+                    "Red": "red",
+                    "Flashing Red": "flashing-red",
+                },
+            },
+            "series": [
+                {
+                    "id": "bus-load",
+                    "label": "Bus Load",
+                    "kind": "line",
+                    "field": "data.bus.load_pct",
+                    "unit": "%",
+                }
+            ],
+        }
+
     def search_config(self, payload):
         return {
             "labelField": "name",

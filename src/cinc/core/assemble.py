@@ -15,6 +15,7 @@ def assemble_page_data(
             raise ValueError(
                 f"{log_type.id}: normalized events must not supply log_type"
             )
+        produced = log_type.augment_events(produced, payload=payload, mode="batch")
         for event in produced:
             event = dict(event)
             event["log_type"] = log_type.id
@@ -31,6 +32,7 @@ def assemble_page_data(
             "charts": view.get("charts", []),
             "timelineViews": view.get("timelineViews", []),
             "search": log_type.search_config(payload),
+            "chartConfig": log_type.chart_config(payload),
         }
         payloads[log_type.id] = payload
     events.sort(key=lambda event: (event["time"], event["row_id"]))

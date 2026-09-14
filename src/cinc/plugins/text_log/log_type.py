@@ -71,6 +71,21 @@ class TextLogType(LogType):
             "timelineViews": ["levels"],
         }
 
+    def chart_config(self, payload):
+        return {
+            "severity": {
+                "field": "level",
+                "mapping": {
+                    "DEBUG": "green",
+                    "INFO": "green",
+                    "WARN": "yellow",
+                    "ERROR": "red",
+                    "FATAL": "flashing-red",
+                    "CRITICAL": "flashing-red",
+                },
+            }
+        }
+
     def log_summary(self, payload):
         lines = payload.get("lines", payload.get("events", []))
         return {

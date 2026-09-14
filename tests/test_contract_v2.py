@@ -58,3 +58,24 @@ def test_assembly_rejects_plugin_supplied_log_type():
     }
     with pytest.raises(ValueError, match="must not supply log_type"):
         assemble_page_data([(TextLogType(), payload)])
+
+
+def test_event_augmenters_run_in_order_and_protect_identity():
+    from cinc.plugins.text_log import TextLogType
+
+    log_type = TextLogType()
+    log_type.register_event_augmenter(
+        "first",
+        lambda events, context: [{**event, "derived": "one"} for event in events],
+    )
+    log_type.register_event_augmenter(
+        "second",
+        lambda events, context: [
+            {**event, "derived": event["derived"] + "-two"} for event in events
+        ],
+    )
+    payload = {"lines": [{"ts": "2026-01-01T00:00:00Z", "message": "x"}]}
+    events = assemble_page_data([(log_type, payload)])["logData"]["events"]
+    assert events[0]["derived"] == "one-two"
+    with pytest.raises(ValueError, match="duplicate augmenter"):
+        log_type.register_event_augmenter("first", lambda events, context: events)
