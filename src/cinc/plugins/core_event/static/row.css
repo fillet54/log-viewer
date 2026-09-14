@@ -1,4 +1,8 @@
-.log-line.ce-row { min-height: 48px; }
+.log-line.ce-row {
+  min-height: 30px;
+  padding-top: 0.1rem;
+  padding-bottom: 0.1rem;
+}
 .ce-details, .log-match { color: var(--color-text); }
 .ce-sev-red .ce-time,
 .ce-sev-red .ce-offset,

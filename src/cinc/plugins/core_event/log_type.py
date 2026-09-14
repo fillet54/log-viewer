@@ -59,7 +59,7 @@ class CoreEventLogType(LogType):
         channels = self._impl._build_log_data(payload)[1]
         return {
             "rowSettings": {"channels": channels},
-            "rowHeightHint": 48,
+            "rowHeightHint": 36,
             "charts": ["systems"],
             "timelineViews": ["severity", "bus-load"],
         }
