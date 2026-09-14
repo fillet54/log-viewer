@@ -77,7 +77,9 @@ const buildSystemStatusSnapshots = (events) => {
 };
 
 const mountSystemsPanel = (panel, context) => {
-  const events = getEvents(context.logData);
+  const events = getEvents(context.logData).filter(
+    (event) => !event.log_type || event.log_type === "core_event"
+  );
   const { systems, snapshots } = buildSystemStatusSnapshots(events);
   const systemStatusClass = {
     Green: "status-green",

@@ -90,6 +90,10 @@ LogMainViewChart.mount = (root, services) => {
       logData?.pluginId ||
       (presentTypes?.length === 1 ? presentTypes[0] : null)
   );
+  const availablePluginIds = new Set(
+    (presentTypes || []).map((id) => normalizePluginId(id)).filter(Boolean)
+  );
+  if (activePluginId) availablePluginIds.add(activePluginId);
   const mountedPanels = new Map();
   let activeType = null;
   let activePanel = null;
@@ -98,10 +102,14 @@ LogMainViewChart.mount = (root, services) => {
 
   const listTypes = () => {
     const chartTypes = Array.from(LogMainViewChart.registry.values()).filter(
-      (type) => !type.pluginId || normalizePluginId(type.pluginId) === activePluginId
+      (type) =>
+        !type.pluginId || availablePluginIds.has(normalizePluginId(type.pluginId))
     );
     const timelineTypes = Array.from(LogMainViewTimeline.registry.values())
-      .filter((view) => view.pluginId && normalizePluginId(view.pluginId) === activePluginId)
+      .filter(
+        (view) =>
+          view.pluginId && availablePluginIds.has(normalizePluginId(view.pluginId))
+      )
       .map((view) => ({
         ...view,
         id: `timeline-${view.id}`,
@@ -433,7 +441,13 @@ const buildTimelineDatasets = (view, context) => {
 
 const createTimelineChartController = (panel, context) => {
   // Use a getter so we always read the latest events — supports live streaming.
-  const getAllEvents = () => (Array.isArray(context.logData?.events) ? context.logData.events : []);
+  const getAllEvents = () => {
+    const events = Array.isArray(context.logData?.events) ? context.logData.events : [];
+    const typeId = context.logType?.id || context.plugin?.id;
+    return typeId
+      ? events.filter((event) => !event.log_type || event.log_type === typeId)
+      : events;
+  };
   let allEvents = getAllEvents();
   let filteredEvents = Array.isArray(context.viewerStore?.filteredEvents?.value)
     ? context.viewerStore.filteredEvents.value
