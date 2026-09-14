@@ -339,6 +339,7 @@ export const MainViewShell = () => {
           }}
           onTimelineViewChange=${(nextView) => {
             viewerStore?.setTimelineView(nextView);
+            chartControllerRef.current?.getActivePanelController?.()?.setView?.(nextView);
           }}
           onViewModeChange=${(nextMode) => {
             viewerStore?.setMainViewMode(nextMode);
