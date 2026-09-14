@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import io
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 
 from cinc.core.bundle import resolve_sections
@@ -39,19 +40,35 @@ def create_logs_blueprint(registry, store):
 
     @bp.post("/logs/import")
     def import_logs():
-        files = [item for item in request.files.getlist("file") if item.filename]
-        if files:
-            inputs = [(item.filename, json.load(item)) for item in files]
-        else:
-            body = request.get_json(silent=True)
-            if not isinstance(body, dict):
-                return (
-                    jsonify({"error": "Provide at least one file or a JSON body."}),
-                    400,
-                )
-            inputs = [(str(body.get("source") or "json import"), body)]
         sections = []
         try:
+            files = [item for item in request.files.getlist("file") if item.filename]
+            if files:
+                inputs = []
+                for item in files:
+                    raw = item.read()
+                    try:
+                        inputs.append((item.filename, json.loads(raw)))
+                    except (UnicodeDecodeError, json.JSONDecodeError):
+                        parsed = []
+                        for log_type in registry.all():
+                            try:
+                                parsed.append(
+                                    log_type.parse_import(file=io.BytesIO(raw))
+                                )
+                            except (ValueError, UnicodeDecodeError):
+                                continue
+                        if len(parsed) != 1:
+                            raise ValueError(
+                                "Could not determine a text format for "
+                                f"{item.filename}."
+                            )
+                        inputs.append((item.filename, parsed[0][1]))
+            else:
+                body = request.get_json(silent=True)
+                if not isinstance(body, dict):
+                    raise ValueError("Provide at least one file or a JSON body.")
+                inputs = [(str(body.get("source") or "json import"), body)]
             for name, payload in inputs:
                 sections.extend(resolve_sections(payload, registry, path=name))
             page_data = __import__(
