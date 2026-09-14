@@ -39,6 +39,7 @@ export const SearchPanel = () => {
     const services = appHooks.useAppServices();
     const viewerStore = services?.viewerStore || null;
     const events = Array.isArray(services?.logData?.events) ? services.logData.events : [];
+    const logTypes = services?.logTypes || {};
     const activityEnabled = viewerStore?.activityEnabled !== false;
     const currentTab = viewerStore?.searchTab?.value || SEARCH_TAB_HISTORY;
     const [query, setQuery] = useState ? useState("") : ["", () => {}];
@@ -144,8 +145,11 @@ export const SearchPanel = () => {
       }
 
       const requestId = ++pendingSearchRef.current;
-      const predicate = getQueryPredicate(trimmedQuery);
-      const filtered = typeof predicate === "function" ? source.filter(predicate) : source;
+      const filtered = source.filter((event) => {
+        const config = logTypes[event?.log_type]?.search || undefined;
+        const predicate = getQueryPredicate(trimmedQuery, config);
+        return typeof predicate === "function" && predicate(event);
+      });
       if (requestId !== pendingSearchRef.current) return;
       setResults(filtered);
       setResultsVersion((value) => value + 1);

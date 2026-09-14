@@ -22,6 +22,7 @@ export const MainViewShell = () => {
     const services = appHooks.useAppServices();
     const viewerStore = services?.viewerStore || null;
     const events = Array.isArray(services?.logData?.events) ? services.logData.events : [];
+    const logTypes = services?.logTypes || {};
     const activeFilterQueries = viewerStore?.activeFilterQueries?.value || [];
     const selectedEvent = viewerStore?.selectedEvent?.value || null;
     const filteredEvents = viewerStore?.filteredEvents?.value || events;
@@ -132,17 +133,11 @@ export const MainViewShell = () => {
       }
 
       const query = terms.join(" OR ");
-      const predicates = terms
-        .map((term) => getQueryPredicate(term))
-        .filter((predicate) => typeof predicate === "function");
       if (requestId !== pendingFilterRef.current) return;
-      if (!predicates.length) {
-        viewerStore?.setFilteredEvents(events);
-        return;
-      }
-      viewerStore?.setFilteredEvents(
-        events.filter((event) => predicates.some((predicate) => predicate(event)))
-      );
+      viewerStore?.setFilteredEvents(events.filter((event) => {
+        const config = logTypes[event?.log_type]?.search || undefined;
+        return terms.some((term) => getQueryPredicate(term, config)(event));
+      }));
     };
 
     const emitScrollState = () => {
