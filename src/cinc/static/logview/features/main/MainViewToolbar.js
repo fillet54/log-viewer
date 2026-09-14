@@ -27,6 +27,9 @@ export const MainViewToolbar = ({
     const VIEW_MODE_SPLIT = "split";
     const VIEW_MODE_CHART = "chart";
     const VIEW_MODE_LIST = "list";
+    const chartPanels = (chartTypes || []).filter(
+      (type) => !String(type?.id || "").startsWith("timeline-")
+    );
 
     return html`
       <div class="main-view-toolbar">
@@ -36,10 +39,10 @@ export const MainViewToolbar = ({
             class="text-input text-input-small chart-type-select"
             aria-label="Chart type"
             value=${selectedChartType}
-            disabled=${chartTypes.length === 0}
+            disabled=${chartPanels.length === 0}
             onChange=${(event) => onChartTypeChange(event.currentTarget.value)}
           >
-            ${chartTypes.map(
+            ${chartPanels.map(
               (type) => html`<option value=${type.id}>${type.label}</option>`
             )}
           </select>
