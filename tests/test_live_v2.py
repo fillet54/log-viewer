@@ -67,3 +67,32 @@ def test_session_stop_start_again(tmp_path):
     second = manager.start()
     manager.stop()
     assert second != first
+
+
+def test_session_persists_multiple_polls_with_unique_ids(tmp_path):
+    path = tmp_path / "sample.json"
+    path.write_text(
+        json.dumps(
+            {
+                "events": [
+                    {"time": "2026-01-01T00:00:00Z", "message": "a"},
+                    {"time": "2026-01-01T00:00:01Z", "message": "b"},
+                    {"time": "2026-01-01T00:00:02Z", "message": "c"},
+                ]
+            }
+        )
+    )
+    store = LogStore(tmp_path / "cinc.sqlite")
+    manager = SessionManager(
+        store, TextLogType(), SampleReplaySource(path, poll_interval=0.001)
+    )
+    session_id = manager.start()
+    for _ in range(100):
+        record = store.get_record(session_id)
+        if record and record.status == "completed":
+            break
+        time.sleep(0.002)
+    manager.stop()
+    events = store.get_events(session_id)
+    assert [event["row_id"] for event in events] == [1, 2, 3]
+    assert len({event["row_id"] for event in events}) == 3
