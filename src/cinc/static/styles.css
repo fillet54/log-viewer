@@ -1140,7 +1140,7 @@ button {
 
 .log-line {
   display: grid;
-  grid-template-columns: 88px 180px 92px 164px minmax(220px, 1fr) 24px 28px;
+  grid-template-columns: 132px 76px 92px 164px minmax(220px, 1fr) 24px 28px;
   align-items: center;
   column-gap: 0.45rem;
   row-gap: 0.15rem;
