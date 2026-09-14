@@ -114,7 +114,10 @@ LogMainViewChart.mount = (root, services) => {
         ...view,
         id: `timeline-${view.id}`,
         renderPanel(panel, context) {
-          const controller = createTimelineChartController(panel, context);
+          const controller = createTimelineChartController(panel, {
+            ...context,
+            timelinePluginId: view.pluginId || null,
+          });
           controller.setView(view.id);
           return controller;
         },
@@ -465,6 +468,7 @@ const createTimelineChartController = (panel, context) => {
     const activeId = normalizePluginId(
       context.logType?.id ||
         context.plugin?.id ||
+        context.timelinePluginId ||
         context.type?.pluginId ||
         context.logData?.logTypeId ||
         context.logData?.pluginId
