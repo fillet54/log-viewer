@@ -76,7 +76,14 @@ LogMainViewChart.mount = (root, services) => {
   const chartPanelHost = queryById(root, "chart-panel-host");
   if (!chartRegion || !chartPanelHost) return null;
 
-  const logType = logTypes?.[logData?.logTypeId] || null;
+  const resolvedLogTypeId =
+    logData?.logTypeId ||
+    logData?.pluginId ||
+    (presentTypes?.length === 1 ? presentTypes[0] : null);
+  const logTypeConfig = logTypes?.[resolvedLogTypeId] || null;
+  const logType = logTypeConfig
+    ? { id: resolvedLogTypeId, ...logTypeConfig }
+    : null;
   const activePluginId = normalizePluginId(
     logType?.id ||
       logData?.logTypeId ||

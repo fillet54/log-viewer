@@ -76,6 +76,3 @@ class CoreEventLogType(LogType):
 
     def inline_scripts(self):
         return self._impl.get_inline_scripts()
-
-    def inline_styles(self):
-        return []
