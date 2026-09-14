@@ -4,6 +4,7 @@ import { SearchSidebar } from "./SearchSidebar.js";
 import { SearchResultsPane } from "./SearchResultsPane.js";
 import { SearchHelpDialog } from "./SearchHelpDialog.js";
 import { getQueryPredicate } from "../../../services/search.js";
+import { buildOffsets } from "../../row-metrics.js";
 
 const { useEffect, useRef, useState } = hooks;
 
@@ -43,6 +44,13 @@ export const SearchPanel = () => {
     const [query, setQuery] = useState ? useState("") : ["", () => {}];
     const [results, setResults] = useState ? useState(() => events.slice(0, 200)) : [[], () => {}];
     const [rowStride, setRowStride] = useState ? useState(28) : [28, () => {}];
+    const rowHeights = new Map(
+      Object.entries(services?.logTypes || {}).map(([id, config]) => [
+        id,
+        Number(config.rowHeightHint) || rowStride,
+      ])
+    );
+    const offsets = buildOffsets(results, rowHeights, rowStride);
     const [resultsVersion, setResultsVersion] = useState ? useState(0) : [0, () => {}];
     const bookmarkState = viewerStore?.bookmarks?.value || null;
     const commentState = viewerStore?.comments?.value || [];
@@ -100,6 +108,7 @@ export const SearchPanel = () => {
       containerRef: resultsRef,
       itemCount: currentTab === SEARCH_TAB_BOOKMARKS ? 0 : results.length,
       rowHeight: rowStride,
+      offsets,
       overscan: 4,
       maxVisible: 80,
       dependencies: [currentTab, rowVersion],
@@ -313,7 +322,8 @@ export const SearchPanel = () => {
               resultsRef=${resultsRef}
               currentTab=${currentTab}
               results=${results}
-              resultRowStride=${resultRowStride}
+            resultRowStride=${resultRowStride}
+            offsets=${offsets}
               virtual=${virtual}
               visibleItems=${visibleItems}
               services=${services}

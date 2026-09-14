@@ -6,6 +6,7 @@ export const SearchResultsContent = ({
     currentTab,
     results,
     resultRowStride,
+    offsets,
     virtual,
     visibleItems,
     services,
@@ -43,11 +44,11 @@ export const SearchResultsContent = ({
     }
 
     return html`
-      <div id="search-results-spacer" style=${{ height: `${results.length * resultRowStride}px` }}></div>
+      <div id="search-results-spacer" style=${{ height: `${offsets?.[results.length] ?? results.length * resultRowStride}px` }}></div>
       <div
         id="search-results-list"
         class="mono-block"
-        style=${{ transform: `translateY(${virtual.startIndex * resultRowStride}px)` }}
+        style=${{ transform: `translateY(${virtual.offsetY}px)` }}
       >
         ${results.length
           ? visibleItems.map(

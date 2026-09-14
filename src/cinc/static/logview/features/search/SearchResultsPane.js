@@ -15,6 +15,7 @@ export const SearchResultsPane = ({
     currentTab,
     results,
     resultRowStride,
+    offsets,
     virtual,
     visibleItems,
     services,
@@ -41,6 +42,7 @@ export const SearchResultsPane = ({
             currentTab=${currentTab}
             results=${results}
             resultRowStride=${resultRowStride}
+            offsets=${offsets}
             virtual=${virtual}
             visibleItems=${visibleItems}
             services=${services}
