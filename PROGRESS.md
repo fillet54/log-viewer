@@ -4,6 +4,17 @@ Last updated: 2026-09-13
 
 Status: implementation in progress; the v2 specification remains the acceptance source.
 
+## Audit correction — 2026-09-13
+
+The historical completion claims below are superseded by the **Pre–Phase 10/11
+remediation gate** in `IMPLEMENTATION_SPEC.md`. Phases 2–9 have outstanding integration
+and acceptance work; Phases 10–11 are not complete. Work through R1–R9 in order and
+record evidence before checking off any item. The audit verified 12 passing tests,
+Black, and flake8, but did not verify browser acceptance. This documentation update
+does not fix the listed implementation defects.
+
+## Historical progress (not current acceptance evidence)
+
 Phase 1 status: complete. Obsolete source/docs/vendor files were removed, runtime
 dependencies are constrained, and the vendor manifest is synchronized with the eight
 active browser libraries. Local `cinc-data/sessions` was preserved because it contains

@@ -1923,6 +1923,147 @@ is not. That is more robust than scanning raw text.
 
 ---
 
+### Pre–Phase 10/11 remediation gate — audit of 2026-09-13
+
+**Status: open. Complete R1–R9 below before advancing to Phase 10 or declaring the
+implementation complete.** This gate reopens incomplete acceptance work from Phases
+2–9; it does not replace those phases or the Phase 11 test matrix. Earlier completion
+messages and `PROGRESS.md` entries are not acceptance evidence. The audit found 12
+passing tests and passing Black/flake8 checks, but substantial integration requirements
+are untested or incomplete.
+
+Work in the numbered order below. Add focused regression coverage with each functional
+fix; do not defer all testing to Phase 11. Before each commit run Black and flake8 over
+all `src`, the test suite, and relevant smoke checks. Record the commit, checks actually
+performed, and remaining limitations in `PROGRESS.md`. Never mark a browser interaction
+verified on the strength of a Python test or a successful HTML build alone.
+
+Later user-approved UI requirements remain in force: core owns absolute and reference-
+relative time; both plugins use identical first-two-column markup/style; show compact
+Zulu time with full date on hover, signed relative seconds, and an icon only on the
+selected reference row. The first event is the default reference. Preserve compact
+core-event rows with match links beside SET/CLEAR and directional arrows. These are
+accepted additions to this specification, not regressions to remove during cleanup.
+
+#### R1 — Correct both raw core-event fixtures
+
+- [ ] Regenerate/update both `sample-3ch.json` and `sample-4ch.json` so **every raw
+  event** explicitly contains a non-empty `channels` array drawn from its declared
+  catalog. Exercise channel D in the four-channel fixture. Preserve the Phase 2
+  severity, pairing, unpaired-event, bus-load, and system coverage.
+- [ ] Remove the recently added `available[:1]` fallback from channel normalization;
+  missing provenance must not silently be invented. Preserve the documented input
+  contract for non-sample imports.
+- [ ] Validate the raw JSON before normalization, then validate normalized output.
+  Audit baseline: 20 raw rows lack channels in the three-channel fixture and 33 in
+  the four-channel fixture. A normalized count of 40/40 does not satisfy this item.
+
+#### R2 — Repair normalization, cross-links, and time semantics
+
+- [ ] In `plugins/core_event/log_type.py`, allocate IDs with `row_id_base` before
+  deriving links, or remap every `pairedChannels` and `matchSummary` target afterward.
+  Audit reproduction: offsetting either sample by 40 leaves 20 match-summary targets
+  outside the core-event row IDs. Check target identity, not merely existence: in a
+  mixed bundle a stale target may incorrectly resolve to a text-log row.
+- [ ] Verify §4 event/envelope validation at assembly: reject plugin-supplied
+  `log_type`, enforce global ID uniqueness, and sort chronologically according to
+  the time contract, including timestamps with equivalent instants/different offsets.
+- [ ] Calculate core-event set/clear durations from actual timestamps. Existing sample
+  events one minute apart receive index-based `norm_time` values one unit apart;
+  ensure the displayed match duration is 60 seconds, not 1 second.
+- [ ] Verify core reference-time behavior across both types: default zero, negative
+  and positive offsets after selection, equal timestamps, filtering, and an initially
+  empty live log receiving its first event. Core consumers use normalized `time`;
+  remove `utctime` fallbacks from core. Reference changes must not alter source times.
+
+#### R3 — Complete import, persistence, and reopening
+
+- [ ] Replace the incomplete `/logs/import` workflow in `logs/routes.py`. It currently
+  accepts uploaded JSON, assembles page data, and returns it without saving anything.
+  Implement the specified file/JSON-body paths, multi-file/bundle resolution, and
+  supported raw-text parsing through the log type's parser. Return actionable errors.
+- [ ] Persist the record, per-event type, and all type memberships, then open/redirect
+  to the saved viewer using the specified route contract. Mixed records must appear
+  under both types and survive reopening without being normalized as a single type.
+- [ ] Verify list counts, metadata, deletion/cascades, bookmarks, comments/replies,
+  and reload persistence through actual Flask routes, not just store unit tests.
+
+#### R4 — Finish live integration and batch/live parity
+
+- [ ] Audit `live/session.py` normalization across multiple polls. Each poll currently
+  normalizes independently without an advancing row-ID base. Ensure IDs stay unique,
+  cross-batch pairing is correct, and emitted events match persisted events.
+- [ ] Verify a usable live viewer from the start action, SSE updates, streamed-row
+  bookmarking, stop/start, natural completion, and reopening completed records for
+  both plugins. Compare replayed and batch-imported data under the §4.7/I9 contract.
+  Treat these as acceptance checks to complete, not assumptions based on replay tests.
+
+#### R5 — Wire per-type row heights into both lists
+
+- [ ] Integrate `row-metrics.js` and offset-aware virtualization into the main list
+  **and** search list. Helpers alone are insufficient: `MainViewShell.js`,
+  `LogVirtualList.js`, and `SearchPanel.js` still calculate positions/spacers using
+  one `rowStride` and `count * rowStride`.
+- [ ] Measure/cache the fixed height per log type and use prefix offsets for spacers,
+  visible ranges, scroll seeking, centering, and chart/cross-link jumps. Preserve
+  different plugin heights while aligning the shared time columns.
+- [ ] Verify mixed-type scrolling to the last row, filtering, resizing, and live
+  appends with no overlap, clipped final row, trailing gap, or incorrect jump target.
+
+#### R6 — Finish plugin isolation, styles, and search wiring
+
+- [ ] Fix `CoreEventLogType.inline_styles()`, which currently returns `[]` despite
+  declaring `static/row.css`. Verify declared plugin styles reach served and standalone
+  pages and installed package assets.
+- [ ] Move domain-specific CSS and semantics out of core into the owning plugin.
+  `static/styles.css` still contains core-event severity/action/channel styling.
+  Shared time-column styling stays in core. Complete the specified legacy API cleanup
+  (including the remaining parallel plugin base/implementation) without adding aliases.
+- [ ] Pass the correct per-event log-type search configuration to query evaluation in
+  both main filters and search results. Current callers invoke `getQueryPredicate`
+  without configuration. Make help/examples and field behavior consistent with the
+  types present, including mixed data, as required in Phase 8.
+- [ ] Run the specification's isolation/legacy-name checks with their intended scope;
+  document legitimate fixtures separately rather than weakening production-code guards.
+
+#### R7 — Repair and verify chart context end to end
+
+- [ ] Use a consistent type context for registration eligibility, chart selection,
+  timeline view selection, and panel rendering. `mount()` derives a sole present type,
+  but `buildContext()` still passes a null `logType`, and `listViews()` filters using
+  that missing identity. Exposing an option alone does not make its dataset render.
+- [ ] Verify core-event Severity and Bus Load actually change datasets, Subsystem
+  Status renders and follows navigation, and text-log Levels works. Preserve the
+  specified chart/timeline controls; do not mask a context defect with duplicate options.
+- [ ] Implement/verify the Phase 8 mixed-chart behavior with correctly scoped plugin
+  data and unambiguous IDs. Do not hide every plugin chart simply because multiple
+  types are present. Check chart/list navigation and live updates.
+
+#### R8 — Rebuild and exercise standalone demos
+
+- [ ] Rebuild the tracked `demo-core-event-3ch.html` and `demo-core-event-4ch.html`
+  from the corrected fixtures and latest assets, and commit the regenerated demos.
+  Existing HTML embeds old code and does not pick up source edits on reload.
+- [ ] Build each declared sample and a mixed bundle; perform the Phase 9/§11 offline
+  browser checks, including actual plugin charts, row layout, search, detail, and
+  navigation. Verify portability from another directory and no runtime network needs.
+  Record browser results separately from build/self-containment checks.
+
+#### R9 — Reconcile acceptance and hand off to Phases 10–11
+
+- [ ] Recheck all Phase 1–9 acceptance criteria, including any not enumerated above.
+  This is a confirmed-gap list plus targeted verification work, not an exhaustive
+  replacement for the original requirements.
+- [ ] Replace contradictory/stale progress statuses with evidence-backed outcomes and
+  a clear list of any remaining blockers. Check off R1–R8 only after their acceptance
+  checks pass; record commits and commands/browser checks.
+- [ ] Once the gate passes, proceed to Phase 10's missing author/architecture/README
+  documentation and Phase 11's full normative suite. The current 12-test suite does
+  not establish completion; standalone, dependency, core-isolation, mixed-bundle,
+  row-metrics, and other specified coverage must still be delivered.
+
+---
+
 ### Phase 10 — Documentation
 
 `docs/dependencies.md` was written in Phase 1; review it now for accuracy against the
