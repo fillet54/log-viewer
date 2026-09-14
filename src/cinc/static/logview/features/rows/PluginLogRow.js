@@ -67,6 +67,9 @@ export const PluginLogRow = ({
       onSelect=${onSelect}
       onBookmark=${onBookmark}
       onJump=${onJump}
+      timeReferenceRowId=${viewerStore?.timeReferenceRowId?.value}
+      relativeTime=${viewerStore?.getRelativeTime?.(event)}
+      onSetTimeReference=${() => viewerStore?.setTimeReference?.(event)}
     />
   `;
 };
