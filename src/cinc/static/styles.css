@@ -1190,23 +1190,6 @@ button {
   color: var(--color-text-muted);
 }
 
-.ce-sev-green {
-  border-left: 4px solid var(--event-green);
-}
-
-.ce-sev-yellow {
-  border-left: 4px solid var(--event-yellow);
-}
-
-.ce-sev-red {
-  border-left: 4px solid var(--event-red);
-}
-
-.log-dark-red,
-.ce-sev-flashing-red {
-  border-left: 4px solid var(--event-dark-red);
-}
-
 .log-highlight {
   animation: pulse-highlight 1.2s ease-out;
   box-shadow: 0 0 0 2px var(--color-highlight);
@@ -1281,6 +1264,11 @@ button {
 .ce-action[data-contrast="light"] {
   color: var(--event-text-light);
 }
+
+.ce-action[data-ce-color="green"] { color: var(--event-text-dark); }
+.ce-action[data-ce-color="yellow"] { color: var(--event-text-dark); }
+.ce-action[data-ce-color="red"] { color: var(--event-text-light); }
+.ce-action[data-ce-color="flashing-red"] { color: var(--event-text-light); }
 
 .ce-action[data-ce-color="green"] {
   background: var(--event-green);
