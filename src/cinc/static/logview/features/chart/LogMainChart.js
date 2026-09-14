@@ -108,7 +108,7 @@ LogMainViewChart.mount = (root, services) => {
     const timelineTypes = Array.from(LogMainViewTimeline.registry.values())
       .filter(
         (view) =>
-          view.pluginId && availablePluginIds.has(normalizePluginId(view.pluginId))
+          !view.pluginId || availablePluginIds.has(normalizePluginId(view.pluginId))
       )
       .map((view) => ({
         ...view,
