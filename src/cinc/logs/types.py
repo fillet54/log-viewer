@@ -152,7 +152,10 @@ class LogType(ABC):
     ) -> dict[str, Any]:
         """Rebuild a viewer payload from persisted normalized events."""
         payload = dict(record.metadata.get("payload_header") or {})
-        payload["events"] = events
+        payload["events"] = [
+            {key: value for key, value in event.items() if key != "log_type"}
+            for event in events
+        ]
         return payload
 
     def get_import_template(self) -> str | None:

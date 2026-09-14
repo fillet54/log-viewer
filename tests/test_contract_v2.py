@@ -42,3 +42,19 @@ def test_assembly_includes_declared_plugin_styles():
     }
     page = assemble_page_data([(CoreEventLogType(), payload)])
     assert any(".ce-row" in style for style in page["view"]["styles"])
+
+
+def test_assembly_rejects_plugin_supplied_log_type():
+    from cinc.plugins.text_log import TextLogType
+
+    payload = {
+        "lines": [
+            {
+                "ts": "2026-01-01T00:00:00Z",
+                "message": "bad",
+                "log_type": "other",
+            }
+        ]
+    }
+    with pytest.raises(ValueError, match="must not supply log_type"):
+        assemble_page_data([(TextLogType(), payload)])

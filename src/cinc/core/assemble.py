@@ -11,6 +11,10 @@ def assemble_page_data(
     base = 0
     for log_type, payload in sections:
         produced = log_type.normalize_events(payload, row_id_base=base)
+        if any("log_type" in event for event in produced):
+            raise ValueError(
+                f"{log_type.id}: normalized events must not supply log_type"
+            )
         for event in produced:
             event = dict(event)
             event["log_type"] = log_type.id
