@@ -12,6 +12,7 @@ class SessionManager:
         self._thread = None
         self._stop_event = threading.Event()
         self._active_session_id = None
+        self._row_id_base = 0
         self._subscribers = []
         self._lock = threading.Lock()
 
@@ -40,6 +41,7 @@ class SessionManager:
             log_id=session_id,
         )
         self._active_session_id = record.id
+        self._row_id_base = 0
         self._stop_event.clear()
         self._thread = threading.Thread(
             target=self._poll_loop, args=(record.id, header), daemon=True
@@ -61,7 +63,10 @@ class SessionManager:
             while not self._stop_event.wait(self._source.poll_interval):
                 rows = self._source.poll()
                 if rows:
-                    events = self._log_type.normalize_events({"events": rows, **header})
+                    events = self._log_type.normalize_events(
+                        {"events": rows, **header}, row_id_base=self._row_id_base
+                    )
+                    self._row_id_base += len(events)
                     for event in events:
                         event["log_type"] = self._log_type.id
                     self._store.append_events(
