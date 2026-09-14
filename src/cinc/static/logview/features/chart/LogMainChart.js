@@ -939,9 +939,6 @@ LogMainViewChart.registerType({
   renderPanel(panel, context) {
     return createTimelineChartController(panel, context);
   },
-  buildCommands(container, context) {
-    context.panelController?.renderViewButtons?.(container);
-  },
 });
 
 LogMainViewTimeline.registerView({
