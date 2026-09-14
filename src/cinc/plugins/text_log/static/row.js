@@ -4,7 +4,9 @@ const TextRow = ({ event, selected, onSelect, onBookmark, relativeTime, onSetTim
   <div class=${`log-line tl-row tl-level-${String(event?.level || "INFO").toLowerCase()} ${selected ? "log-selected" : ""}`} onClick=${() => onSelect?.(event)}>
     <button class="log-time-column" type="button" onClick=${(click) => { click.stopPropagation(); onSetTimeReference?.(); }} title=${zuluTimeTitle}>${zuluTime}</button>
     <button class=${`log-time-column log-relative-time${isTimeReference ? " is-time-reference" : ""}`} type="button" onClick=${(click) => { click.stopPropagation(); onSetTimeReference?.(); }} title="Set as time reference">${relativeTime == null ? "—" : `${relativeTime >= 0 ? "+" : ""}${relativeTime.toFixed(3)}s`}</button>
-    <div><div class="tl-message">${event?.message || ""}</div><div class="tl-meta">${event?.level} · ${event?.logger}</div></div>
+    <span class="tl-logger" title=${event?.logger || ""}>${event?.logger || "—"}</span>
+    <span class=${`tl-level-badge tl-level-${String(event?.level || "INFO").toLowerCase()}`}>${event?.level || "INFO"}</span>
+    <div class="tl-message">${event?.message || ""}</div>
     <button class="bookmark-toggle" onClick=${(click) => { click.stopPropagation(); onBookmark?.(event); }}>☆</button>
   </div>`;
 Cinc.registerLogRowComponent("text_log", TextRow);

@@ -66,7 +66,7 @@ class TextLogType(LogType):
     def view_config(self, payload):
         return {
             "rowSettings": {"levels": ["DEBUG", "INFO", "WARN", "ERROR"]},
-            "rowHeightHint": 56,
+            "rowHeightHint": 36,
             "charts": [],
             "timelineViews": ["levels"],
         }
