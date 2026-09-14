@@ -1950,7 +1950,10 @@ accepted additions to this specification, not regressions to remove during clean
 - [ ] Regenerate/update both `sample-3ch.json` and `sample-4ch.json` so **every raw
   event** explicitly contains a non-empty `channels` array drawn from its declared
   catalog. Exercise channel D in the four-channel fixture. Preserve the Phase 2
-  severity, pairing, unpaired-event, bus-load, and system coverage.
+  severity, pairing, unpaired-event, bus-load, and system coverage. The updated demo
+  requirement is a deterministic ten-hour sample with approximately 250 events per
+  hour; the former 40–60-row and under-100-KB limits no longer apply to these two
+  demonstration fixtures.
 - [ ] Remove the recently added `available[:1]` fallback from channel normalization;
   missing provenance must not silently be invented. Preserve the documented input
   contract for non-sample imports.
