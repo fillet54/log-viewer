@@ -121,6 +121,12 @@ export const buildParser = () => {
     if (!term) return true;
     const nameValue = toComparable(event?.name || "");
     if (globToRegex(`${term}*`).test(nameValue)) return true;
+    // A configured field name is useful as a presence search in mixed logs.
+    // This keeps bare terms type-aware without treating arbitrary object keys as
+    // searchable field names.
+    if ((config.fields || []).some((field) => String(field).toLowerCase() === term.toLowerCase())) {
+      return Object.prototype.hasOwnProperty.call(event || {}, term);
+    }
     const entries = Object.entries(event || {});
     for (const [key, value] of entries) {
       if ((config.excludeFromBareTerms || []).includes(key)) continue;
