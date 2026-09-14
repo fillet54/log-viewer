@@ -466,7 +466,13 @@ const createTimelineChartController = (panel, context) => {
     window.EVENTLOG2_DEBUG_TIMELINE === true;
 
   const listViews = () => {
-    const availablePluginIds = context.availablePluginIds;
+    const availablePluginIds =
+      context.availablePluginIds ||
+      new Set(
+        getAllEvents()
+          .map((event) => normalizePluginId(event.log_type))
+          .filter(Boolean)
+      );
     if (availablePluginIds && availablePluginIds.size > 1) {
       return Array.from(LogMainViewTimeline.registry.values()).filter(
         (view) =>

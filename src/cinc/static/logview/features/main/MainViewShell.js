@@ -337,6 +337,9 @@ export const MainViewShell = () => {
           onChartTypeChange=${(nextType) => {
             viewerStore?.setChartType(nextType);
           }}
+          onTimelineViewChange=${(nextView) => {
+            viewerStore?.setTimelineView(nextView);
+          }}
           onViewModeChange=${(nextMode) => {
             viewerStore?.setMainViewMode(nextMode);
           }}
