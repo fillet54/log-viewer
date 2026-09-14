@@ -6,6 +6,13 @@ const normalizePluginId = (plugin) =>
     ? String(plugin.id || "").trim()
     : String(plugin || "").trim();
 
+const formatZuluTime = (event) => {
+  const value = event?.time || event?.utctime || "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toISOString().replace(/^\d{4}-\d{2}-\d{2}T/, "");
+};
+
 export const PluginLogRow = ({
   event,
   services,
@@ -70,6 +77,8 @@ export const PluginLogRow = ({
       timeReferenceRowId=${viewerStore?.timeReferenceRowId?.value}
       relativeTime=${viewerStore?.getRelativeTime?.(event)}
       onSetTimeReference=${() => viewerStore?.setTimeReference?.(event)}
+      zuluTime=${formatZuluTime(event)}
+      zuluTimeTitle=${event?.time || event?.utctime || ""}
     />
   `;
 };

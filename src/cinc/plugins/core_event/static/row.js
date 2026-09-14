@@ -139,6 +139,8 @@ const CoreEventRow = ({
   onJump,
   relativeTime = null,
   onSetTimeReference,
+  zuluTime = "",
+  zuluTimeTitle = "",
 }) => {
   const colorLabel = event?.color || "Green";
   const colorClass = String(colorLabel).toLowerCase().replace(/\s+/g, "-");
@@ -164,7 +166,7 @@ const CoreEventRow = ({
       data-row-id=${event?.row_id}
       onClick=${() => onSelect?.(event)}
     >
-      <button class="log-time-column" type="button" onClick=${(click) => { click.stopPropagation(); onSetTimeReference?.(); }} title="Set as time reference">${display.time}</button>
+      <button class="log-time-column" type="button" onClick=${(click) => { click.stopPropagation(); onSetTimeReference?.(); }} title=${zuluTimeTitle}>${zuluTime}</button>
       <button class="log-time-column log-relative-time" type="button" onClick=${(click) => { click.stopPropagation(); onSetTimeReference?.(); }} title="Set as time reference">${relativeTime == null ? "—" : `${relativeTime >= 0 ? "+" : ""}${relativeTime.toFixed(3)}s`}</button>
       <span class="ce-channels">
         ${configuredChannels.map(
