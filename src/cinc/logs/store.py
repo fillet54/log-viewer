@@ -232,6 +232,14 @@ class LogStore:
                 (json.dumps(metadata), log_id),
             )
 
+    def add_record_type(self, log_id: str, log_type_id: str) -> None:
+        with self._connect() as con:
+            con.execute(
+                "INSERT OR IGNORE INTO log_record_types "
+                "(log_id, log_type) VALUES (?, ?)",
+                (log_id, log_type_id),
+            )
+
     def complete_log(
         self,
         log_id: str,

@@ -40,19 +40,47 @@ def create_logs_blueprint(registry, store):
     @bp.post("/logs/import")
     def import_logs():
         files = [item for item in request.files.getlist("file") if item.filename]
-        if not files:
-            return jsonify({"error": "Provide at least one file."}), 400
+        if files:
+            inputs = [(item.filename, json.load(item)) for item in files]
+        else:
+            body = request.get_json(silent=True)
+            if not isinstance(body, dict):
+                return (
+                    jsonify({"error": "Provide at least one file or a JSON body."}),
+                    400,
+                )
+            inputs = [(str(body.get("source") or "json import"), body)]
         sections = []
         try:
-            for item in files:
-                payload = json.load(item)
-                sections.extend(resolve_sections(payload, registry, path=item.filename))
+            for name, payload in inputs:
+                sections.extend(resolve_sections(payload, registry, path=name))
             page_data = __import__(
                 "cinc.core.assemble", fromlist=["assemble_page_data"]
             ).assemble_page_data(sections)
         except (ValueError, json.JSONDecodeError) as exc:
             return jsonify({"error": str(exc)}), 400
-        return jsonify({"pageData": page_data})
+        primary = sections[0][0]
+        record = store.create_log(
+            primary.id,
+            "",
+            str(request.form.get("name") or request.args.get("name") or "Imported log"),
+            {"payload_header": {"apiVersion": page_data.get("apiVersion", 2)}},
+        )
+        for log_type, _ in sections[1:]:
+            store.add_record_type(record.id, log_type.id)
+        store.append_events(record.id, page_data["logData"]["events"])
+        return (
+            jsonify(
+                {
+                    "recordId": record.id,
+                    "pageData": page_data,
+                    "viewUrl": url_for(
+                        "logs.view_log", log_type_id=primary.id, log_id=record.id
+                    ),
+                }
+            ),
+            201,
+        )
 
     @bp.get("/logs/<log_type_id>/<log_id>")
     def view_log(log_type_id, log_id):
