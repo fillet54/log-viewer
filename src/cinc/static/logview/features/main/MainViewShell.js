@@ -9,6 +9,7 @@ import {
 import { MainViewToolbar } from "./MainViewToolbar.js";
 import { html, hooks, appHooks } from "logview/lib";
 import { getQueryPredicate } from "../../../services/search.js";
+import { buildOffsets, indexAtOffset } from "../../row-metrics.js";
 
 const LogMainViewChart = window.LogMainViewChart || null;
 const { useEffect, useLayoutEffect, useRef, useState } = hooks;
@@ -50,6 +51,13 @@ export const MainViewShell = () => {
     const [chartTypes, setChartTypes] = useState([]);
     const selectedChartType = viewerStore?.chartType?.value || "";
     const [rowStride, setRowStride] = useState(38);
+    const rowHeights = new Map(
+      Object.entries(services?.logTypes || {}).map(([id, config]) => [
+        id,
+        Number(config.rowHeightHint) || rowStride,
+      ])
+    );
+    const offsets = buildOffsets(filteredEvents, rowHeights, rowStride);
     const [highlightState, setHighlightState] = useState({ rowId: null, nonce: 0 });
     const [lockToBottom, setLockToBottom] = useState(false);
     const lockToBottomRef = useRef(false);
@@ -91,7 +99,9 @@ export const MainViewShell = () => {
       const list = filteredRef.current;
       if (index == null || !container || !list.length) return null;
 
-      const targetTop = index * rowStride - container.clientHeight / 2 + rowStride / 2;
+      const rowTop = offsets[index] || 0;
+      const rowHeight = (offsets[index + 1] || rowTop) - rowTop;
+      const targetTop = rowTop - container.clientHeight / 2 + rowHeight / 2;
       const clamped = Math.max(0, Math.min(targetTop, container.scrollHeight));
       const selected = list[index] || null;
 
@@ -144,7 +154,7 @@ export const MainViewShell = () => {
         0,
         Math.min(
           list.length - 1,
-          Math.floor((container.scrollTop + container.clientHeight / 2) / rowStride)
+          indexAtOffset(offsets, container.scrollTop + container.clientHeight / 2)
         )
       );
       const current = list[index] || null;
@@ -157,6 +167,7 @@ export const MainViewShell = () => {
       containerRef: logBodyRef,
       itemCount: filteredEvents.length,
       rowHeight: rowStride,
+      offsets,
       overscan: 10,
       maxVisible: 180,
       dependencies: [bookmarkState],
@@ -357,6 +368,7 @@ export const MainViewShell = () => {
             viewMode=${safeViewMode}
             filteredEvents=${filteredEvents}
             rowStride=${rowStride}
+            offsets=${offsets}
             virtual=${virtual}
             visibleItems=${visibleItems}
             services=${services}

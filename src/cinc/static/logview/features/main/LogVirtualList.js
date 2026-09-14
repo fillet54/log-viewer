@@ -62,6 +62,7 @@ export const MainLogRow = ({
 export const MainLogContent = ({
     filteredEvents,
     rowStride,
+    offsets,
     virtual,
     visibleItems,
     services,
@@ -81,7 +82,7 @@ export const MainLogContent = ({
     }
 
     return html`
-      <div id="log-spacer" style=${{ height: `${filteredEvents.length * rowStride}px` }}></div>
+      <div id="log-spacer" style=${{ height: `${offsets?.[filteredEvents.length] ?? filteredEvents.length * rowStride}px` }}></div>
       <div
         id="log-list"
         ref=${logListRef}
@@ -112,6 +113,7 @@ export const MainLogPane = ({
     viewMode,
     filteredEvents,
     rowStride,
+    offsets,
     virtual,
     visibleItems,
     services,
@@ -139,6 +141,7 @@ export const MainLogPane = ({
           <${MainLogContent}
             filteredEvents=${filteredEvents}
             rowStride=${rowStride}
+            offsets=${offsets}
             virtual=${virtual}
             visibleItems=${visibleItems}
             services=${services}
