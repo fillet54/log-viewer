@@ -117,6 +117,7 @@ LogMainViewChart.mount = (root, services) => {
           const controller = createTimelineChartController(panel, {
             ...context,
             timelinePluginId: view.pluginId || null,
+            availablePluginIds,
           });
           controller.setView(view.id);
           return controller;
@@ -465,6 +466,14 @@ const createTimelineChartController = (panel, context) => {
     window.EVENTLOG2_DEBUG_TIMELINE === true;
 
   const listViews = () => {
+    const availablePluginIds = context.availablePluginIds;
+    if (availablePluginIds && availablePluginIds.size > 1) {
+      return Array.from(LogMainViewTimeline.registry.values()).filter(
+        (view) =>
+          !view.pluginId ||
+          availablePluginIds.has(normalizePluginId(view.pluginId))
+      );
+    }
     const activeId = normalizePluginId(
       context.logType?.id ||
         context.plugin?.id ||
