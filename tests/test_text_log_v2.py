@@ -2,6 +2,8 @@ import io
 import json
 from pathlib import Path
 
+import pytest
+
 from cinc.plugins.text_log import TextLogType
 
 
@@ -24,6 +26,14 @@ def test_core_event_links_and_durations_survive_row_id_offset():
         for event in events
         for match in event["pairedChannels"].values()
     )
+
+
+def test_core_event_rejects_raw_events_without_channel_provenance():
+    from cinc.plugins.core_event import CoreEventLogType
+
+    payload = {"channels": ["A"], "events": [{"row_id": 1, "set_clear": "set"}]}
+    with pytest.raises(ValueError, match="requires channels"):
+        CoreEventLogType().normalize_events(payload)
 
 
 def test_text_sample_contract_and_config():

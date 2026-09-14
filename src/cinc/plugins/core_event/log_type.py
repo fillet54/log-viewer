@@ -4,6 +4,20 @@ from importlib.resources import files
 from .plugin import CoreEventPlugin
 
 
+def _validate_raw_payload(payload):
+    if not isinstance(payload, dict) or not isinstance(payload.get("events"), list):
+        raise ValueError("core_event: raw payload must contain an events list")
+    declared = set(payload.get("channels") or [])
+    for index, event in enumerate(payload["events"]):
+        if not isinstance(event, dict):
+            raise ValueError(f"core_event: raw event {index} is not an object")
+        channels = event.get("channels")
+        if not isinstance(channels, list) or not channels:
+            raise ValueError(f"core_event: raw event {index} requires channels")
+        if declared and not set(channels) <= declared:
+            raise ValueError(f"core_event: raw event {index} has an unknown channel")
+
+
 class CoreEventLogType(LogType):
     id = "core_event"
     name = "Core Event"
@@ -20,6 +34,7 @@ class CoreEventLogType(LogType):
         return ("import", payload)
 
     def normalize_events(self, payload, *, row_id_base=0):
+        _validate_raw_payload(payload)
         data = self._impl._build_log_data(payload)[0]
         events = data["events"]
         row_id_map = {}
