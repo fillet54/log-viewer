@@ -15,6 +15,16 @@ does not fix the listed implementation defects.
 
 ## Historical progress (not current acceptance evidence)
 
+### Planned architecture revision — 2026-09-13
+
+Added required step R7a to `IMPLEMENTATION_SPEC.md`: core-owned declarative charts
+and an ordered per-plugin event augmentation pipeline. It replaces prior chart API
+requirements, defers Subsystem Status, makes Events a stacked histogram by log type,
+and unifies Severity through plugin field mappings (including text-log DEBUG → green).
+Bus Load becomes a declared core-rendered series. Multiple registered augmenters must
+support final-ID match links and batch/live parity. Status: specified, not implemented;
+complete R7a before rebuilding/accepting demos under R8 or advancing to Phases 10–11.
+
 Phase 1 status: complete. Obsolete source/docs/vendor files were removed, runtime
 dependencies are constrained, and the vendor manifest is synchronized with the eight
 active browser libraries. Local `cinc-data/sessions` was preserved because it contains

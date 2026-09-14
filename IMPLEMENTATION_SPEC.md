@@ -2031,6 +2031,10 @@ accepted additions to this specification, not regressions to remove during clean
 
 #### R7 — Repair and verify chart context end to end
 
+**Superseded by R7a below (2026-09-13).** Use R7a's core-owned chart model for
+implementation and acceptance. The following bullets record the original defects;
+they do not require retaining plugin chart renderers or Subsystem Status.
+
 - [ ] Use a consistent type context for registration eligibility, chart selection,
   timeline view selection, and panel rendering. `mount()` derives a sole present type,
   but `buildContext()` still passes a null `logType`, and `listViews()` filters using
@@ -2041,6 +2045,129 @@ accepted additions to this specification, not regressions to remove during clean
 - [ ] Implement/verify the Phase 8 mixed-chart behavior with correctly scoped plugin
   data and unambiguous IDs. Do not hide every plugin chart simply because multiple
   types are present. Check chart/list navigation and live updates.
+
+#### R7a — Core-owned declarative charts and event augmentation
+
+**Status: planned, required before R8 and Phases 10–11.** This user-approved step
+supersedes conflicting chart APIs, examples, and acceptance requirements in §4.5,
+Phases 2–9, R7, and the later documentation/test matrix. Implement the numbered items
+below in order. This is a specification change; the architecture is not yet implemented.
+
+1. **Make core own chart rendering and lifecycle.** Core owns chart kinds, Chart.js
+   construction, datasets, binning, colors, legends, controls, selection, navigation,
+   resize, and cleanup. Plugins declare supported views through JSON-serializable
+   configuration; they do not supply chart panels, dataset filter/value callbacks,
+   Chart.js options, or DOM control builders. Keep the offline Chart.js dependency.
+   Remove `registerChartType`/`registerTimelineView` and plugin chart-rendering modules
+   after migrating callers; do not preserve a parallel legacy registry. Remove
+   Subsystem Status registration, implementation, configuration, and acceptance
+   requirements for now. System/subsystem fields remain available for rows/search.
+
+2. **Define and validate declarations.** Add `chart_config(payload)` to `LogType`,
+   defaulting to `{}`. Core assembles its result as `logTypes[id].chartConfig` for
+   served, stored, live, and standalone viewers. Use this initial schema:
+
+   ```json
+   {
+     "severity": {
+       "field": "color",
+       "mapping": {
+         "Green": "green",
+         "Yellow": "yellow",
+         "Red": "red",
+         "Flashing Red": "flashing-red"
+       }
+     },
+     "series": [
+       {
+         "id": "bus-load",
+         "label": "Bus Load",
+         "kind": "line",
+         "field": "data.bus.load_pct",
+         "unit": "%"
+       }
+     ]
+   }
+   ```
+
+   Field paths resolve own object properties only; no evaluation or prototype access.
+   Match mapping keys exactly after converting scalar values to strings. Severity
+   targets are restricted to `green`, `yellow`, `red`, and `flashing-red`. Reject
+   malformed declarations, duplicate series IDs within a type, unsupported chart
+   kinds, and invalid paths with a log-type-specific error. `series` defaults to `[]`;
+   initially only `line` is supported there. Non-numeric, missing, or non-finite series
+   values produce gaps, never zero-valued replacements. Chart declarations alone must
+   not depend on executing plugin JavaScript.
+
+3. **Provide the default Events view for every type.** Events is always available,
+   with no plugin opt-in. Render a stacked histogram with one dataset per present log
+   type, using the type's display name and stable core-assigned color. Each visible
+   event contributes exactly once to its type's bin. Mixed and single-type logs use
+   the same implementation. All datasets share UTC bins, with half-open intervals
+   and the final boundary included. Filtering changes counts; live appends update
+   counts and bounds. An empty log renders an empty chart without errors.
+
+4. **Provide one shared Severity view.** Offer a Severity button when at least one
+   present/configured type declares `severity`. Map each participating event through
+   its own type's field/mapping and render four severity stacks across participating
+   types. Types without support and missing/unmapped values are excluded from this
+   view, but remain included in Events. Show an unmapped-event count so missing values
+   are visible rather than silently treated as green. Core owns the common palette.
+   `core_event` uses the mapping above. `text_log` uses `field: "level"` with DEBUG
+   and INFO → green, WARN → yellow, ERROR → red, and FATAL/CRITICAL → flashing-red.
+   Replace the separate Levels view with this common Severity view.
+
+5. **Migrate Bus Load and unify controls.** Core renders Bus Load using the line
+   declaration and only the declaring type's events. Ensure the fixture contains
+   meaningful numeric bus-load samples. Plugins can augment normalized events to
+   expose a suitable field instead of providing custom chart code. Namespace series
+   identity by `(log_type, series.id)` so matching local IDs cannot collide. In mixed
+   mode use `"<Type name> · <label>"` for series buttons. Timeline is the only chart
+   panel currently required; Events, Severity, and declared series are buttons in
+   its single command bar, never separate dropdown entries. Keep exactly one source
+   of selected-view state and one control renderer. Restore only eligible saved
+   selections; otherwise fall back to Events. Switching repeatedly must not create
+   competing controllers or subscriptions. Chart clicks, row selection, and scroll
+   tracking retain the shared core time/navigation semantics.
+
+6. **Introduce an explicit ordered augmentation pipeline.** Add a backend API
+   `LogType.register_event_augmenter(name, callback)` supporting multiple callbacks
+   per plugin instance. Names must be unique within that instance; reject duplicates.
+   Execute callbacks in registration order. Each callback receives a working list of
+   normalized events for its own type plus read-only context (type ID, payload header,
+   and processing mode), and returns the augmented list. Later callbacks see earlier
+   results. Reserve `row_id`, `time`, and `log_type`: augmenters cannot change these,
+   add/remove/reorder events, or access another type's events. Validate after each
+   callback and report failures with plugin and augmenter names; publish no partial
+   result. Require deterministic, side-effect-free callbacks that replace their own
+   derived fields and are safe to run again. Raw input must remain unchanged.
+
+   Core normalizes and assigns final globally unique row IDs/time/type first, then
+   runs augmentation before persistence, filtering, charts, and rendering. Move
+   core-event match links/durations into an explicitly registered augmenter and use
+   final IDs and actual timestamps. Derived fields are general event fields usable
+   by rows, search, details, and chart declarations, not a chart-only copy.
+
+   For the initial live implementation, recompute augmentation over the complete
+   accumulated normalized history of that type after each batch. Atomically persist
+   appended events and updates to earlier rows (including newly resolved match links),
+   and send corresponding insert/update messages to clients. Preserve existing IDs
+   and annotations. This deliberately prioritizes batch/live parity; incremental
+   augmentation can be a later optimization. Reopening must reuse persisted normalized
+   events without renormalizing them or changing IDs. Keep declaration/header metadata
+   needed to reopen mixed records and render the same charts.
+
+7. **Verify and document the migration.** Add tests for declaration validation,
+   mixed Events bin totals, severity mappings/exclusions, series scoping, duplicate
+   local IDs across types, and empty/filter/live behavior. Test multiple augmenters,
+   deterministic ordering, protected-field rejection, failure atomicity, and matching
+   across live batches; compare completed live output to batch output. Exercise the
+   actual browser: one button group, correct datasets after repeated switching,
+   restored selection, chart/list navigation, and live updates. Test all declared
+   samples and a mixed standalone bundle offline, rebuild tracked demos, and record
+   browser results separately from Python/build checks. Update author documentation,
+   configuration examples, and progress records. Run Black, flake8, and tests before
+   each implementation commit. R7a is complete only when these acceptance checks pass.
 
 #### R8 — Rebuild and exercise standalone demos
 
