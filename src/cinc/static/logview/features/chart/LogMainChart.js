@@ -89,10 +89,23 @@ LogMainViewChart.mount = (root, services) => {
   let cleanupCommands = null;
   let commandBar = null;
 
-  const listTypes = () =>
-    Array.from(LogMainViewChart.registry.values()).filter(
+  const listTypes = () => {
+    const chartTypes = Array.from(LogMainViewChart.registry.values()).filter(
       (type) => !type.pluginId || normalizePluginId(type.pluginId) === activePluginId
     );
+    const timelineTypes = Array.from(LogMainViewTimeline.registry.values())
+      .filter((view) => view.pluginId && normalizePluginId(view.pluginId) === activePluginId)
+      .map((view) => ({
+        ...view,
+        id: `timeline-${view.id}`,
+        renderPanel(panel, context) {
+          const controller = createTimelineChartController(panel, context);
+          controller.setView(view.id);
+          return controller;
+        },
+      }));
+    return [...chartTypes, ...timelineTypes];
+  };
 
   const buildContext = (extra = {}) => ({
     root,
