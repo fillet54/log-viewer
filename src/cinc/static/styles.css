@@ -1175,7 +1175,7 @@ button {
   font-family: var(--font-mono);
 }
 
-.log-relative-time::before {
+.log-relative-time.is-time-reference::before {
   content: "↕";
   color: var(--color-accent);
   font-family: var(--font-sans);

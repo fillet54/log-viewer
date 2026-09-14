@@ -79,6 +79,7 @@ export const PluginLogRow = ({
       onSetTimeReference=${() => viewerStore?.setTimeReference?.(event)}
       zuluTime=${formatZuluTime(event)}
       zuluTimeTitle=${event?.time || event?.utctime || ""}
+      isTimeReference=${String(viewerStore?.timeReferenceRowId?.value) === String(event?.row_id)}
     />
   `;
 };
