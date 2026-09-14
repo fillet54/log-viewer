@@ -52,6 +52,25 @@ def build_sample(channels, variant):
     }
 
 
+def build_text_sample():
+    start = datetime(2026, 4, 3, 8, tzinfo=timezone.utc)
+    levels = ["INFO", "DEBUG", "WARN", "ERROR"]
+    loggers = ["server", "worker", "cache", "db.pool", "http"]
+    lines = []
+    for index in range(2500):
+        timestamp = start + timedelta(seconds=index * 14.4)
+        line = {
+            "ts": timestamp.isoformat().replace("+00:00", "Z"),
+            "level": levels[index % len(levels)],
+            "logger": loggers[index % len(loggers)],
+            "message": f"processed timeline event {index + 1}",
+        }
+        if index % 17 == 0:
+            line["fields"] = {"attempt": index % 5 + 1, "sequence": index + 1}
+        lines.append(line)
+    return {"source": "timeline-app.log", "host": "build-agent-04", "lines": lines}
+
+
 root = Path(__file__).resolve().parents[1] / "src/cinc/plugins/core_event/samples"
 for filename, channels, variant in (
     ("sample-3ch.json", ["A", "B", "C"], 0),
@@ -61,3 +80,8 @@ for filename, channels, variant in (
         json.dumps(build_sample(channels, variant), indent=2) + "\n",
         encoding="utf-8",
     )
+
+text_root = root.parent.parent / "text_log" / "samples"
+(text_root / "sample.json").write_text(
+    json.dumps(build_text_sample(), indent=2) + "\n", encoding="utf-8"
+)

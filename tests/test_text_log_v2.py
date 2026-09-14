@@ -32,9 +32,9 @@ def test_text_sample_contract_and_config():
         Path("src/cinc/plugins/text_log/samples/sample.json").read_text()
     )
     events = log_type.normalize_events(payload)
-    assert len(events) == 40
+    assert len(events) == 2500
     assert events[0]["time"].endswith("Z")
-    assert events[3]["data"]["attempt"] == 3
+    assert events[0]["data"]["attempt"] == 1
     assert log_type.search_config(payload)["labelField"] == "message"
     assert log_type.view_config(payload)["timelineViews"] == ["levels"]
 
