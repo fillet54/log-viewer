@@ -1,5 +1,5 @@
 /* Compact neutral row with color reserved for the level badge. */
-.log-line.tl-row { grid-template-columns: 132px 76px 92px 76px minmax(0, 1fr) 28px; height: 36px; }
+.log-line.tl-row { grid-template-columns: 132px 76px 92px 76px 164px minmax(0, 1fr) 28px; height: 36px; }
 .tl-logger { width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0.2rem 0.35rem; border: 1px solid var(--color-border); border-radius: 0.15rem; background: var(--color-bg-muted); color: var(--color-text-secondary); font-size: 0.68rem; text-align: center; }
 .tl-level-badge { display: inline-flex; align-items: center; justify-content: center; width: 68px; height: 24px; border-radius: 0.35rem; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; }
 .tl-level-info { background: var(--event-green); color: var(--event-text-dark); }
