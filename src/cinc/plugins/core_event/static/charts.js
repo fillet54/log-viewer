@@ -146,26 +146,22 @@ Cinc.registerTimelineView("core_event", {
   datasets: [
     {
       label: "Green",
-      backgroundColor: "rgba(34, 197, 94, 0.75)",
-      borderColor: "rgba(22, 163, 74, 1)",
+      color: "var(--event-green)",
       filter: (event) => event.color === "Green",
     },
     {
       label: "Yellow",
-      backgroundColor: "rgba(250, 204, 21, 0.8)",
-      borderColor: "rgba(234, 179, 8, 1)",
+      color: "var(--event-yellow)",
       filter: (event) => event.color === "Yellow",
     },
     {
       label: "Red",
-      backgroundColor: "rgba(239, 68, 68, 0.8)",
-      borderColor: "rgba(220, 38, 38, 1)",
+      color: "var(--event-red)",
       filter: (event) => event.color === "Red",
     },
     {
       label: "Flashing Red",
-      backgroundColor: "rgba(127, 29, 29, 0.85)",
-      borderColor: "rgba(88, 28, 28, 1)",
+      color: "var(--event-dark-red)",
       filter: (event) => event.color === "Flashing Red",
     },
   ],
@@ -178,8 +174,8 @@ Cinc.registerTimelineView("core_event", {
   datasets: [
     {
       label: "Bus Load %",
-      borderColor: "rgba(245, 158, 11, 0.95)",
-      backgroundColor: "rgba(245, 158, 11, 0.18)",
+      borderColor: "var(--series-3)",
+      backgroundColor: "color-mix(in srgb, var(--series-3) 18%, transparent)",
       pointRadius: 2,
       tension: 0.2,
       filter: (event) => event.id === "pwr_bus" && typeof event?.data?.bus?.load_pct === "number",

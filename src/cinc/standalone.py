@@ -51,8 +51,7 @@ def _read_package_text(relative_path: str) -> str:
 
 def _read_package_data_uri(relative_path: str, mime_type: str) -> str:
     data = files("cinc").joinpath(relative_path).read_bytes()
-    encoded = base64.b64encode(data).decode("ascii")
-    return f"data:{mime_type};base64,{encoded}"
+    return f"data:{mime_type};base64,{base64.b64encode(data).decode('ascii')}"
 
 
 def _resolve_relative(current_path: str, rel_path: str) -> str:
@@ -94,7 +93,9 @@ def build_page_data_script(page_data: dict[str, object]) -> str:
 
 
 def build_standalone_html(data_script: str, title: str = "HTML Log Viewer") -> str:
-    styles = _read_package_text("static/styles.css")
+    styles = _read_package_text("static/styles.css").replace(
+        '@import url("fonts.css");', ""
+    )
 
     global_scripts = [data_script]
     for path in GLOBAL_SCRIPTS:
@@ -119,18 +120,25 @@ def build_standalone_html(data_script: str, title: str = "HTML Log Viewer") -> s
 
     esm_data = json.dumps(module_data)
 
-    logo_light = _read_package_data_uri("static/img/logo_lightmode.png", "image/png")
-    logo_dark = _read_package_data_uri("static/img/logo_darkmode.png", "image/png")
-
     return TEMPLATE_ENV.get_template("standalone.html").render(
         title=title,
-        styles=styles,
+        styles=_inline_fonts(_read_package_text("static/fonts.css")) + "\n" + styles,
         global_scripts=global_scripts,
         esm_data=esm_data,
         entry_point_id=ENTRY_POINT,
-        logo_light=logo_light,
-        logo_dark=logo_dark,
+        logo_light=_read_package_data_uri("static/img/logo_lightmode.png", "image/png"),
+        logo_dark=_read_package_data_uri("static/img/logo_darkmode.png", "image/png"),
     )
+
+
+def _inline_fonts(fonts_css: str) -> str:
+    """fonts.css with each url("fonts/...") replaced by a data URI."""
+
+    def inline(match: re.Match) -> str:
+        uri = _read_package_data_uri(f"static/fonts/{match.group(1)}", "font/woff2")
+        return f'url("{uri}")'
+
+    return re.sub(r'url\("fonts/([^"]+)"\)', inline, fonts_css)
 
 
 def build_standalone_bundle(

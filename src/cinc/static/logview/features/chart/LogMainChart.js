@@ -7,6 +7,40 @@ import { signals } from "logview/lib";
 
 const signalEffect = signals?.effect || null;
 
+// Canvas can't read CSS variables, so chart colors written as "var(--token)" are resolved through a probe
+// element into rgba(). Cached per colour scheme; onThemeChange tells charts to redraw with the new values.
+const colorCache = new Map();
+let colorProbe = null;
+const toRgba = (computed) => {
+  const srgb = computed.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+  if (!srgb) return computed;
+  const [r, g, b] = srgb.slice(1, 4).map((v) => Math.round(Number(v) * 255));
+  return `rgba(${r}, ${g}, ${b}, ${srgb[4] ?? 1})`;
+};
+export const themeColor = (value, fallback = "rgba(128, 128, 128, 0.6)") => {
+  if (typeof value !== "string" || !value.includes("var(")) return value || fallback;
+  if (colorCache.has(value)) return colorCache.get(value);
+  if (!colorProbe) {
+    colorProbe = document.createElement("span");
+    colorProbe.style.display = "none";
+    document.body.appendChild(colorProbe);
+  }
+  colorProbe.style.color = "";
+  colorProbe.style.color = value;
+  const resolved = toRgba(getComputedStyle(colorProbe).color) || fallback;
+  colorCache.set(value, resolved);
+  return resolved;
+};
+const themeFont = () => getComputedStyle(document.documentElement).getPropertyValue("--font-body").trim();
+const onThemeChange = (callback) => {
+  const run = () => { colorCache.clear(); callback(); };
+  const observer = new MutationObserver(run);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  media.addEventListener("change", run);
+  return () => { observer.disconnect(); media.removeEventListener("change", run); };
+};
+
 const normalizePluginId = (id) => String(id || "").trim().toLowerCase().replace(/_/g, "-") || null;
 
 LogMainViewChart.registry = LogMainViewChart.registry || new Map();
@@ -402,9 +436,9 @@ const buildTimelineDatasets = (view, context) => {
   const specs = Array.isArray(view.datasets) ? view.datasets : [];
   const kind = view.kind || "histogram";
   return specs.map((spec) => {
-    const color = spec.color || "rgba(59, 130, 246, 0.55)";
-    const backgroundColor = spec.backgroundColor || color;
-    const borderColor = spec.borderColor || color;
+    const color = spec.color || "var(--chart-bar)";
+    const backgroundColor = themeColor(spec.backgroundColor || color);
+    const borderColor = themeColor(spec.borderColor || color);
     if (kind === "scatter") {
       const data = sourceEvents
         .filter((event) => (typeof spec.filter === "function" ? spec.filter(event) : true))
@@ -425,20 +459,34 @@ const buildTimelineDatasets = (view, context) => {
     }
 
     const data = context.helpers.buildBucketPoints(sourceEvents, spec);
+    if (kind === "line") {
+      return {
+        label: spec.label,
+        type: "line",
+        data,
+        parsing: false,
+        backgroundColor,
+        borderColor,
+        borderWidth: spec.borderWidth ?? 1.5,
+        fill: spec.fill ?? false,
+        tension: spec.tension ?? 0.18,
+        pointRadius: spec.pointRadius ?? 0,
+      };
+    }
+    // Histogram: solid, square bars with a clear gap between buckets. Stacked segments are split by a
+    // hairline in the ground colour, so adjacent severities don't run together.
     return {
       label: spec.label,
-      type: kind === "line" ? "line" : "bar",
+      type: "bar",
       data,
       parsing: false,
       backgroundColor,
-      borderColor,
-      borderWidth: spec.borderWidth ?? 1,
-      fill: spec.fill ?? false,
-      tension: spec.tension ?? 0.18,
-      pointRadius: kind === "line" ? spec.pointRadius ?? 0 : spec.pointRadius,
-      barPercentage: 1,
+      borderColor: view.stacked ? themeColor("var(--chart-gap)") : backgroundColor,
+      borderWidth: view.stacked ? { top: 1, right: 0, bottom: 0, left: 0 } : 0,
+      borderSkipped: false,
+      borderRadius: 0,
+      barPercentage: spec.barPercentage ?? 0.78,
       categoryPercentage: 1,
-      borderRadius: kind === "histogram" ? spec.borderRadius ?? 2 : spec.borderRadius,
     };
   });
 };
@@ -571,7 +619,7 @@ const createTimelineChartController = (panel, context) => {
           ctx.fill();
           if (String(selectedRowId) === String(rowId)) {
             ctx.lineWidth = 1.5;
-            ctx.strokeStyle = "rgba(15, 23, 42, 0.9)";
+            ctx.strokeStyle = themeColor("var(--ink)");
             ctx.stroke();
           }
           ctx.restore();
@@ -579,12 +627,9 @@ const createTimelineChartController = (panel, context) => {
         };
         bookmarkIds.forEach((rowId) => {
           const colorIndex = context.bookmarks?.getColor(rowId) || 1;
-          const fill =
-            getComputedStyle(document.documentElement).getPropertyValue(`--bookmark-color-${colorIndex}`) ||
-            "rgba(59, 130, 246, 0.95)";
-          drawMarker(rowId, chartArea.top + 8, fill.trim());
+          drawMarker(rowId, chartArea.top + 8, themeColor(`var(--bookmark-color-${colorIndex})`));
         });
-        commentIds.forEach((rowId) => drawMarker(rowId, chartArea.bottom - 8, "rgba(71, 85, 105, 0.9)"));
+        commentIds.forEach((rowId) => drawMarker(rowId, chartArea.bottom - 8, themeColor("var(--chart-tick)")));
         chart.$timelineMarkers = markers;
       },
     },
@@ -600,7 +645,7 @@ const createTimelineChartController = (panel, context) => {
         ctx.lineTo(x, chartArea.bottom);
         ctx.lineWidth = 1;
         ctx.setLineDash([4, 4]);
-        ctx.strokeStyle = "rgba(30, 64, 175, 0.65)";
+        ctx.strokeStyle = themeColor("var(--accent)");
         ctx.stroke();
         ctx.restore();
       },
@@ -630,10 +675,12 @@ const createTimelineChartController = (panel, context) => {
           offset: false,
           bounds: "data",
           grid: { display: false, drawBorder: false, offset: false },
+          border: { display: true, color: themeColor("var(--chart-grid)") },
           ticks: {
-            maxTicksLimit: 5,
+            maxTicksLimit: 6,
             includeBounds: true,
-            color: "rgba(71, 85, 105, 0.9)",
+            maxRotation: 0,
+            padding: 4,
             callback(value) {
               return new Date(helpers.startMs + Number(value) * 1000).toISOString().slice(11, 19);
             },
@@ -642,7 +689,9 @@ const createTimelineChartController = (panel, context) => {
         y: {
           beginAtZero: true,
           grace: "20%",
-          grid: { color: "rgba(148, 163, 184, 0.16)", drawBorder: false },
+          border: { display: false },
+          grid: { drawTicks: false, lineWidth: 1 },
+          ticks: { precision: 0, maxTicksLimit: 4, padding: 6 },
         },
       },
       onClick(event) {
@@ -785,6 +834,16 @@ const createTimelineChartController = (panel, context) => {
     chart.config.type = view.kind === "scatter" ? "scatter" : view.kind === "line" ? "line" : "bar";
     chart.data.datasets = datasets;
     chart.options.plugins.legend.display = datasets.length > 1;
+    const tick = themeColor("var(--chart-tick)");
+    chart.options.color = tick;
+    chart.options.font = { family: themeFont(), size: 11 };
+    const mono = getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim();
+    chart.options.scales.x.ticks.color = tick;
+    chart.options.scales.x.ticks.font = { family: mono, size: 10 };
+    chart.options.scales.x.border.color = themeColor("var(--chart-grid)");
+    chart.options.scales.y.ticks = { ...(chart.options.scales.y.ticks || {}), color: tick, font: { family: mono, size: 10 } };
+    chart.options.scales.y.grid.color = themeColor("var(--chart-grid)");
+    chart.options.plugins.legend.labels = { color: tick, boxWidth: 8, boxHeight: 8, padding: 14, font: { family: themeFont(), size: 11 } };
     chart.options.scales.y.stacked = Boolean(view.stacked);
     chart.options.scales.x.stacked = Boolean(view.stacked);
     chart.options.scales.x.min = 0;
@@ -794,7 +853,7 @@ const createTimelineChartController = (panel, context) => {
     chart.options.scales.y.suggestedMin = undefined;
     chart.options.scales.y.suggestedMax = undefined;
     chart.options.scales.y.beginAtZero = true;
-    chart.options.scales.y.grace = "20%";
+    chart.options.scales.y.grace = "10%";
 
     while (chart.config.plugins.length > 2) chart.config.plugins.pop();
     activeViewPlugins = typeof view.buildPlugins === "function" ? view.buildPlugins(timelineContext) || [] : [];
@@ -832,6 +891,7 @@ const createTimelineChartController = (panel, context) => {
   };
 
   const off = [];
+  off.push(onThemeChange(() => applyView(currentViewId)));
   if (context.viewerStore && typeof signalEffect === "function") {
     off.push(
       signalEffect(() => {
@@ -949,8 +1009,8 @@ LogMainViewTimeline.registerView({
   datasets: [
     {
       label: "Events",
-      backgroundColor: "rgba(59, 130, 246, 0.28)",
-      borderColor: "rgba(37, 99, 235, 0.5)",
+      backgroundColor: "var(--chart-bar)",
+      borderColor: "var(--chart-bar-line)",
     },
   ],
 });

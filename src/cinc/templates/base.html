@@ -1,19 +1,11 @@
+{% import "_theme.html" as theme %}
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}Cinc{% endblock %}</title>
-    <script>
-      (function () {
-        const storageKey = "cinc-theme";
-        const storedTheme = localStorage.getItem(storageKey);
-        const preferredTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light";
-        document.documentElement.dataset.theme = storedTheme || preferredTheme;
-      })();
-    </script>
+    {{ theme.head_script() }}
     <script type="importmap">
     {
       "imports": {
@@ -28,6 +20,7 @@
       }
     }
     </script>
+    <link rel="preload" href="{{ url_for('static', filename='fonts/IBMPlexSans-Regular.woff2') }}" as="font" type="font/woff2" crossorigin />
     <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
     <script src="{{ url_for('static', filename='vendor/split.min.js') }}"></script>
     <script type="module" src="{{ url_for('static', filename='runtime.js') }}"></script>
@@ -37,46 +30,25 @@
   <body class="app-body{% block body_class %}{% endblock %}">
     <div class="app-shell">
       <header class="topbar">
-        <div class="topbar-inner">
-          <a href="{{ url_for('live') }}" class="brand">
-            <img src="{{ url_for('static', filename='img/logo_lightmode.png') }}" class="brand-logo brand-logo-light" alt="Cinc" />
-            <img src="{{ url_for('static', filename='img/logo_darkmode.png') }}" class="brand-logo brand-logo-dark" alt="Cinc" />
-            <span class="brand-name">Cinc</span>
-          </a>
-          <nav class="topbar-nav" style="display: flex; align-items: center; gap: 0.35rem;">
-          <a href="{{ url_for('live') }}" class="button button-ghost button-xs">Live</a>
-          <a href="{{ url_for('history') }}" class="button button-ghost button-xs">History</a>
-          </nav>
+        <a href="{{ url_for('live') }}" class="brand">
+          <img src="{{ url_for('static', filename='img/logo_lightmode.png') }}" class="brand-logo brand-logo-light" alt="" />
+          <img src="{{ url_for('static', filename='img/logo_darkmode.png') }}" class="brand-logo brand-logo-dark" alt="" />
+          <span class="brand-name">Cinc</span>
+        </a>
+        <nav class="topbar-nav" aria-label="Primary">
+          {% for key, label, endpoint in [("live", "Live", "live"), ("history", "History", "history")] %}
+          <a href="{{ url_for(endpoint) }}"{% if nav_current == key %} aria-current="page"{% endif %}>{{ label }}</a>
+          {% endfor %}
+        </nav>
         <div class="topbar-actions">
-          <button type="button" id="theme-toggle" class="button button-ghost button-xs" aria-label="Toggle theme">
-            Theme
-          </button>
+          <button type="button" id="theme-toggle" class="button button-ghost button-xs">Theme</button>
         </div>
-      </div>
       </header>
-      <main class="app-content{% block main_class %}{% endblock %}">
+      <main class="app-content">
         {% block content %}{% endblock %}
       </main>
     </div>
-    <script>
-      (function () {
-        const storageKey = "cinc-theme";
-        const button = document.getElementById("theme-toggle");
-        if (!button) return;
-        const root = document.documentElement;
-        const syncLabel = () => {
-          const theme = root.dataset.theme === "dark" ? "Dark" : "Light";
-          button.textContent = theme;
-          button.setAttribute("aria-label", `Switch theme. Current theme: ${theme}`);
-        };
-        button.addEventListener("click", () => {
-          root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
-          localStorage.setItem(storageKey, root.dataset.theme);
-          syncLabel();
-        });
-        syncLabel();
-      })();
-    </script>
-    {% block body_scripts %}{% endblock %}
+    {{ theme.toggle_script() }}
+    {% block scripts %}{% endblock %}
   </body>
 </html>

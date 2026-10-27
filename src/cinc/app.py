@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import queue
+from datetime import datetime, timezone
 from pathlib import Path
 
 from flask import (
@@ -23,6 +24,17 @@ from .logdir import LogDir, is_log_dir, list_logs, valid_id
 from .standalone import build_page_data_script, build_standalone_html
 
 
+def when(value) -> str:
+    """'2026-10-27 05:19:39Z' for an ISO time; anything else as it is."""
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return str(value or "")
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc)
+    return parsed.strftime("%Y-%m-%d %H:%M:%SZ")
+
+
 def create_app(data_dir: Path | None = None) -> Flask:
     root = Path(data_dir or os.environ.get("CINC_DATA_DIR", "./cinc-data"))
     root.mkdir(parents=True, exist_ok=True)
@@ -30,6 +42,7 @@ def create_app(data_dir: Path | None = None) -> Flask:
     hub = LiveHub(root, registry)
     app = Flask(__name__)
     app.extensions["cinc"] = {"registry": registry, "hub": hub, "root": root}
+    app.jinja_env.filters["when"] = when
 
     def find_log(log_id: str) -> LogDir:
         path = root / log_id

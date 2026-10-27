@@ -1,23 +1,26 @@
 {% extends "base.html" %}
+{% set nav_current = "live" %}
 
-{% block title %}Waiting — Cinc{% endblock %}
+{% block title %}Waiting · Cinc{% endblock %}
 
 {% block content %}
-<div class="page-narrow">
+<div class="page">
   {% if log %}
-    <h1>{% if live %}<span class="live-badge">Live</span> {% endif %}{{ log.meta().name }}</h1>
-    <p class="empty-state">{% if live %}Waiting for the first events…{% else %}This log has no events.{% endif %}</p>
+    <div class="page-eyebrow">{{ "Live" if live else "Log" }}</div>
+    <h1 class="page-title">{{ log.meta().name }}</h1>
+    <p class="page-empty">{{ "Waiting for the first events…" if live else "This log has no events." }}</p>
   {% else %}
-    <h1>Waiting for a log</h1>
-    <p class="empty-state">
-      Start one with <code>POST /api/logs</code>, or just post rows to
-      <code>POST /api/events</code>. <a href="{{ url_for('history') }}">Browse history</a>.
+    <div class="page-eyebrow">Live</div>
+    <h1 class="page-title">Waiting for a log</h1>
+    <p class="page-lead">
+      Start one with <code>POST /api/logs</code>, or just post rows to <code>POST /api/events</code>.
+      <a href="{{ url_for('history') }}">Browse history</a>.
     </p>
   {% endif %}
 </div>
 {% endblock %}
 
-{% block body_scripts %}
+{% block scripts %}
   {% if not log or live %}
   <script>
     // Reload as soon as anything arrives: a new log or its first events.
