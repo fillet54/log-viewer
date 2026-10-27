@@ -14,23 +14,34 @@ const renderStartupError = (host, message) => {
   render(h("div", { class: "empty-panel-message" }, String(message || "Unable to load event log viewer.")), host);
 };
 
-const connectLiveStream = (services, sessionId) => {
-  const es = new EventSource(`/live/${sessionId}/stream`);
-
-  es.onmessage = (e) => {
-    let msg;
-    try { msg = JSON.parse(e.data); } catch { return; }
-    if (msg.type === "ping") return;
-    if (msg.type === "done") { es.close(); return; }
-    if (msg.type === "events" && Array.isArray(msg.events) && msg.events.length) {
+// Live mode: append events posted to the current log. The server says
+// "reload" when the page needs fresh type config, and "log" when a new log
+// starts (the live page follows it).
+const connectLiveStream = (services, live) => {
+  let seq = live.seq || 0;
+  const known = new Set(Object.keys(services.logTypes || {}));
+  const open = () => {
+    const es = new EventSource(`/api/stream?log=${encodeURIComponent(live.logId)}&after=${seq}`);
+    es.onmessage = (e) => {
+      let msg;
+      try { msg = JSON.parse(e.data); } catch { return; }
+      if (msg.type === "log") { es.close(); window.location.href = "/"; return; }
+      if (msg.type === "reload") { es.close(); window.location.reload(); return; }
+      if (msg.type !== "events" || !Array.isArray(msg.events)) return;
+      if (msg.events.some((event) => !known.has(event.log_type))) {
+        es.close();
+        window.location.reload();
+        return;
+      }
+      seq = msg.seq;
       services.viewerStore.appendEvents(msg.events);
-    }
+    };
+    es.onerror = () => {
+      es.close();
+      setTimeout(open, 3000);
+    };
   };
-
-  es.onerror = () => {
-    es.close();
-    setTimeout(() => connectLiveStream(services, sessionId), 5000);
-  };
+  open();
 };
 
 const loadPageStyles = (pageData) => {
@@ -70,9 +81,8 @@ export const bootstrapViewer = async ({ host = document.getElementById("log-view
       host
     );
     host.dispatchEvent(new CustomEvent("logapp:ready", { bubbles: true, composed: true }));
-  const liveSessionId = pageData?.live?.sessionId;
-  if (!isStandalone() && liveSessionId) {
-      connectLiveStream(services, liveSessionId);
+    if (!isStandalone() && pageData?.live?.logId) {
+      connectLiveStream(services, pageData.live);
     }
     return true;
   } catch (error) {

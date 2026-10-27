@@ -1,9 +1,9 @@
-__all__ = ["app"]
+__all__ = ["create_app"]
 
 
 def __getattr__(name: str):
-    if name == "app":
-        from .app import app
+    if name == "create_app":
+        from .app import create_app
 
-        return app
+        return create_app
     raise AttributeError(name)

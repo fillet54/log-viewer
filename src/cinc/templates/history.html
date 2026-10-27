@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}History — Cinc{% endblock %}
+
+{% block content %}
+<div class="page-narrow">
+  <h1>Logs</h1>
+  {% if logs %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>Name</th><th>Started</th><th>Types</th><th>Folder</th></tr>
+        </thead>
+        <tbody>
+          {% for item in logs %}
+          <tr>
+            <td>
+              <a href="{{ url_for('view_log', log_id=item.log.id) }}">{{ item.meta.name }}</a>
+              {% if item.log.id == current_id %}<span class="live-badge">Live</span>{% endif %}
+            </td>
+            <td class="mono-muted">{{ item.meta.started }}</td>
+            <td class="mono-muted">{{ item.types|join(", ") or "—" }}</td>
+            <td class="mono-muted">{{ item.log.id }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="empty-state">No logs yet. Post events to <code>/api/events</code> or write a log folder into the data directory.</p>
+  {% endif %}
+</div>
+{% endblock %}

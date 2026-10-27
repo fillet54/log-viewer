@@ -1,9 +1,0 @@
-{% extends "base.html" %}
-{% block content %}
-<main class="logs-page"><h1>Logs</h1>
-{% for entry in entries %}
-<section><h2>{{ entry.log_type.name }}</h2><p>{{ entry.count }} logs</p>
-<a href="{{ url_for('logs.list_logs', log_type_id=entry.log_type.id) }}">View logs</a>
-<a href="{{ url_for('logs.import_logs') }}">Import</a></section>
-{% endfor %}</main>
-{% endblock %}

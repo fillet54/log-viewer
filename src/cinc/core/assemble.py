@@ -1,6 +1,34 @@
 from typing import Any
-from .contract import validate_events
+
 from .chart_config import validate_chart_config
+from .contract import validate_events
+
+
+def normalize_section(
+    log_type: Any, payload: dict[str, Any], *, row_id_base: int = 0, mode="batch"
+) -> list[dict[str, Any]]:
+    """Normalize, augment and validate one type's payload into viewer events."""
+    produced = log_type.normalize_events(payload, row_id_base=row_id_base)
+    if any("log_type" in event for event in produced):
+        raise ValueError(f"{log_type.id}: normalized events must not supply log_type")
+    produced = log_type.augment_events(produced, payload=payload, mode=mode)
+    events = [dict(event, log_type=log_type.id) for event in produced]
+    validate_events(events, log_type.id)
+    return events
+
+
+def type_config(log_type: Any, payload: dict[str, Any]) -> dict[str, Any]:
+    view = log_type.view_config(payload)
+    return {
+        "name": log_type.name,
+        "rowSettings": view.get("rowSettings", {}),
+        "charts": view.get("charts", []),
+        "timelineViews": view.get("timelineViews", []),
+        "search": log_type.search_config(payload),
+        "chartConfig": validate_chart_config(
+            log_type.chart_config(payload), log_type.id
+        ),
+    }
 
 
 def assemble_page_data(
@@ -8,44 +36,16 @@ def assemble_page_data(
 ) -> dict[str, Any]:
     events: list[dict[str, Any]] = []
     configs: dict[str, dict[str, Any]] = {}
-    payloads: dict[str, dict[str, Any]] = {}
-    base = 0
-    for log_type, payload in sections:
-        produced = log_type.normalize_events(payload, row_id_base=base)
-        if any("log_type" in event for event in produced):
-            raise ValueError(
-                f"{log_type.id}: normalized events must not supply log_type"
-            )
-        produced = log_type.augment_events(produced, payload=payload, mode="batch")
-        for event in produced:
-            event = dict(event)
-            event["log_type"] = log_type.id
-            events.append(event)
-        validate_events(
-            [dict(event, log_type=log_type.id) for event in produced],
-            log_type.id,
-        )
-        base += len(produced)
-        view = log_type.view_config(payload)
-        configs[log_type.id] = {
-            "name": log_type.name,
-            "rowSettings": view.get("rowSettings", {}),
-            "charts": view.get("charts", []),
-            "timelineViews": view.get("timelineViews", []),
-            "search": log_type.search_config(payload),
-            "chartConfig": validate_chart_config(
-                log_type.chart_config(payload), log_type.id
-            ),
-        }
-        payloads[log_type.id] = payload
-    events.sort(key=lambda event: (event["time"], event["row_id"]))
     summary: dict[str, Any] = {}
+    scripts: list[str] = []
+    styles: list[str] = []
     for log_type, payload in sections:
+        events.extend(normalize_section(log_type, payload, row_id_base=len(events)))
+        configs[log_type.id] = type_config(log_type, payload)
         summary.update(log_type.log_summary(payload))
-    scripts, styles = [], []
-    for log_type, _ in sections:
         scripts.extend(log_type.inline_scripts())
         styles.extend(log_type.inline_styles())
+    events.sort(key=lambda event: (event["time"], event["row_id"]))
     return {
         "apiVersion": 2,
         "logTypes": configs,

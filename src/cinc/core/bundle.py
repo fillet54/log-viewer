@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from ..logdir import LogDir, is_log_dir
 from .assemble import assemble_page_data
 from .registry import LogTypeRegistry
 
@@ -62,15 +63,45 @@ def resolve_sections(
     return [(matches[0], payload)]
 
 
+def _lookup(registry: LogTypeRegistry, type_id: str, path: str):
+    log_type = registry.get(type_id)
+    if log_type is None:
+        raise ValueError(
+            f"Unknown log type {type_id!r} for {path}. "
+            f"Registered types: {_registered(registry)}"
+        )
+    return log_type
+
+
+def log_dir_sections(log: LogDir, registry: LogTypeRegistry):
+    return [
+        (_lookup(registry, type_id, str(log.path)), payload)
+        for type_id, payload in log.payloads()
+    ]
+
+
+def read_sections(
+    path: Path, registry: LogTypeRegistry, *, log_type_id: str | None = None
+):
+    """Sections for one CLI input: a log directory, a ``<type>.jsonl`` file,
+    or a JSON payload/bundle file."""
+    path = Path(path)
+    if is_log_dir(path):
+        return log_dir_sections(LogDir(path), registry)
+    if path.suffix == ".jsonl":
+        log = LogDir(path.parent)
+        type_id = log_type_id or path.stem
+        payload = {**log.header(path.stem), "events": log.rows(path.stem)}
+        return [(_lookup(registry, type_id, str(path)), payload)]
+    with path.open(encoding="utf-8") as handle:
+        payload = json.load(handle)
+    return resolve_sections(payload, registry, path=str(path), log_type_id=log_type_id)
+
+
 def build_from_paths(
     paths: list[Path], registry: LogTypeRegistry, *, log_type_id: str | None = None
 ):
     sections = []
     for path in paths:
-        with path.open(encoding="utf-8") as handle:
-            sections.extend(
-                resolve_sections(
-                    json.load(handle), registry, path=str(path), log_type_id=log_type_id
-                )
-            )
+        sections.extend(read_sections(path, registry, log_type_id=log_type_id))
     return assemble_page_data(sections)

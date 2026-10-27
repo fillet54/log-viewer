@@ -12,66 +12,6 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from .core.bundle import build_from_paths
 from .core.registry import LogTypeRegistry
 
-_LEGACY_SCRIPT_PATHS = [
-    "static/vendor/chart.umd.min.js",
-    "static/vendor/split.min.js",
-    "static/vendor/preact.mjs",
-    "static/vendor/hooks.mjs",
-    "static/vendor/signals-core.mjs",
-    "static/vendor/signals.mjs",
-    "static/vendor/htm-core.mjs",
-    "static/vendor/htm-preact.mjs",
-    "static/runtime.js",
-    "static/shared.js",
-    "static/context.js",
-    "static/hooks/use-app-services.js",
-    "static/hooks/use-split.js",
-    "static/hooks/use-virtual-list.js",
-    "static/state/storage.js",
-    "static/state/navigation.js",
-    "static/state/layout.js",
-    "static/state/search.js",
-    "static/state/chart.js",
-    "static/state/activity.js",
-    "static/state/viewer-store.js",
-    "static/services/search.js",
-    "static/services/app-services.js",
-    "static/logview/lib.js",
-    "static/logview/features/detail/DataTree.js",
-    "static/logview/features/detail/CommentThread.js",
-    "static/logview/features/detail/DetailPanelHeader.js",
-    "static/logview/features/detail/EmptyDetailState.js",
-    "static/logview/features/detail/EventSummary.js",
-    "static/logview/features/detail/BookmarkSection.js",
-    "static/logview/features/detail/CommentSection.js",
-    "static/logview/features/detail/DataTreeSection.js",
-    "static/logview/features/detail/DetailEventContent.js",
-    "static/logview/features/detail/DetailPanel.js",
-    "static/logview/features/search/SearchPanelHeader.js",
-    "static/logview/features/search/SearchItemRow.js",
-    "static/logview/features/search/FilterItemRow.js",
-    "static/logview/features/search/ReadOnlyCommentThread.js",
-    "static/logview/features/search/SearchHelpDialog.js",
-    "static/logview/features/rows/PluginLogRow.js",
-    "static/logview/features/search/RenderedRow.js",
-    "static/logview/features/search/ActivityItem.js",
-    "static/logview/features/search/SearchHistoryView.js",
-    "static/logview/features/search/SearchFilterView.js",
-    "static/logview/features/search/SearchBookmarksView.js",
-    "static/logview/features/search/SearchSidebar.js",
-    "static/logview/features/search/SearchControls.js",
-    "static/logview/features/search/SearchResultsContent.js",
-    "static/logview/features/search/SearchResultsPane.js",
-    "static/logview/features/search/SearchPanel.js",
-    "static/logview/features/chart/LogMainChart.js",
-    "static/logview/features/main/LogVirtualList.js",
-    "static/logview/features/main/MainViewToolbar.js",
-    "static/logview/features/main/MainViewShell.js",
-    "static/logview/features/layout/LayoutShell.js",
-    "static/logview/ViewerRoot.js",
-    "static/app.js",
-]
-
 GLOBAL_SCRIPTS = [
     "static/vendor/chart.umd.min.js",
     "static/vendor/split.min.js",
@@ -193,67 +133,16 @@ def build_standalone_html(data_script: str, title: str = "HTML Log Viewer") -> s
     )
 
 
-def build_standalone_file(
-    plugin_id: str,
-    data_path: Path,
-    output_path: Path,
-    title: str = "HTML Log Viewer",
-) -> Path:
-    registry = LogTypeRegistry.discover()
-    page_data = build_from_paths([data_path], registry, log_type_id=plugin_id)
-    data_script = build_page_data_script(page_data)
-    html = build_standalone_html(data_script=data_script, title=title)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(html, encoding="utf-8")
-    return output_path
-
-
-def build_standalone_files(
-    plugin_id: str,
-    data_path: Path,
-    output_path: Path,
-    title: str = "HTML Log Viewer",
-) -> list[Path]:
-    documents = [
-        {
-            "pageData": build_from_paths(
-                [data_path], LogTypeRegistry.discover(), log_type_id=plugin_id
-            )
-        }
-    ]
-    if len(documents) <= 1:
-        return [
-            build_standalone_file(
-                plugin_id=plugin_id,
-                data_path=data_path,
-                output_path=output_path,
-                title=title,
-            )
-        ]
-
-    output_dir = output_path if output_path.suffix == "" else output_path.parent
-    output_dir.mkdir(parents=True, exist_ok=True)
-    written: list[Path] = []
-    base_stem = output_path.stem if output_path.suffix else "report"
-    for index, document in enumerate(documents, start=1):
-        page_data = document["pageData"]
-        data_script = build_page_data_script(page_data)
-        doc_title = str(document.get("title") or title)
-        html = build_standalone_html(data_script=data_script, title=doc_title)
-        slug = (
-            str(document.get("slug") or f"{base_stem}-{index}").strip()
-            or f"{base_stem}-{index}"
-        )
-        target = output_dir / f"{slug}.html"
-        target.write_text(html, encoding="utf-8")
-        written.append(target)
-    return written
-
-
 def build_standalone_bundle(
-    data_paths: list[Path], output_path: Path, title: str = "HTML Log Viewer"
+    data_paths: list[Path],
+    output_path: Path,
+    title: str = "HTML Log Viewer",
+    *,
+    log_type_id: str | None = None,
 ) -> Path:
-    page_data = build_from_paths(data_paths, LogTypeRegistry.discover())
+    page_data = build_from_paths(
+        data_paths, LogTypeRegistry.discover(), log_type_id=log_type_id
+    )
     html = build_standalone_html(build_page_data_script(page_data), title=title)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")

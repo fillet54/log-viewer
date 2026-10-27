@@ -1,3 +1,5 @@
+> **Superseded (2026-10-26):** the app was simplified to a viewer with standalone and live modes; see README.md. The SQLite store, import routes and replay sources described here were removed.
+
 # Cinc Log Viewer — Implementation Spec v2
 
 **Repository:** `~/Repos/log-viewer` (package `cinc`)

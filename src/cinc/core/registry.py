@@ -1,5 +1,5 @@
 from importlib.metadata import entry_points
-from cinc.logs.types import LogType
+from .log_type import LogType
 
 
 class LogTypeRegistry:

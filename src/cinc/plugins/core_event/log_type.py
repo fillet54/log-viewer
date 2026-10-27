@@ -1,7 +1,6 @@
-from cinc.logs.types import LogType
-from cinc.live.replay import SampleReplaySource
-from importlib.resources import files
-from .plugin import CoreEventPlugin
+from cinc.core.log_type import LogType
+
+from .plugin import build_log_data
 
 
 def _validate_raw_payload(payload):
@@ -23,19 +22,11 @@ class CoreEventLogType(LogType):
     name = "Core Event"
     description = "Timestamped system events and fault transitions."
     script_paths = ("static/row.js", "static/charts.js")
-    sample_paths = ("samples/sample-3ch.json", "samples/sample-4ch.json")
     style_paths = ("static/row.css",)
-
-    def __init__(self):
-        self._impl = CoreEventPlugin()
-
-    def parse_import(self, *, file=None, json_data=None):
-        payload = json_data if json_data is not None else __import__("json").load(file)
-        return ("import", payload)
 
     def normalize_events(self, payload, *, row_id_base=0):
         _validate_raw_payload(payload)
-        data = self._impl._build_log_data(payload)[0]
+        data = build_log_data(payload)[0]
         events = data["events"]
         row_id_map = {}
         for i, event in enumerate(events, row_id_base + 1):
@@ -65,13 +56,8 @@ class CoreEventLogType(LogType):
             return 0.9
         return 0.7 if {"norm_time", "utctime"} <= keys else 0.0
 
-    def create_live_source(self):
-        return SampleReplaySource(
-            files(__package__).joinpath("samples/sample-4ch.json"), speed=20.0
-        )
-
     def view_config(self, payload):
-        channels = self._impl._build_log_data(payload)[1]
+        channels = build_log_data(payload)[1]
         return {
             "rowSettings": {"channels": channels},
             "rowHeightHint": 36,
@@ -108,9 +94,3 @@ class CoreEventLogType(LogType):
             "aliasSuffix": "_search",
             "fields": ["time", "name", "system", "color"],
         }
-
-    def log_summary(self, payload):
-        return {}
-
-    def inline_scripts(self):
-        return self._impl.get_inline_scripts()

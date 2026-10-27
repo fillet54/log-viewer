@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}{{ meta.name }} — Cinc{% endblock %}
+
+{% block body_class %} app-body-viewer{% endblock %}
+{% block main_class %} app-content-viewer{% endblock %}
+
+{% block head_extra %}
+  <script>{{ page_data_script|safe }}</script>
+{% endblock %}
+
+{% block content %}
+  <div class="log-bar">
+    <span class="log-bar-info">
+      {% if live %}<span class="live-badge">Live</span>{% endif %}
+      <span class="log-bar-name">{{ meta.name }}</span>
+      <span class="mono-muted">{{ meta.started }}</span>
+      <span class="mono-muted">{{ log.types()|join(", ") }}</span>
+    </span>
+    <span class="log-bar-actions">
+      {% if newer %}<a class="button button-xs button-ghost" href="{{ url_for('view_log', log_id=newer) }}">‹ Newer</a>{% endif %}
+      {% if older %}<a class="button button-xs button-ghost" href="{{ url_for('view_log', log_id=older) }}">Older ›</a>{% endif %}
+      <a class="button button-xs button-ghost" href="{{ url_for('history') }}">History</a>
+      <a class="button button-xs button-ghost" href="{{ url_for('download_log', log_id=log.id) }}">Download</a>
+    </span>
+  </div>
+  <div class="viewer-page" style="flex: 1 1 auto; min-height: 0;">
+    <div id="log-viewer-root" class="log-viewer-root"></div>
+  </div>
+{% endblock %}
+
+{% block body_scripts %}
+  <script type="module" src="{{ url_for('static', filename='app.js') }}"></script>
+{% endblock %}

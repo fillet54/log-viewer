@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-import re
-from importlib.resources import files
-
-from cinc.live.replay import SampleReplaySource
-from cinc.logs.types import LogType
+from cinc.core.log_type import LogType
 
 
 class TextLogType(LogType):
@@ -13,23 +9,6 @@ class TextLogType(LogType):
     description = "Plain timestamped application log lines"
     script_paths = ("static/row.js", "static/charts.js")
     style_paths = ("static/row.css",)
-    sample_paths = ("samples/sample.json",)
-
-    def parse_import(self, *, file=None, json_data=None):
-        if json_data is not None:
-            return (str(json_data.get("source") or "text log"), json_data)
-        raw = file.read()
-        text = raw.decode() if isinstance(raw, bytes) else raw
-        pattern = re.compile(
-            r"^(?P<ts>\S+)\s+(?P<level>[A-Z]+)\s+(?P<logger>\S+)\s+(?P<message>.*)$"
-        )
-        lines = []
-        for number, line in enumerate(text.splitlines(), 1):
-            match = pattern.match(line)
-            if not match:
-                raise ValueError(f"Invalid text log line {number}")
-            lines.append(match.groupdict())
-        return ("text log", {"lines": lines})
 
     def normalize_events(self, payload, *, row_id_base=0):
         source = payload.get("lines", payload.get("events", []))
@@ -94,11 +73,3 @@ class TextLogType(LogType):
             "Lines": str(len(lines)),
             "Errors": str(sum(1 for line in lines if line.get("level") == "ERROR")),
         }
-
-    def create_live_source(self):
-        return SampleReplaySource(
-            files(__package__).joinpath("samples/sample.json"),
-            events_key="lines",
-            time_key="ts",
-            speed=8.0,
-        )

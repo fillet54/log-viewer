@@ -38,14 +38,14 @@
     <div class="app-shell">
       <header class="topbar">
         <div class="topbar-inner">
-          <a href="{{ url_for('home') }}" class="brand">
+          <a href="{{ url_for('live') }}" class="brand">
             <img src="{{ url_for('static', filename='img/logo_lightmode.png') }}" class="brand-logo brand-logo-light" alt="Cinc" />
             <img src="{{ url_for('static', filename='img/logo_darkmode.png') }}" class="brand-logo brand-logo-dark" alt="Cinc" />
             <span class="brand-name">Cinc</span>
           </a>
           <nav class="topbar-nav" style="display: flex; align-items: center; gap: 0.35rem;">
-          <a href="{{ url_for('home') }}" class="button button-ghost button-xs">Logs</a>
-          <a href="{{ url_for('home') }}" class="button button-ghost button-xs">Live</a>
+          <a href="{{ url_for('live') }}" class="button button-ghost button-xs">Live</a>
+          <a href="{{ url_for('history') }}" class="button button-ghost button-xs">History</a>
           </nav>
         <div class="topbar-actions">
           <button type="button" id="theme-toggle" class="button button-ghost button-xs" aria-label="Toggle theme">

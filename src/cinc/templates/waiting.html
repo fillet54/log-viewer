@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Waiting — Cinc{% endblock %}
+
+{% block content %}
+<div class="page-narrow">
+  {% if log %}
+    <h1>{% if live %}<span class="live-badge">Live</span> {% endif %}{{ log.meta().name }}</h1>
+    <p class="empty-state">{% if live %}Waiting for the first events…{% else %}This log has no events.{% endif %}</p>
+  {% else %}
+    <h1>Waiting for a log</h1>
+    <p class="empty-state">
+      Start one with <code>POST /api/logs</code>, or just post rows to
+      <code>POST /api/events</code>. <a href="{{ url_for('history') }}">Browse history</a>.
+    </p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block body_scripts %}
+  {% if not log or live %}
+  <script>
+    // Reload as soon as anything arrives: a new log or its first events.
+    const source = new EventSource("{{ url_for('api_stream', log=log.id if log else None) }}");
+    source.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      source.close();
+      location.href = message.type === "log" ? "{{ url_for('live') }}" : location.href;
+    };
+  </script>
+  {% endif %}
+{% endblock %}

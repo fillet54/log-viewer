@@ -37,8 +37,6 @@ cinc = [
     "static/**/*.js",
     "static/**/*.css",
     "static/**/*.html",
-    "plugins/**/*.json",
-    "samples/**/*.json",
     "plugins/**/*.html",
     "plugins/**/*.js",
     "plugins/**/*.css",

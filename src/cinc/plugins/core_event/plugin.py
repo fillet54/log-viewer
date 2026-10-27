@@ -3,8 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from ..base import EventLogSourcePlugin
-
 DEFAULT_CORE_EVENT_CHANNELS = ["A", "B", "C", "D"]
 CORE_EVENT_SEVERITY = ["Green", "Yellow", "Red", "Flashing Red"]
 COLOR_PREFIX = {
@@ -497,84 +495,22 @@ def _resolve_bounds(
     }
 
 
-class CoreEventPlugin(EventLogSourcePlugin):
-    plugin_id = "core-event"
-    plugin_name = "Core Event"
-    script_paths = ("static/row.js", "static/charts.js")
-    row_settings = {
-        "channels": DEFAULT_CORE_EVENT_CHANNELS,
-    }
-
-    def get_log_types(self, session_store=None) -> list:
-        from .log_types import CoreEventBootLogType
-
-        return [CoreEventBootLogType(self.plugin_id, self.build_page_data)]
-
-    def _build_view_config(self, channels: list[str]) -> dict[str, Any]:
-        return {
-            "scripts": self.get_inline_scripts(),
-            "rowSettings": {
-                "channels": list(channels),
-            },
-        }
-
-    def _build_log_data(self, payload: Any) -> tuple[dict[str, Any], list[str]]:
-        source = payload if isinstance(payload, dict) else {}
-        raw_events = source.get("events")
-        event_list = raw_events if isinstance(raw_events, list) else []
-        valid_events = [event for event in event_list if isinstance(event, dict)]
-        channels = _resolve_channel_catalog(source, valid_events)
-        events = _derive_core_events(valid_events, channels)
-        bounds = _resolve_bounds(source, events)
-        modes = source.get("modes")
-
-        return (
-            {
-                "pluginId": self.plugin_id,
-                "logTypeId": "core_event",
-                "pluginName": self.plugin_name,
-                "channels": list(channels),
-                "channelCount": len(channels),
-                "start": bounds["start"],
-                "end": bounds["end"],
-                "hours": source.get("hours", bounds["hours"]),
-                "seed": str(source.get("seed") or ""),
-                "modes": modes if isinstance(modes, list) else [],
-                "events": events,
-            },
-            channels,
-        )
-
-    def normalize_stream_events(
-        self, raw_events: list[dict[str, Any]], channels: list[str]
-    ) -> list[dict[str, Any]]:
-        """Normalize a batch of raw events for live streaming (no set/clear pairing)."""
-        fallback_start = _resolve_fallback_start(raw_events)
-        result = []
-        for index, event in enumerate(raw_events):
-            normalized = _normalize_event(event, index, fallback_start, channels)
-            normalized["pairedChannels"] = {}
-            normalized["matchSummary"] = {"items": [], "collapsed": False}
-            normalized["rowDisplay"] = _build_row_display(normalized)
-            result.append(normalized)
-        return result
-
-    def parse_payload(self, payload: Any) -> dict[str, Any]:
-        log_data, _ = self._build_log_data(payload)
-        return log_data
-
-    def build_page_data(self, payload: Any) -> dict[str, Any]:
-        log_data, channels = self._build_log_data(payload)
-        return {
-            "apiVersion": 1,
-            "plugin": {
-                "id": self.plugin_id,
-                "name": self.plugin_name,
-            },
-            "logType": {
-                "id": "core_event",
-                "name": "Core Event",
-            },
-            "logData": log_data,
-            "view": self._build_view_config(channels),
-        }
+def build_log_data(payload: Any) -> tuple[dict[str, Any], list[str]]:
+    """Normalize a raw core-event payload; returns (log data, channels)."""
+    source = payload if isinstance(payload, dict) else {}
+    raw_events = source.get("events")
+    event_list = raw_events if isinstance(raw_events, list) else []
+    valid_events = [event for event in event_list if isinstance(event, dict)]
+    channels = _resolve_channel_catalog(source, valid_events)
+    events = _derive_core_events(valid_events, channels)
+    bounds = _resolve_bounds(source, events)
+    return (
+        {
+            "channels": list(channels),
+            "start": bounds["start"],
+            "end": bounds["end"],
+            "hours": source.get("hours", bounds["hours"]),
+            "events": events,
+        },
+        channels,
+    )
