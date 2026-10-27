@@ -14,7 +14,9 @@ const renderStartupError = (host, message) => {
   render(h("div", { class: "empty-panel-message" }, String(message || "Unable to load event log viewer.")), host);
 };
 
-// Live mode: append events posted to the current log. The server says
+// Live mode: append events posted to the current log, and swap in earlier
+// events the server re-derived ("updates", e.g. a SET once its CLEAR arrives).
+// The server says
 // "reload" when the page needs fresh type config, and "log" when a new log
 // starts (the live page follows it).
 const connectLiveStream = (services, live) => {
@@ -34,7 +36,7 @@ const connectLiveStream = (services, live) => {
         return;
       }
       seq = msg.seq;
-      services.viewerStore.appendEvents(msg.events);
+      services.viewerStore.applyLiveEvents(msg.events, msg.updates);
     };
     es.onerror = () => {
       es.close();

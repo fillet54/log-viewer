@@ -40,7 +40,9 @@
           <a href="{{ url_for(endpoint) }}"{% if nav_current == key %} aria-current="page"{% endif %}>{{ label }}</a>
           {% endfor %}
         </nav>
+        {% block topbar_log %}{% endblock %}
         <div class="topbar-actions">
+          {% block topbar_actions %}{% endblock %}
           <button type="button" id="theme-toggle" class="button button-ghost button-xs">Theme</button>
         </div>
       </header>

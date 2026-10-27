@@ -7,8 +7,8 @@ const useLayoutEffect = hooks.useLayoutEffect || null;
 const useRef = hooks.useRef || null;
 const useState = hooks.useState || null;
 
-const TOP_SPLIT_DEFAULT = [72, 28];
-const ROOT_SPLIT_DEFAULT = [70, 30];
+const TOP_SPLIT_DEFAULT = [78, 22];
+const ROOT_SPLIT_DEFAULT = [72, 28];
 
 const LayoutPane = ({
   hostId,
@@ -30,7 +30,10 @@ export const LayoutShell = () => {
   const bottomPaneRef = useRef ? useRef(null) : { current: null };
   const centerPaneRef = useRef ? useRef(null) : { current: null };
   const rightPaneRef = useRef ? useRef(null) : { current: null };
-  const detailCollapsed = Boolean(viewerStore?.detailCollapsed?.value);
+  // The info pane only takes room once there is something to show.
+  const hasSelection = viewerStore?.selectedEvent?.value != null;
+  const detailCollapsed = Boolean(viewerStore?.detailCollapsed?.value) || !hasSelection;
+  const density = viewerStore?.density?.value === "comfortable" ? "comfortable" : "compact";
   const bottomCollapsed = Boolean(viewerStore?.bottomCollapsed?.value);
   const topSplitSizes = viewerStore?.topSplitSizes?.value || TOP_SPLIT_DEFAULT;
   const rootSplitSizes = viewerStore?.rootSplitSizes?.value || ROOT_SPLIT_DEFAULT;
@@ -49,7 +52,7 @@ export const LayoutShell = () => {
     options: {
       direction: "horizontal",
       sizes: topSplitSizes,
-      minSize: [420, 240],
+      minSize: [420, 260],
       gutterSize: 10,
       elementStyle: (dimension, size, gutterSizeValue) => ({
         "flex-basis": `calc(${size}% - ${gutterSizeValue}px)`,
@@ -140,17 +143,15 @@ export const LayoutShell = () => {
       }
 
       requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
-    }, [detailCollapsed, bottomCollapsed]);
+    }, [detailCollapsed, bottomCollapsed, hasSelection]);
   }
 
   const handleShellClick = (event) => {
     const target = event.target;
     if (!target || typeof target.closest !== "function") return;
     const toggleBottom = target.closest("#toggle-bottom");
-    const collapsedSearchHeader =
-      target.closest("#pane-bottom .pane-header") && bottomCollapsed;
 
-    if (toggleBottom || collapsedSearchHeader) {
+    if (toggleBottom) {
       viewerStore?.setBottomCollapsed((current) => !current);
       return;
     }
@@ -166,6 +167,7 @@ export const LayoutShell = () => {
       id="split-root"
       ref=${rootRef}
       class=${`layout-shell${bottomCollapsed ? " bottom-collapsed" : ""}`}
+      data-density=${density}
       onClick=${handleShellClick}
     >
       <section
@@ -194,7 +196,7 @@ export const LayoutShell = () => {
             <${DetailPanel} />
           </${LayoutPane}>
         </div>
-        <button
+        ${hasSelection ? html`<button
           id="toggle-detail-restore"
           class=${`button button-ghost button-xs top-pane-toggle${detailCollapsed ? " is-collapsed" : ""}`}
           title="Show info pane"
@@ -208,7 +210,7 @@ export const LayoutShell = () => {
             </span>
             <span class="top-pane-toggle-label">INFO</span>
           </span>
-        </button>
+        </button>` : null}
       </section>
       <${LayoutPane}
         hostId="pane-bottom"

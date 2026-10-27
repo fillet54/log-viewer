@@ -261,9 +261,11 @@ def _build_fault_prefix(event: dict[str, Any]) -> str:
 
 def _build_row_display(event: dict[str, Any]) -> dict[str, Any]:
     norm_time = float(event.get("norm_time") or 0)
-    location = "/".join(
-        str(event.get(key) or "") for key in ("system", "subsystem", "unit")
-    ).strip("/")
+    location = ":".join(
+        str(event.get(key) or "").strip()
+        for key in ("system", "subsystem", "unit")
+        if str(event.get(key) or "").strip()
+    )
     prefix = _build_fault_prefix(event)
     has_data = _has_event_data(event.get("data"))
 
@@ -274,7 +276,7 @@ def _build_row_display(event: dict[str, Any]) -> dict[str, Any]:
         "prefix": f"[{prefix}]" if prefix else "",
         "offset": f"{norm_time:.3f}s",
         "description": str(event.get("description") or ""),
-        "location": f"({location})" if location else "",
+        "location": location,
         "hasData": has_data,
         "dataLabel": "Event has data" if has_data else "No event data",
     }

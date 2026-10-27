@@ -8,20 +8,22 @@
   <script>{{ page_data_script|safe }}</script>
 {% endblock %}
 
-{% block content %}
-  <div class="log-bar">
-    <div class="log-bar-info">
-      {% if live %}<span class="live-badge">Live</span>{% endif %}
-      <h1 class="log-bar-name">{{ meta.name }}</h1>
-      <time datetime="{{ meta.started }}">{{ meta.started|when }}</time>
-      {% for type_id in log.types() %}<span class="chip">{{ type_id }}</span>{% endfor %}
-    </div>
-    <div class="log-bar-actions">
-      {% if newer %}<a class="button button-ghost button-xs" href="{{ url_for('view_log', log_id=newer) }}">‹ Newer</a>{% endif %}
-      {% if older %}<a class="button button-ghost button-xs" href="{{ url_for('view_log', log_id=older) }}">Older ›</a>{% endif %}
-      <a class="button button-outline button-xs" href="{{ url_for('download_log', log_id=log.id) }}">Download</a>
-    </div>
+{% block topbar_log %}
+  <div class="topbar-log">
+    {% if live %}<span class="live-badge">Live</span>{% endif %}
+    <h1 class="topbar-log-name" title="{{ meta.name }}">{{ meta.name }}</h1>
+    <time datetime="{{ meta.started }}" title="Started (UTC)">{{ meta.started|when }}</time>
+    {% for type_id in log.types() %}<span class="chip">{{ type_id }}</span>{% endfor %}
   </div>
+{% endblock %}
+
+{% block topbar_actions %}
+  {% if newer %}<a class="button button-ghost button-xs" href="{{ url_for('view_log', log_id=newer) }}" title="Newer log">‹ Newer</a>{% endif %}
+  {% if older %}<a class="button button-ghost button-xs" href="{{ url_for('view_log', log_id=older) }}" title="Older log">Older ›</a>{% endif %}
+  <a class="button button-ghost button-xs" href="{{ url_for('download_log', log_id=log.id) }}" title="Download as a standalone HTML page">Download</a>
+{% endblock %}
+
+{% block content %}
   <div class="viewer-page">
     <div id="log-viewer-root" class="log-viewer-root"></div>
   </div>

@@ -9,6 +9,7 @@ export const SearchFilterView = ({ currentTab, filters, onToggleFilter, onRemove
         <div class="search-section">
           <div class="search-section-title">Filters</div>
           <div id="search-filters" class="search-list search-list-compact">
+            ${filters.length ? null : html`<div class="search-empty">No filters. Use the funnel on a search to keep only matching rows.</div>`}
             ${filters.map(
               (filter) => html`
                 <${FilterItemRow}

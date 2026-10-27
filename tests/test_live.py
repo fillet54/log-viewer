@@ -85,3 +85,36 @@ def test_live_row_ids_never_collide_with_page_ids(tmp_path):
     subscriber = hub.subscribe(hub.current.id, after=page["live"]["seq"])
     live_ids = {e["row_id"] for e in subscriber.get_nowait()["events"]}
     assert live_ids and not live_ids & page_ids
+
+
+def test_set_clear_pairing_spans_posts(tmp_path):
+    app, client, hub = make(tmp_path)
+    rows = core_event_rows(2)  # one SET, then its CLEAR five seconds later
+    hub.post("core_event", rows[:1], {"channels": CHANNELS})
+    subscriber = hub.subscribe(
+        hub.current.id, after=hub.page_data(hub.current)["live"]["seq"]
+    )
+    hub.post("core_event", rows[1:])
+    message = subscriber.get_nowait()
+    [clear] = message["events"]
+    [set_row] = message["updates"]
+    assert clear["set_clear"] == "clear" and set_row["set_clear"] == "set"
+    assert clear["matchSummary"]["items"][0]["linkedRowId"] == set_row["row_id"]
+    assert set_row["matchSummary"]["items"][0]["linkedRowId"] == clear["row_id"]
+    assert set_row["matchSummary"]["items"][0]["label"] == "5s"
+
+
+def test_live_events_match_a_fresh_page_load(tmp_path):
+    app, client, hub = make(tmp_path)
+    hub.post("core_event", core_event_rows(3), {"channels": CHANNELS})
+    hub.post("text_log", text_rows(2))  # new type: viewers reload
+    page = hub.page_data(hub.current)
+    subscriber = hub.subscribe(hub.current.id, after=page["live"]["seq"])
+    hub.post("core_event", core_event_rows(3, 3))
+    hub.post("text_log", text_rows(2, 2))
+    live = {e["row_id"]: e for e in page["logData"]["events"]}
+    for _ in range(2):
+        message = subscriber.get_nowait()
+        live.update({e["row_id"]: e for e in message["updates"] + message["events"]})
+    fresh = hub.page_data(hub.current)["logData"]["events"]
+    assert live == {e["row_id"]: e for e in fresh}

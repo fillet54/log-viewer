@@ -17,6 +17,7 @@ export const SearchHistoryView = ({
         <div class="search-section">
           <div class="search-section-title">Pinned</div>
           <div id="search-pinned" class="search-list search-list-compact">
+            ${pinned.length ? null : html`<div class="search-empty">No pinned searches.</div>`}
             ${pinned.slice(0, 24).map(
               (item) => html`
                 <${SearchItemRow}
@@ -38,6 +39,7 @@ export const SearchHistoryView = ({
             </button>
           </div>
           <div id="search-history" class="search-list search-list-compact">
+            ${history.length ? null : html`<div class="search-empty">Searches you run appear here.</div>`}
             ${history.slice(0, 50).map(
               (item) => html`
                 <${SearchItemRow}

@@ -6,12 +6,16 @@ const normalizePluginId = (plugin) =>
     ? String(plugin.id || "").trim()
     : String(plugin || "").trim();
 
-const formatZuluTime = (event) => {
+export const formatZuluTime = (event) => {
   const value = event?.time || event?.utctime || "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return date.toISOString().replace(/^\d{4}-\d{2}-\d{2}T/, "");
+  // The page says UTC once; rows drop the date and the Z.
+  return date.toISOString().replace(/^\d{4}-\d{2}-\d{2}T/, "").replace(/Z$/, "");
 };
+
+const formatRelative = (seconds) =>
+  seconds == null ? "—" : `${seconds >= 0 ? "+" : "−"}${Math.abs(seconds).toFixed(3)}s`;
 
 export const PluginLogRow = ({
   event,
@@ -30,6 +34,17 @@ export const PluginLogRow = ({
   const viewerStore = services?.viewerStore || null;
   const bookmarkColor = viewerStore?.getColor?.(event?.row_id) || 0;
   const classList = Array.isArray(extraClasses) ? extraClasses.filter(Boolean) : [];
+  const timeMode = viewerStore?.timeMode?.value === "relative" ? "relative" : "absolute";
+  const relativeTime = viewerStore?.getRelativeTime?.(event);
+  // Read the signal so rows re-render when the reference changes.
+  void viewerStore?.timeReferenceRowId?.value;
+  const isTimeReference = !!viewerStore?.isTimeReference?.(event);
+  // One time column: absolute or relative to the reference row (the toolbar switches).
+  const timeText = timeMode === "relative" ? formatRelative(relativeTime) : formatZuluTime(event);
+  const timeTitle =
+    timeMode === "relative"
+      ? `${event?.time || ""} · relative to the reference row (click to ${isTimeReference ? "reset to the first row" : "make this the reference"})`
+      : `${event?.time || ""} (click to measure times from this row)`;
 
   const resolveEventByRowId = (rowId) => {
     if (eventByRowId?.get) return eventByRowId.get(String(rowId)) || null;
@@ -75,11 +90,18 @@ export const PluginLogRow = ({
       onBookmark=${onBookmark}
       onJump=${onJump}
       timeReferenceRowId=${viewerStore?.timeReferenceRowId?.value}
-      relativeTime=${viewerStore?.getRelativeTime?.(event)}
-      onSetTimeReference=${() => viewerStore?.setTimeReference?.(event)}
+      relativeTime=${relativeTime}
+      onSetTimeReference=${() => {
+        viewerStore?.setTimeReference?.(event);
+        // Picking a reference only shows up in relative mode, so switch to it.
+        if (timeMode !== "relative") viewerStore?.setTimeMode?.("relative");
+      }}
       zuluTime=${formatZuluTime(event)}
       zuluTimeTitle=${event?.time || event?.utctime || ""}
-      isTimeReference=${String(viewerStore?.timeReferenceRowId?.value) === String(event?.row_id)}
+      timeText=${timeText}
+      timeTitle=${timeTitle}
+      timeMode=${timeMode}
+      isTimeReference=${isTimeReference}
     />
   `;
 };

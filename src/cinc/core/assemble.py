@@ -5,10 +5,17 @@ from .contract import validate_events
 
 
 def normalize_section(
-    log_type: Any, payload: dict[str, Any], *, row_id_base: int = 0, mode="batch"
+    log_type: Any,
+    payload: dict[str, Any],
+    *,
+    row_id_base: int = 0,
+    row_id_step: int = 1,
+    mode="batch",
 ) -> list[dict[str, Any]]:
     """Normalize, augment and validate one type's payload into viewer events."""
-    produced = log_type.normalize_events(payload, row_id_base=row_id_base)
+    produced = log_type.normalize_events(
+        payload, row_id_base=row_id_base, row_id_step=row_id_step
+    )
     if any("log_type" in event for event in produced):
         raise ValueError(f"{log_type.id}: normalized events must not supply log_type")
     produced = log_type.augment_events(produced, payload=payload, mode=mode)
@@ -39,8 +46,14 @@ def assemble_page_data(
     summary: dict[str, Any] = {}
     scripts: list[str] = []
     styles: list[str] = []
-    for log_type, payload in sections:
-        events.extend(normalize_section(log_type, payload, row_id_base=len(events)))
+    # Section i's rows get ids i+1, i+1+n, ... (n sections), so ids are stable
+    # as a live log grows (see LiveHub.post).
+    for slot, (log_type, payload) in enumerate(sections):
+        events.extend(
+            normalize_section(
+                log_type, payload, row_id_base=slot, row_id_step=len(sections)
+            )
+        )
         configs[log_type.id] = type_config(log_type, payload)
         summary.update(log_type.log_summary(payload))
         scripts.extend(log_type.inline_scripts())

@@ -4,6 +4,7 @@ import { RenderedRow } from "./RenderedRow.js";
 
 export const SearchResultsContent = ({
     currentTab,
+    emptyMessage = "No results",
     results,
     resultRowStride,
     offsets,
@@ -38,7 +39,7 @@ export const SearchResultsContent = ({
                   />
                 `
               )
-            : html`<div class="no-results">No Results</div>`}
+            : html`<div class="no-results">No bookmarks or comments yet.</div>`}
         </div>
       `;
     }
@@ -64,7 +65,7 @@ export const SearchResultsContent = ({
                 />
               `
             )
-          : html`<div class="no-results">No Results</div>`}
+          : html`<div class="no-results">${emptyMessage}</div>`}
       </div>
     `;
   };

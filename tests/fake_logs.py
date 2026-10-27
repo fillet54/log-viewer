@@ -17,10 +17,72 @@ from pathlib import Path
 START = datetime(2026, 1, 1, 8, tzinfo=timezone.utc)
 CHANNELS = ["A", "B", "C"]
 FAULTS = [
-    ("Power", "PDU input voltage low", "PWR-01", "Red"),
-    ("Thermal", "Pump temperature high", "THM-04", "Yellow"),
-    ("Comms", "Radio link timeout", "COM-02", "Flashing Red"),
-    ("Guidance", "IMU self-test failed", "GDN-07", "Yellow"),
+    # system, subsystem, unit, name, code, colour, description
+    (
+        "Power",
+        "PDU",
+        "PDU-2",
+        "PDU input voltage low",
+        "PWR-01",
+        "Red",
+        "Input bus below 26 V for over 200 ms; loads are shed in priority order.",
+    ),
+    (
+        "Power",
+        "Battery",
+        "BAT-1",
+        "Battery charge complete",
+        "PWR-12",
+        "Green",
+        "Battery 1 reached full charge; the charger dropped to trickle mode.",
+    ),
+    (
+        "Thermal",
+        "Coolant",
+        "Pump-A",
+        "Pump temperature high",
+        "THM-04",
+        "Yellow",
+        "Pump housing is above its 70 C warning limit.",
+    ),
+    (
+        "Comms",
+        "Radio",
+        "UHF-1",
+        "Radio link timeout",
+        "COM-02",
+        "Flashing Red",
+        "No ground-link frames for 5 s; retrying on the backup channel.",
+    ),
+    (
+        "Comms",
+        "Radio",
+        "UHF-1",
+        "Ground link acquired",
+        "COM-05",
+        "Green",
+        "Ground station locked on; telemetry downlink is running at full rate.",
+    ),
+    (
+        "Guidance",
+        "Nav",
+        "IMU-2",
+        "IMU self-test failed",
+        "GDN-07",
+        "Yellow",
+        "Gyro bias check out of tolerance; navigation is using the other IMU.",
+    ),
+]
+# Which channels see each set/clear pair; most see all, some miss one or two.
+CHANNEL_PATTERNS = [
+    ["A", "B", "C"],
+    ["A", "B", "C"],
+    ["A", "B"],
+    ["A", "B", "C"],
+    ["A"],
+    ["B", "C"],
+    ["A", "B", "C"],
+    ["A", "C"],
 ]
 LEVELS = ["INFO", "DEBUG", "INFO", "WARN", "INFO", "ERROR"]
 LOGGERS = ["api", "worker", "db"]
@@ -31,20 +93,30 @@ def _time(i: int) -> str:
 
 
 def core_event_rows(count: int, start: int = 0) -> list[dict]:
-    """Alternating set/clear pairs for a few faults, seen on every channel."""
+    """Alternating set/clear pairs for a few faults.
+
+    A fault keeps its colour on both the SET and the CLEAR. A pair is seen on the
+    same channels, which is usually all of them but not always.
+    """
     rows = []
     for i in range(start, start + count):
-        system, name, code, color = FAULTS[(i // 2) % len(FAULTS)]
+        system, subsystem, unit, name, code, color, description = FAULTS[
+            (i // 2) % len(FAULTS)
+        ]
         is_set = i % 2 == 0
+        pair = i // 2
         rows.append(
             {
                 "utctime": _time(i),
                 "name": name,
                 "system": system,
+                "subsystem": subsystem,
+                "unit": unit,
+                "description": description,
                 "code": code,
-                "color": color if is_set else "Green",
+                "color": color,
                 "set_clear": "set" if is_set else "clear",
-                "channels": CHANNELS,
+                "channels": CHANNEL_PATTERNS[pair % len(CHANNEL_PATTERNS)],
                 "data": {"bus": {"load_pct": 40 + (i * 7) % 50}},
             }
         )
@@ -94,12 +166,13 @@ def post_live(base_url: str, rows: int = 200, delay: float = 0.5) -> None:
         f"{base_url}/api/events",
         {"type": "core_event", "header": {"channels": CHANNELS}},
     )
-    for i in range(0, rows, 2):
+    # One row per post, so a SET and its CLEAR arrive in different requests.
+    for i in range(rows):
         _post(
             f"{base_url}/api/events",
-            {"type": "core_event", "events": core_event_rows(2, i)},
+            {"type": "core_event", "events": core_event_rows(1, i)},
         )
-        _post(f"{base_url}/api/events", {"type": "text_log", "events": text_rows(2, i)})
+        _post(f"{base_url}/api/events", {"type": "text_log", "events": text_rows(1, i)})
         time.sleep(delay)
 
 

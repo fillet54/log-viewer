@@ -1,13 +1,9 @@
 import { html } from "htm/preact";
 import { Cinc } from "static/runtime.js";
 
-const ACTION_TEXT_COLORS = {
-  green: "dark",
-  yellow: "dark",
-  red: "light",
-  "dark-red": "light",
-  "flashing-red": "light",
-};
+// Severity drives the row's left stripe on SETs (green is normal: no stripe). The action badge always carries
+// the colour: filled for SET, a light tint for CLEAR.
+const SEVERITY_TONE = { yellow: "warn", red: "error", "dark-red": "fatal", "flashing-red": "fatal" };
 
 const hasEventData = (value) => {
   if (value == null) return false;
@@ -42,7 +38,7 @@ const resolveRowDisplay = (event) => {
     prefix: "",
     offset: Number.isFinite(offsetValue) ? `${offsetValue.toFixed(3)}s` : "",
     description: String(event?.description ?? ""),
-    location: "",
+    location: [event?.system, event?.subsystem, event?.unit].filter(Boolean).join(":"),
     hasData: fallbackHasData,
     dataLabel: fallbackHasData ? "Event has data" : "No event data",
   };
@@ -138,10 +134,9 @@ const CoreEventRow = ({
   onSelect,
   onBookmark,
   onJump,
-  relativeTime = null,
   onSetTimeReference,
-  zuluTime = "",
-  zuluTimeTitle = "",
+  timeText = "",
+  timeTitle = "",
   isTimeReference = false,
 }) => {
   const colorLabel = event?.color || "Green";
@@ -150,14 +145,20 @@ const CoreEventRow = ({
   const channels = new Set((event?.channels || []).map((channel) => String(channel)));
   const configuredChannels = resolveConfiguredChannels(event, view);
   const summary = event?.matchSummary || { items: [] };
+  const isClear = String(event?.set_clear || "").toLowerCase() === "clear";
+  const tone = isClear ? "" : SEVERITY_TONE[colorClass] || "";
   const className = [
     `log-line ce-row ce-sev-${colorClass}`,
+    tone ? `sev-${tone}` : "",
     bookmarkColor ? "is-bookmarked" : "",
     selected ? "log-selected" : "",
     highlighted ? "log-highlight" : "",
     ...(Array.isArray(extraClasses) ? extraClasses : []),
   ].filter(Boolean).join(" ");
-  const actionClassName = `ce-action${!summary.collapsed && summary.items?.length > 1 ? " is-mixed" : ""}`;
+  const actionClassName = [
+    "row-level ce-action",
+    !summary.collapsed && summary.items?.length > 1 ? "is-mixed" : "",
+  ].filter(Boolean).join(" ");
   const dataLabel = display.dataLabel || (display.hasData ? "Event has data" : "No event data");
 
   return html`
@@ -168,14 +169,20 @@ const CoreEventRow = ({
       data-row-id=${event?.row_id}
       onClick=${() => onSelect?.(event)}
     >
-      <button class="log-time-column" type="button" onClick=${(click) => { click.stopPropagation(); onSetTimeReference?.(); }} title=${zuluTimeTitle}>${zuluTime}</button>
-      <button class=${`log-time-column log-relative-time${isTimeReference ? " is-time-reference" : ""}`} type="button" onClick=${(click) => { click.stopPropagation(); onSetTimeReference?.(); }} title="Set as time reference">${relativeTime == null ? "—" : `${relativeTime >= 0 ? "+" : ""}${relativeTime.toFixed(3)}s`}</button>
-      <span class="ce-channels">
+      <button
+        class=${`log-time-column${isTimeReference ? " is-time-reference" : ""}`}
+        type="button"
+        title=${timeTitle}
+        onClick=${(click) => { click.stopPropagation(); onSetTimeReference?.(); }}
+      >${timeText}</button>
+      <span class="ce-channels" style=${`--ce-channel-count:${configuredChannels.length}`}>
         ${configuredChannels.map(
           (channel) => html`
-            <span class=${`ce-channel${channels.has(String(channel)) ? " is-on" : ""}`} data-channel=${channel}>
-              ${channel}
-            </span>
+            <span
+              class=${`ce-channel${channels.has(String(channel)) ? " is-on" : ""}`}
+              data-channel=${channel}
+              title=${`Channel ${channel}${channels.has(String(channel)) ? "" : " (not seen)"}`}
+            >${channel}</span>
           `
         )}
       </span>
@@ -184,7 +191,7 @@ const CoreEventRow = ({
           class=${actionClassName}
           data-field="action"
           data-ce-color=${colorClass}
-          data-contrast=${ACTION_TEXT_COLORS[colorClass] || "light"}
+          title=${`${colorLabel} ${display.actionLabel}`.trim()}
         >
           <span class="ce-action-label" data-field="action-label">${display.actionLabel}</span>
         </span>
@@ -194,9 +201,9 @@ const CoreEventRow = ({
         <span class="ce-title-row">
           <span class="ce-name" data-field="name">${display.name}</span>
           <span class=${`ce-prefix${display.prefix ? "" : " is-hidden"}`} data-field="fault-prefix">${display.prefix}</span>
-          <span class="ce-meta" data-field="location">${display.location}</span>
+          <span class="ce-meta" data-field="location" title="system:subsystem:unit">${display.location}</span>
         </span>
-        <span class="ce-desc" data-field="description">${display.description}</span>
+        <span class="ce-desc" data-field="description" title=${display.description}>${display.description}</span>
       </span>
       <span
         class="ce-data-indicator"
@@ -225,9 +232,21 @@ const CoreEventRow = ({
 };
 
 Cinc.registerLogRowComponent("core_event", CoreEventRow);
-Cinc.registerDetailSummary("core_event", ({ event }) => html`
-  <div class="detail-title">${event?.name ?? event?.row_id}</div>
-  <div class="detail-meta">${event?.time} • ${event?.set_clear ?? ""}</div>
-  <div class="detail-summary">${event?.description ?? ""}</div>
-  <div class="detail-path">${event?.system ?? ""}/${event?.subsystem ?? ""}/${event?.unit ?? ""}/${event?.code ?? ""}</div>
-`);
+const DetailField = ({ label, children }) =>
+  children ? html`<div class="detail-field"><dt>${label}</dt><dd>${children}</dd></div>` : null;
+
+Cinc.registerDetailSummary("core_event", ({ event }) => {
+  const location = [event?.system, event?.subsystem, event?.unit].filter(Boolean).join(":");
+  const channels = Array.isArray(event?.channels) ? event.channels.join(" ") : "";
+  return html`
+    <div class="detail-title">${event?.name ?? event?.row_id}</div>
+    ${event?.description ? html`<p class="detail-summary">${event.description}</p>` : null}
+    <dl class="detail-fields">
+      <${DetailField} label="Action">${[event?.color, event?.set_clear].filter(Boolean).join(" ")}</${DetailField}>
+      <${DetailField} label="Time">${event?.time}</${DetailField}>
+      <${DetailField} label="Location">${location}</${DetailField}>
+      <${DetailField} label="Code">${event?.rowDisplay?.prefix || event?.code}</${DetailField}>
+      <${DetailField} label="Channels">${channels}</${DetailField}>
+    </dl>
+  `;
+});

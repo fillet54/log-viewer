@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from cinc.core.log_type import LogType
+from cinc.core.log_type import LogType, row_id
 
 
 class TextLogType(LogType):
@@ -10,12 +10,12 @@ class TextLogType(LogType):
     script_paths = ("static/row.js", "static/charts.js")
     style_paths = ("static/row.css",)
 
-    def normalize_events(self, payload, *, row_id_base=0):
+    def normalize_events(self, payload, *, row_id_base=0, row_id_step=1):
         source = payload.get("lines", payload.get("events", []))
         result = []
-        for row_id, raw in enumerate(source, row_id_base + 1):
+        for index, raw in enumerate(source):
             event = dict(raw)
-            event["row_id"] = row_id
+            event["row_id"] = row_id(index, row_id_base, row_id_step)
             event["time"] = event.pop("ts", event.get("time", ""))
             if "fields" in event:
                 event["data"] = event.pop("fields")

@@ -4,7 +4,7 @@ export const SEARCH_TAB_HISTORY = "history";
 export const SEARCH_TAB_FILTERS = "filters";
 export const SEARCH_TAB_BOOKMARKS = "bookmarks";
 
-export const SearchPanelHeader = ({ currentTab, activityEnabled, onSelectTab }) => html`
+export const SearchPanelHeader = ({ currentTab, activityEnabled, onSelectTab, children = null }) => html`
     <div class="pane-header compact-header pane-header-spread">
       <span id="search-header-text" class="section-label">Search</span>
       <div id="search-header-tabs" class="search-tabs hidden">
@@ -13,7 +13,7 @@ export const SearchPanelHeader = ({ currentTab, activityEnabled, onSelectTab }) 
           class=${`button button-ghost button-xs search-tab${currentTab === SEARCH_TAB_HISTORY ? " is-active" : ""}`}
           onClick=${() => onSelectTab(SEARCH_TAB_HISTORY)}
         >
-          Search History
+          History
         </button>
         <button
           id="tab-filters"
@@ -30,6 +30,7 @@ export const SearchPanelHeader = ({ currentTab, activityEnabled, onSelectTab }) 
           Bookmarks
         </button>
       </div>
+      ${children}
       <button id="toggle-bottom" class="button button-ghost button-xs" title="Toggle search pane">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tool-icon">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 10l6 6 6-6" />

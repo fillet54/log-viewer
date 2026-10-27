@@ -4,6 +4,13 @@ from importlib.resources import files
 from typing import Any
 
 
+def row_id(index: int, base: int = 0, step: int = 1) -> int:
+    """Row ids interleave log types: type slot ``base`` of ``step`` types gets
+    base+1, base+1+step, ... A row's id depends only on its type's slot and its
+    position, so a live log and a reloaded page agree on every id."""
+    return base + 1 + index * step
+
+
 class LogType:
     """Base class for a registered log type.
 
@@ -28,17 +35,19 @@ class LogType:
         return 0.0
 
     def normalize_events(
-        self, payload: dict[str, Any], *, row_id_base: int = 0
+        self, payload: dict[str, Any], *, row_id_base: int = 0, row_id_step: int = 1
     ) -> list[dict[str, Any]]:
-        """Return normalized events; each needs ``row_id`` and ``time``."""
+        """Return normalized events; each needs ``row_id`` and ``time``.
+
+        The n-th row (from 0, in payload order) gets ``row_id(n, base, step)``,
+        so a row keeps its id however many rows come after it."""
         events = payload.get("events") if isinstance(payload, dict) else None
         if not isinstance(events, list):
             return []
         return [
-            {**event, "row_id": row_id}
-            for row_id, event in enumerate(
-                (event for event in events if isinstance(event, dict)),
-                row_id_base + 1,
+            {**event, "row_id": row_id(index, row_id_base, row_id_step)}
+            for index, event in enumerate(
+                event for event in events if isinstance(event, dict)
             )
         ]
 

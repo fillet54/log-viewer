@@ -1,4 +1,4 @@
-from cinc.core.log_type import LogType
+from cinc.core.log_type import LogType, row_id
 
 from .plugin import build_log_data
 
@@ -24,14 +24,15 @@ class CoreEventLogType(LogType):
     script_paths = ("static/row.js", "static/charts.js")
     style_paths = ("static/row.css",)
 
-    def normalize_events(self, payload, *, row_id_base=0):
+    def normalize_events(self, payload, *, row_id_base=0, row_id_step=1):
         _validate_raw_payload(payload)
         data = build_log_data(payload)[0]
         events = data["events"]
         row_id_map = {}
-        for i, event in enumerate(events, row_id_base + 1):
-            row_id_map[event["row_id"]] = i
-            event["row_id"] = i
+        for index, event in enumerate(events):
+            new_id = row_id(index, row_id_base, row_id_step)
+            row_id_map[event["row_id"]] = new_id
+            event["row_id"] = new_id
         for event in events:
             for match in event.get("pairedChannels", {}).values():
                 match["linkedRowId"] = row_id_map.get(

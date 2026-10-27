@@ -244,7 +244,7 @@ export const MainViewShell = () => {
           setRowStride(rowHeight + gap);
           virtual.invalidate();
         }
-      }, [services, events.length]);
+      }, [services, events.length, viewerStore?.density?.value]);
     }
 
     if (typeof useEffect === "function") {
@@ -355,6 +355,21 @@ export const MainViewShell = () => {
           commandBarRef=${commandBarRef}
           viewMode=${safeViewMode}
           lockToBottom=${lockToBottom}
+          activeTimelineView=${viewerStore?.timelineView?.value || "events"}
+          density=${viewerStore?.density?.value || "compact"}
+          timeMode=${viewerStore?.timeMode?.value || "absolute"}
+          onDensityChange=${(next) => viewerStore?.setDensity?.(next)}
+          onTimeModeChange=${(next) => viewerStore?.setTimeMode?.(next)}
+          timeReference=${viewerStore?.timeReferenceRowId?.value == null
+            ? (events.length ? { event: viewerStore?.getTimeReferenceEvent?.(), pinned: false } : null)
+            : { event: viewerStore?.getTimeReferenceEvent?.(), pinned: true }}
+          onJumpToReference=${() => {
+            const reference = viewerStore?.getTimeReferenceEvent?.();
+            if (!reference) return;
+            viewerStore?.setSelectedEvent?.(reference);
+            viewerStore?.setLogJump?.({ rowId: reference.row_id });
+          }}
+          onClearReference=${() => viewerStore?.clearTimeReference?.()}
           onToggleLockToBottom=${() => setLockToBottom((v) => !v)}
           onChartTypeChange=${(nextType) => {
             viewerStore?.setChartType(nextType);

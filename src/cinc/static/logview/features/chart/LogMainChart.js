@@ -665,7 +665,7 @@ const createTimelineChartController = (panel, context) => {
         tooltip: { mode: "index", intersect: true, displayColors: true },
       },
       layout: {
-        padding: { top: 10, bottom: 8 },
+        padding: { top: 2, bottom: 4, left: 4, right: 8 },
       },
       scales: {
         x: {
@@ -839,9 +839,9 @@ const createTimelineChartController = (panel, context) => {
     chart.options.font = { family: themeFont(), size: 11 };
     const mono = getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim();
     chart.options.scales.x.ticks.color = tick;
-    chart.options.scales.x.ticks.font = { family: mono, size: 10 };
+    chart.options.scales.x.ticks.font = { family: mono, size: 11 };
     chart.options.scales.x.border.color = themeColor("var(--chart-grid)");
-    chart.options.scales.y.ticks = { ...(chart.options.scales.y.ticks || {}), color: tick, font: { family: mono, size: 10 } };
+    chart.options.scales.y.ticks = { ...(chart.options.scales.y.ticks || {}), color: tick, font: { family: mono, size: 11 } };
     chart.options.scales.y.grid.color = themeColor("var(--chart-grid)");
     chart.options.plugins.legend.labels = { color: tick, boxWidth: 8, boxHeight: 8, padding: 14, font: { family: themeFont(), size: 11 } };
     chart.options.scales.y.stacked = Boolean(view.stacked);

@@ -3,6 +3,7 @@ import { SearchPanelHeader, SEARCH_TAB_HISTORY, SEARCH_TAB_BOOKMARKS } from "./S
 import { SearchSidebar } from "./SearchSidebar.js";
 import { SearchResultsPane } from "./SearchResultsPane.js";
 import { SearchHelpDialog } from "./SearchHelpDialog.js";
+import { SearchControls } from "./SearchControls.js";
 import { getQueryPredicate } from "../../../services/search.js";
 import { buildOffsets } from "../../row-metrics.js";
 
@@ -43,7 +44,8 @@ export const SearchPanel = () => {
     const activityEnabled = viewerStore?.activityEnabled !== false;
     const currentTab = viewerStore?.searchTab?.value || SEARCH_TAB_HISTORY;
     const [query, setQuery] = useState ? useState("") : ["", () => {}];
-    const [results, setResults] = useState ? useState(() => events.slice(0, 200)) : [[], () => {}];
+    const [results, setResults] = useState ? useState([]) : [[], () => {}];
+    const [searchedQuery, setSearchedQuery] = useState ? useState(null) : [null, () => {}];
     const [rowStride, setRowStride] = useState ? useState(28) : [28, () => {}];
     const rowHeights = new Map(
       Object.entries(services?.logTypes || {}).map(([id, config]) => [
@@ -138,11 +140,13 @@ export const SearchPanel = () => {
       const source = isBookmarks ? bookmarkEvents : events;
 
       if (!trimmedQuery) {
-        setResults(source);
+        // An empty search would only repeat the log above; bookmarks still list everything.
+        setResults(isBookmarks ? source : []);
+        setSearchedQuery(null);
         setResultsVersion((value) => value + 1);
-        if (commitHistory && !isBookmarks) addHistory(trimmedQuery, source.length, source[0]?.color);
         return;
       }
+      setSearchedQuery(trimmedQuery);
 
       const requestId = ++pendingSearchRef.current;
       const predicatesByConfig = new Map();
@@ -206,7 +210,7 @@ export const SearchPanel = () => {
             virtual.scrollToIndex(0, "start");
           }
         }
-      }, [services, events.length]);
+      }, [services, events.length, viewerStore?.density?.value]);
     }
 
     const resultRowStride = rowStride;
@@ -264,6 +268,7 @@ export const SearchPanel = () => {
     const selectStoredQuery = (nextQuery) => {
       setQuery(nextQuery);
       executeSearch(false, currentTab, nextQuery);
+      viewerStore?.setBottomCollapsed?.(false);
     };
 
     const toggleFilter = (targetQuery) => {
@@ -282,13 +287,24 @@ export const SearchPanel = () => {
 
     const onQueryInput = (eventInput) => {
       setQuery(eventInput.currentTarget.value);
+      setSearchedQuery(null);
       setResults([]);
       setResultsVersion((value) => value + 1);
     };
 
-    const onQueryKeyDown = (eventKey) => {
-      if (eventKey.key === "Enter") executeSearch(true);
+    // Running a search opens the pane; until then it is only the search bar.
+    const runSearch = () => {
+      executeSearch(true);
+      if (String(query || "").trim()) viewerStore?.setBottomCollapsed?.(false);
     };
+
+    const onQueryKeyDown = (eventKey) => {
+      if (eventKey.key === "Enter") runSearch();
+    };
+
+    const emptyMessage = searchedQuery
+      ? `No events match “${searchedQuery}”.`
+      : "Type a query and press Enter. Results show here; the log above keeps every row.";
 
     return html`
       <${Fragment}>
@@ -299,7 +315,16 @@ export const SearchPanel = () => {
             viewerStore?.setSearchTab(
               tab === SEARCH_TAB_BOOKMARKS && !activityEnabled ? SEARCH_TAB_HISTORY : tab
             )}
-        />
+        >
+          <${SearchControls}
+            query=${query}
+            queryInputRef=${queryInputRef}
+            onQueryInput=${onQueryInput}
+            onQueryKeyDown=${onQueryKeyDown}
+            onOpenHelp=${openHelp}
+            onRunSearch=${runSearch}
+          />
+        </${SearchPanelHeader}>
         <div class="pane-body search-pane">
           <div id="search-split" class=${`search-split${currentTab === SEARCH_TAB_BOOKMARKS ? " search-single" : ""}`}>
             <${SearchSidebar}
@@ -325,12 +350,7 @@ export const SearchPanel = () => {
             />
             <${SearchResultsPane}
               splitRightRef=${splitRightRef}
-              query=${query}
-              queryInputRef=${queryInputRef}
-              onQueryInput=${onQueryInput}
-              onQueryKeyDown=${onQueryKeyDown}
-              onOpenHelp=${openHelp}
-              onRunSearch=${() => executeSearch(true)}
+              emptyMessage=${emptyMessage}
               resultsRef=${resultsRef}
               currentTab=${currentTab}
               results=${results}

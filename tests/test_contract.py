@@ -41,7 +41,7 @@ def test_assembly_includes_declared_plugin_styles():
         "events": [{"channels": ["A"], "utctime": "2026-01-01T00:00:00Z"}],
     }
     page = assemble_page_data([(CoreEventLogType(), payload)])
-    assert any(".ce-row" in style for style in page["view"]["styles"])
+    assert any(".ce-channel" in style for style in page["view"]["styles"])
 
 
 def test_assembly_rejects_plugin_supplied_log_type():

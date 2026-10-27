@@ -23,8 +23,9 @@ class LiveHub:
         self.registry = registry
         self._lock = threading.Lock()
         self._current: LogDir | None = None
-        self._next_row_id = 0
         self._seq = 0
+        # type id -> {"rows", "events"} for the current log (see post)
+        self._sections: dict[str, dict[str, Any]] = {}
         self._backlog: deque[dict[str, Any]] = deque(maxlen=BACKLOG_BATCHES)
         self._subscribers: list[queue.Queue] = []
 
@@ -38,7 +39,7 @@ class LiveHub:
 
     def _start(self, name: str | None) -> LogDir:
         self._current = LogDir.create(self.root, name)
-        self._next_row_id = 0
+        self._sections.clear()
         self._seq = 0
         self._backlog.clear()
         self._broadcast({"type": "log", "logId": self._current.id})
@@ -51,7 +52,12 @@ class LiveHub:
         header: dict[str, Any] | None = None,
     ) -> LogDir:
         """Persist ``rows`` (and optional type ``header``) to the current log,
-        starting one if needed, and push the normalized events to viewers."""
+        starting one if needed, and push the normalized events to viewers.
+
+        The type is re-normalized with all of its rows, not just this batch, so
+        anything that depends on earlier rows (core-event SET/CLEAR pairing,
+        times relative to the first row) comes out the same as on a full page
+        load. Earlier events that changed are sent as ``updates``."""
         log_type = self.registry.get(type_id)
         if log_type is None:
             known = ", ".join(item.id for item in self.registry.all())
@@ -63,41 +69,67 @@ class LiveHub:
 
         with self._lock:
             log = self._current
+            types = log.types() if log else []
+            is_new_type = type_id not in types
+            changed_header = header is not None
             if header is None:
-                header = None if log is None else log.header(type_id) or None
-                changed_header = False
-            else:
-                changed_header = True
+                header = log.header(type_id) if log else {}
+            slots = sorted({*types, type_id})
+            previous = self._section(log, log_type, types, slots)
+
             # Normalize first so a bad batch is rejected before anything is stored.
-            events = (
-                normalize_section(
-                    log_type,
-                    {**(header or {}), "events": rows},
-                    row_id_base=self._next_row_id,
-                    mode="live",
-                )
-                if rows
-                else []
-            )
+            all_rows = previous["rows"] + rows
+            events = self._normalize(log_type, header, all_rows, slots) if rows else []
             log = log or self._start(None)
-            is_new_type = type_id not in log.types()
             if changed_header:
                 log.set_header(type_id, header)
             if not rows:
                 if changed_header:
+                    self._sections.clear()
                     self._broadcast({"type": "reload"})
                 return log
             log.append(type_id, rows)
-            self._next_row_id = max([self._next_row_id, *(e["row_id"] for e in events)])
             self._seq += 1
             if is_new_type or changed_header:
-                # The viewer needs this type's config, so have it re-fetch.
+                # The viewer needs this type's config (and a new type moves
+                # every type's id slot), so have it re-fetch the page.
+                self._sections.clear()
                 message = {"type": "reload", "seq": self._seq}
             else:
-                message = {"type": "events", "seq": self._seq, "events": events}
+                old_events = previous["events"]
+                self._sections[type_id] = {"rows": all_rows, "events": events}
+                message = {
+                    "type": "events",
+                    "seq": self._seq,
+                    "events": events[len(old_events) :],
+                    "updates": [
+                        new for old, new in zip(old_events, events) if old != new
+                    ],
+                }
             self._backlog.append(message)
             self._broadcast(message)
             return log
+
+    def _normalize(self, log_type, header, rows, slots) -> list[dict[str, Any]]:
+        return normalize_section(
+            log_type,
+            {**(header or {}), "events": rows},
+            row_id_base=slots.index(log_type.id),
+            row_id_step=len(slots),
+            mode="live",
+        )
+
+    def _section(self, log, log_type, types, slots) -> dict[str, Any]:
+        """The current log's rows and events for one type, cached in memory."""
+        if log is None or log_type.id not in types:
+            return {"rows": [], "events": []}
+        cached = self._sections.get(log_type.id)
+        if cached is None:
+            rows = log.rows(log_type.id)
+            header = log.header(log_type.id)
+            events = self._normalize(log_type, header, rows, slots) if rows else []
+            cached = self._sections[log_type.id] = {"rows": rows, "events": events}
+        return cached
 
     def page_data(self, log: LogDir) -> dict[str, Any]:
         """Assemble a log for the viewer; for the current log, include the
@@ -105,10 +137,6 @@ class LiveHub:
         with self._lock:
             page = assemble_page_data(log_dir_sections(log, self.registry))
             if self._current is not None and log.id == self._current.id:
-                # Live ids must not collide with ids the viewer already has.
-                self._next_row_id = max(
-                    self._next_row_id, len(page["logData"]["events"])
-                )
                 page["live"] = {"logId": log.id, "seq": self._seq}
             return page
 

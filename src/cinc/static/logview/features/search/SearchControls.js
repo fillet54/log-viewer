@@ -13,7 +13,7 @@ export const SearchControls = ({
         id="search-query"
         ref=${queryInputRef}
         class="text-input text-input-small search-input"
-        placeholder="Search logs, faults, codes..."
+        placeholder="Search…  e.g. level:ERROR, name~timeout"
         value=${query}
         onInput=${onQueryInput}
         onKeyDown=${onQueryKeyDown}
@@ -21,7 +21,7 @@ export const SearchControls = ({
       <button
         type="button"
         id="open-search-help"
-        class="button button-ghost button-small search-help-button"
+        class="seg-button seg-solo search-help-button"
         aria-label="Search syntax help"
         title="Search syntax help"
         onClick=${onOpenHelp}
@@ -32,7 +32,7 @@ export const SearchControls = ({
           <circle cx="12" cy="12" r="9" />
         </svg>
       </button>
-      <button id="run-search" class="button button-primary button-small" onClick=${onRunSearch}>
+      <button id="run-search" class="button button-primary button-xs" onClick=${onRunSearch}>
         Search
       </button>
     </div>
