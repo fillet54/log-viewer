@@ -1,0 +1,49 @@
+/* Fault Timeline chart (faults.js). Rows are a label column and a track; positions are % of the log. */
+.acme-timeline { flex: 1 1 auto; min-height: 0; overflow: auto; font-size: 12px; }
+.acme-tl-body { position: relative; min-width: 560px; padding-bottom: 8px; }
+.acme-tl-row { display: grid; grid-template-columns: var(--acme-label-w) minmax(0, 1fr); align-items: center; min-height: 22px; }
+.acme-tl-label { min-width: 0; display: flex; align-items: baseline; gap: 6px; padding: 0 10px 0 12px; overflow: hidden; white-space: nowrap; }
+.acme-tl-track { position: relative; height: 22px; margin-right: 12px; cursor: crosshair; }
+.acme-tl-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* The code and unit give way before the fault name does. */
+.acme-tl-meta { flex: 0 100 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--faint); font: 11px var(--font-mono); }
+
+/* Time axis, kept in view while the rows scroll */
+.acme-tl-axis { position: sticky; top: 0; z-index: 3; background: var(--paper); border-bottom: 1px solid var(--rule); }
+.acme-tl-axis .acme-tl-label { color: var(--faint); font: 11px var(--font-mono); }
+.acme-tl-axis .acme-tl-track { cursor: default; }
+.acme-tl-tick { position: absolute; top: 4px; transform: translateX(-50%); color: var(--muted); font: 11px var(--font-mono); white-space: nowrap; }
+.acme-tl-tick::before { content: ""; position: absolute; left: 50%; top: 14px; height: 4px; border-left: 1px solid var(--rule-strong); }
+
+/* Section header: system / subsystem, summary, and when any of its faults was set */
+.acme-tl-section { margin-top: 4px; background: var(--soft); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.acme-tl-section-label { border: 0; background: none; color: var(--ink); font: 600 12px var(--font-body); text-align: left; cursor: pointer; height: 36px; align-items: center; }
+.acme-tl-section-text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.acme-tl-section-label:hover .acme-tl-name { text-decoration: underline; }
+.acme-tl-caret { flex: 0 0 auto; color: var(--muted); transition: transform 0.12s; }
+.acme-tl-section.is-collapsed .acme-tl-caret { transform: rotate(-90deg); }
+.acme-tl-summary { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-weight: 400; font-size: 11px; }
+.acme-tl-strip { position: absolute; top: 8px; height: 6px; border-radius: 1px; background: var(--tone); }
+
+/* Fault rows: a bar while set, a mark at each SET (▲) and CLEAR (▽) */
+.acme-tl-fault { border-bottom: 1px solid color-mix(in srgb, var(--rule) 60%, transparent); }
+.acme-tl-fault:hover { background: color-mix(in srgb, var(--soft) 70%, transparent); }
+.acme-tl-fault.is-set-now .acme-tl-name { font-weight: 600; }
+.acme-tl-bar {
+  position: absolute; top: 5px; height: 12px; border-radius: 2px;
+  background: color-mix(in srgb, var(--tone) 32%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tone) 75%, transparent);
+}
+/* Still set at the end of the log: the bar fades out instead of stopping */
+.acme-tl-bar.is-open { border-right: 0; border-radius: 2px 0 0 2px; background: linear-gradient(90deg, color-mix(in srgb, var(--tone) 32%, transparent) 70%, transparent); }
+.acme-tl-mark {
+  position: absolute; top: 3px; z-index: 1; transform: translateX(-50%);
+  padding: 0; border: 0; background: none; color: var(--tone);
+  font: 13px/16px var(--font-body); cursor: pointer;
+}
+.acme-tl-mark.is-clear { top: 4px; color: var(--muted); }
+.acme-tl-mark:hover { transform: translateX(-50%) scale(1.35); }
+
+.acme-tl-cursor { position: absolute; top: 0; bottom: 0; z-index: 2; width: 0; border-left: 1px solid var(--accent); pointer-events: none; }
+.acme-tl-commands { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.acme-tl-commands select { max-width: 220px; }

@@ -14,8 +14,9 @@ def setup(ctx):
 
     ctx.extend(
         "core_event",
-        scripts=["static/owners.js"],
-        styles=["static/owners.css"],
+        # Each script's setup() runs for core_event logs; they share static/model.js.
+        scripts=["static/overview.js", "static/faults.js", "static/owners.js"],
+        styles=["static/overview.css", "static/faults.css", "static/owners.css"],
         config={"owners": sorted(set(OWNERS.values()))},
         augmenters={"owner": add_owner},
     )

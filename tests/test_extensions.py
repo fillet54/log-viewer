@@ -41,7 +41,10 @@ def test_extension_adds_modules_styles_config_and_augmenter(tmp_path):
     ]
     (extension,) = entry["extensions"]
     assert extension["plugin"] == "acme"
-    assert extension["modules"] == ["cinc-plugins/acme_cinc/static/owners.js"]
+    assert extension["modules"] == [
+        f"cinc-plugins/acme_cinc/static/{name}.js"
+        for name in ("overview", "faults", "owners")
+    ]
     assert "Avionics" in extension["config"]["owners"]
     assert any(".acme-bars" in style for style in page["view"]["styles"])
     owners = {
@@ -111,7 +114,12 @@ def test_plugin_pages_and_assets_are_served(tmp_path):
 def test_standalone_inlines_plugin_modules_and_their_imports(tmp_path):
     path = acme_cinc.write_demo_log(tmp_path, minutes=2)
     html = build_standalone(path, "Demo", registry=acme_registry())
-    for module in ("acme_cinc/static/owners.js", "acme_cinc/static/bars.js"):
+    for module in (
+        "acme_cinc/static/owners.js",
+        "acme_cinc/static/bars.js",
+        "acme_cinc/static/faults.js",
+        "acme_cinc/static/model.js",  # imported by faults.js and overview.js
+    ):
         assert f'"cinc-plugins/{module}"' in html
     # owners.js's relative import now names the module id
     assert 'from \\"cinc-plugins/acme_cinc/static/bars.js\\"' in html
