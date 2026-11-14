@@ -32,6 +32,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .log_type import LogType
+from .times import iso_time
 
 _DEFAULT_TRACK = "track"
 
@@ -47,6 +48,23 @@ def time_ms(value: Any) -> float:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.timestamp() * 1000
+
+
+def sample(
+    time: Any,
+    lat: float,
+    lon: float,
+    alt: float = 0.0,
+    *,
+    track: str | None = None,
+    **extra: Any,
+) -> dict[str, Any]:
+    """One ``track`` row. ``time`` is an ISO string or a datetime."""
+    row: dict[str, Any] = {"time": iso_time(time), "lat": lat, "lon": lon, "alt": alt}
+    if track is not None:
+        row["track"] = track
+    row.update(extra)
+    return row
 
 
 def _number(row: dict[str, Any], key: str, default: float | None = None) -> float:

@@ -5,6 +5,7 @@ import { queryById, smoothScrollTo } from "./shared.js";
 import { AppServicesContext } from "./context.js";
 import { ViewerRoot } from "./logview/ViewerRoot.js";
 import { createRootServices } from "./services/app-services.js";
+import { setupPlugins } from "./runtime.js";
 
 const loadPageData = () => window["CINC_" + "PAGE_DATA"] || null;
 const isStandalone = () => document.body.classList.contains("app-body-standalone");
@@ -56,27 +57,12 @@ const loadPageStyles = (pageData) => {
   document.head.appendChild(el);
 };
 
-const loadPageScripts = async (pageData) => {
-  const scripts = Array.isArray(pageData?.view?.scripts) ? pageData.view.scripts : [];
-  const urls = [];
-  await Promise.all(
-    scripts.map((source) => {
-      if (typeof source !== "string" || !source.trim()) return Promise.resolve();
-      const blob = new Blob([source], { type: "text/javascript" });
-      const url = URL.createObjectURL(blob);
-      urls.push(url);
-      return import(url);
-    })
-  );
-  urls.forEach((url) => URL.revokeObjectURL(url));
-};
-
 export const bootstrapViewer = async ({ host = document.getElementById("log-viewer-root"), pageData = loadPageData() } = {}) => {
   if (!host || !pageData) return false;
 
   try {
     loadPageStyles(pageData);
-    await loadPageScripts(pageData);
+    await setupPlugins(pageData);
     const services = createRootServices({ pageData });
     host._services = services;
     render(

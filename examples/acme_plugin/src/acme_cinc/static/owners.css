@@ -1,0 +1,6 @@
+.acme-bars { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px; }
+.acme-bar-row { display: grid; grid-template-columns: 130px 1fr 40px; align-items: center; gap: 8px; font-size: 12px; }
+.acme-bar-label { color: var(--muted); }
+.acme-bar-track { height: 10px; background: var(--soft); border-radius: var(--radius); overflow: hidden; }
+.acme-bar-fill { display: block; height: 100%; background: var(--series-1); }
+.acme-bar-value { font-family: var(--font-mono); text-align: right; }

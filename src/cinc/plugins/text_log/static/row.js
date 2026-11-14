@@ -1,5 +1,4 @@
-import { html } from "htm/preact";
-import { Cinc } from "static/runtime.js";
+import { html } from "cinc";
 
 // Severity drives the row's left stripe and the level badge's colour; INFO and DEBUG stay neutral.
 const LEVEL_TONE = { WARN: "warn", WARNING: "warn", ERROR: "error", FATAL: "fatal", CRITICAL: "fatal" };
@@ -53,5 +52,7 @@ const TextRow = ({
     </div>`;
 };
 
-Cinc.registerLogRowComponent("text_log", TextRow);
-Cinc.registerDetailSummary("text_log", ({ event }) => html`<div class="detail-title">${event?.message}</div><div class="detail-meta">${event?.time} · ${event?.level} · ${event?.logger}</div>`);
+export default function setup({ registerRow, registerDetail }) {
+  registerRow(TextRow);
+  registerDetail(({ event }) => html`<div class="detail-title">${event?.message}</div><div class="detail-meta">${event?.time} · ${event?.level} · ${event?.logger}</div>`);
+}

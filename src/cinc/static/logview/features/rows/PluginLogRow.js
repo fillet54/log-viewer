@@ -17,6 +17,39 @@ export const formatZuluTime = (event) => {
 const formatRelative = (seconds) =>
   seconds == null ? "—" : `${seconds >= 0 ? "+" : "−"}${Math.abs(seconds).toFixed(3)}s`;
 
+// Rows of a log type with no row component of its own: time, type, then the first text-like field.
+const TEXT_FIELDS = ["message", "name", "text", "description", "summary"];
+const GenericRow = ({ event, view, selected, highlighted, bookmarkColor, extraClasses, onSelect, onBookmark, onSetTimeReference, timeText, timeTitle, isTimeReference }) => {
+  const field = TEXT_FIELDS.find((key) => typeof event?.[key] === "string" && event[key]);
+  const { row_id: _rowId, time: _time, log_type: _logType, ...rest } = event || {};
+  const text = field ? event[field] : JSON.stringify(rest);
+  const className = [
+    "log-line generic-row",
+    bookmarkColor ? "is-bookmarked" : "",
+    selected ? "log-selected" : "",
+    highlighted ? "log-highlight" : "",
+    ...(extraClasses || []),
+  ].filter(Boolean).join(" ");
+  return html`
+    <div class=${className} data-row-id=${event?.row_id} data-bookmark-color=${String(bookmarkColor || 0)} onClick=${() => onSelect?.(event)}>
+      <button
+        class=${`log-time-column${isTimeReference ? " is-time-reference" : ""}`}
+        type="button"
+        title=${timeTitle}
+        onClick=${(click) => { click.stopPropagation(); onSetTimeReference?.(); }}
+      >${timeText}</button>
+      <span class="generic-row-type" title=${event?.log_type || ""}>${view?.name || event?.log_type || ""}</span>
+      <span></span>
+      <span class="generic-row-text" title=${text}>${text}</span>
+      <span></span>
+      <button type="button" class="bookmark-toggle" title="Toggle bookmark" onClick=${(click) => { click.stopPropagation(); onBookmark?.(event); }}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 4h12v16l-6-3-6 3z" />
+        </svg>
+      </button>
+    </div>`;
+};
+
 export const PluginLogRow = ({
   event,
   services,
@@ -69,16 +102,8 @@ export const PluginLogRow = ({
     viewerStore?.setLogJump?.({ rowId });
   };
 
-  if (!RowComponent) {
-    return html`
-      <div class="log-line log-row-error ${classList.join(" ")}" data-row-id=${event?.row_id ?? ""}>
-        Missing row component for ${pluginId || "unknown plugin"}.
-      </div>
-    `;
-  }
-
   return html`
-    <${RowComponent}
+    <${RowComponent || GenericRow}
       event=${event}
       selected=${selected}
       highlighted=${highlighted}

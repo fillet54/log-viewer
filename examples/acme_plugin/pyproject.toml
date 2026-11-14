@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "acme-cinc"
+version = "0.1.0"
+description = "Example Cinc plugin: extends core_event with an owner chart, a page and a demo command"
+requires-python = ">=3.10"
+dependencies = ["cinc"]
+
+# This is what makes `pip install` register the plugin with Cinc.
+[project.entry-points."cinc.plugins"]
+acme = "acme_cinc:setup"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+acme_cinc = ["static/*", "templates/acme/*"]

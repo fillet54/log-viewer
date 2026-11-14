@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from importlib.resources import files
+import sys
 from typing import Any
+
+from .plugin import Asset
 
 
 def row_id(index: int, base: int = 0, step: int = 1) -> int:
@@ -17,6 +19,14 @@ class LogType:
     A log type turns a raw payload (``{"events": [...], **header}``) into
     normalized events plus the viewer configuration for those events.
     Subclasses set ``id`` and ``name`` and override what they need.
+
+    ``script_paths`` and ``style_paths`` name browser modules and stylesheets
+    relative to the package of the class that lists them (or its
+    ``asset_package``). They add up along the class hierarchy, so a subclass
+    keeps its base's scripts and lists only its own. Each script's default
+    export ``setup(ctx)`` is called with this type's id and ``view_config``
+    (see docs/plugins.md), so a subclass registered under a new id gets the
+    same rows and charts.
     """
 
     id: str
@@ -26,6 +36,7 @@ class LogType:
     asset_package: str | None = None
     script_paths: tuple[str, ...] = ()
     style_paths: tuple[str, ...] = ()
+    row_height: int | None = None  # pixels, when rows are not the default height
 
     def __init__(self):
         self._event_augmenters: list[tuple[str, Any]] = []
@@ -52,12 +63,12 @@ class LogType:
         ]
 
     def view_config(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Settings for this type's browser scripts (``ctx.config``)."""
         return {}
 
     def search_config(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return {}
-
-    def chart_config(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Search settings: ``fields`` (names a bare search term can match as
+        a field) and ``excludeFromBareTerms`` (fields bare terms skip)."""
         return {}
 
     def log_summary(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -72,15 +83,26 @@ class LogType:
         live mode, so each sample must depend on its own row only."""
         return []
 
-    def inline_scripts(self) -> list[str]:
-        return [self.read_asset_text(path) for path in self.script_paths]
+    def scripts(self) -> list[Asset]:
+        return self._assets("script_paths")
 
-    def inline_styles(self) -> list[str]:
-        return [self.read_asset_text(path) for path in self.style_paths]
+    def styles(self) -> list[Asset]:
+        return self._assets("style_paths")
 
-    def read_asset_text(self, relative_path: str) -> str:
-        package = self.asset_package or self.__class__.__module__.rsplit(".", 1)[0]
-        return files(package).joinpath(relative_path).read_text(encoding="utf-8")
+    def _assets(self, attribute: str) -> list[Asset]:
+        """``attribute`` paths from every class in the hierarchy, base first,
+        each resolved against the package of the class that lists it."""
+        result: list[Asset] = []
+        for cls in reversed(type(self).__mro__):
+            paths = cls.__dict__.get(attribute)
+            if not paths:
+                continue
+            package = cls.__dict__.get("asset_package") or _package_of_class(cls)
+            for path in paths:
+                asset = Asset(package, path)
+                if asset not in result:
+                    result.append(asset)
+        return result
 
     def register_event_augmenter(self, name: str, callback: Any) -> None:
         name = str(name or "").strip()
@@ -119,3 +141,12 @@ class LogType:
                     raise ValueError(f"{self.id}: augmenter {name!r} changed {key}")
             current = [dict(event) for event in result]
         return current
+
+
+def _package_of_class(cls: type) -> str:
+    module = sys.modules.get(cls.__module__)
+    if module is not None and hasattr(module, "__path__"):
+        return module.__name__
+    if module is not None and module.__package__:
+        return module.__package__
+    return cls.__module__.rsplit(".", 1)[0]

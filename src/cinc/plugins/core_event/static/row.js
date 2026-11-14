@@ -1,9 +1,9 @@
-import { html } from "htm/preact";
-import { Cinc } from "static/runtime.js";
+import { html } from "cinc";
 
 // Severity drives the row's left stripe on SETs (green is normal: no stripe). The action badge always carries
-// the colour: filled for SET, a light tint for CLEAR.
-const SEVERITY_TONE = { yellow: "warn", red: "error", "dark-red": "fatal", "flashing-red": "fatal" };
+// the colour: filled for SET, a light tint for CLEAR. Events carry `tone`, their severity mapped onto the
+// viewer's tones (see core_event/config.py), so custom severity names style the same way.
+const SEVERITY_TONE = { yellow: "warn", red: "error", "flashing-red": "fatal" };
 
 const hasEventData = (value) => {
   if (value == null) return false;
@@ -45,7 +45,7 @@ const resolveRowDisplay = (event) => {
 };
 
 const resolveConfiguredChannels = (event, view) => {
-  const configured = Array.isArray(view?.rowSettings?.channels) ? view.rowSettings.channels : [];
+  const configured = Array.isArray(view?.config?.channels) ? view.config.channels : [];
   const normalizedConfigured = configured
     .map((channel) => String(channel || "").trim())
     .filter(Boolean);
@@ -139,8 +139,8 @@ const CoreEventRow = ({
   timeTitle = "",
   isTimeReference = false,
 }) => {
-  const colorLabel = event?.color || "Green";
-  const colorClass = String(colorLabel).toLowerCase().replace(/\s+/g, "-");
+  const colorLabel = event?.color || "";
+  const colorClass = event?.tone || "green";
   const display = resolveRowDisplay(event);
   const channels = new Set((event?.channels || []).map((channel) => String(channel)));
   const configuredChannels = resolveConfiguredChannels(event, view);
@@ -231,11 +231,10 @@ const CoreEventRow = ({
   `;
 };
 
-Cinc.registerLogRowComponent("core_event", CoreEventRow);
 const DetailField = ({ label, children }) =>
   children ? html`<div class="detail-field"><dt>${label}</dt><dd>${children}</dd></div>` : null;
 
-Cinc.registerDetailSummary("core_event", ({ event }) => {
+const CoreEventDetail = ({ event }) => {
   const location = [event?.system, event?.subsystem, event?.unit].filter(Boolean).join(":");
   const channels = Array.isArray(event?.channels) ? event.channels.join(" ") : "";
   return html`
@@ -249,4 +248,9 @@ Cinc.registerDetailSummary("core_event", ({ event }) => {
       <${DetailField} label="Channels">${channels}</${DetailField}>
     </dl>
   `;
-});
+};
+
+export default function setup({ registerRow, registerDetail }) {
+  registerRow(CoreEventRow);
+  registerDetail(CoreEventDetail);
+}

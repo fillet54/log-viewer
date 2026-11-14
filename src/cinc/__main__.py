@@ -6,12 +6,16 @@ Usage:
   cinc build PATH... [--log-type TYPE] [--output FILE] [--title TITLE]
   cinc serve [--data DIR] [--host HOST] [--port PORT] [--debug]
   cinc types
+  cinc plugins
+  cinc COMMAND [ARGS...]
 
 Commands:
-  build   Write a self-contained HTML viewer. PATH is a log folder,
-          a <type>.jsonl file, or a JSON payload/bundle file.
-  serve   Run the live viewer. Logs are stored as folders under --data.
-  types   List registered log types.
+  build    Write a self-contained HTML viewer. PATH is a log folder,
+           a <type>.jsonl file, or a JSON payload/bundle file.
+  serve    Run the live viewer. Logs are stored as folders under --data.
+  types    List registered log types.
+  plugins  List installed plugins and what they add, including commands.
+  COMMAND  A command added by a plugin (see `cinc plugins`).
 
 Options:
   --log-type TYPE  Log type for inputs that do not declare one.
@@ -24,14 +28,53 @@ Options:
 """
 
 
+BUILTIN = {"build", "serve", "types", "plugins"}
+
+
+def _print_plugins(registry) -> None:
+    for plugin_id, package in sorted(registry.plugins.items()):
+        print(f"{plugin_id}  ({package})")
+        for log_type in registry.all():
+            if type(log_type).__module__.startswith(package):
+                print(f"  log type  {log_type.id}  {log_type.name}")
+        for type_id, extensions in sorted(registry.extensions().items()):
+            for extension in extensions:
+                if extension.plugin_id == plugin_id:
+                    print(f"  extends   {type_id}")
+        for asset in registry.scripts:
+            if asset.package == package:
+                print(f"  script    {asset.path}")
+        for blueprint, _ in registry.blueprints:
+            if blueprint.import_name.startswith(package):
+                print(f"  pages     {blueprint.name}")
+        for command in registry.commands.values():
+            if command.plugin_id == plugin_id:
+                print(f"  command   cinc {command.name}  {command.help}".rstrip())
+
+
 def main(argv=None):
+    import sys
+
     from docopt import docopt
 
-    args = docopt(USAGE, argv=argv)
-    if args["types"]:
-        from .core.registry import LogTypeRegistry
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and not argv[0].startswith("-") and argv[0] not in BUILTIN:
+        from .core.registry import Registry
 
-        for item in LogTypeRegistry.discover().all():
+        command = Registry.discover().commands.get(argv[0])
+        if command is None:
+            sys.exit(f"cinc: unknown command {argv[0]!r} (see `cinc --help`)")
+        return command.function(argv[1:])
+
+    args = docopt(USAGE, argv=argv)
+    if args["types"] or args["plugins"]:
+        from .core.registry import Registry
+
+        registry = Registry.discover()
+        if args["plugins"]:
+            _print_plugins(registry)
+            return
+        for item in registry.all():
             print(f"{item.id}\t{item.name}")
         return
     if args["build"]:
@@ -56,4 +99,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

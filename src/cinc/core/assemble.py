@@ -1,8 +1,15 @@
-from typing import Any
+from __future__ import annotations
 
-from .chart_config import validate_chart_config
+from typing import TYPE_CHECKING, Any
+
 from .contract import validate_events
 from .track import merge_tracks
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .registry import Registry
+
+# Version of the page data and browser plugin API (docs/plugins.md).
+API_VERSION = 3
 
 
 def normalize_section(
@@ -25,28 +32,41 @@ def normalize_section(
     return events
 
 
-def type_config(log_type: Any, payload: dict[str, Any]) -> dict[str, Any]:
-    view = log_type.view_config(payload)
+def type_config(
+    log_type: Any, payload: dict[str, Any], registry: "Registry | None" = None
+) -> dict[str, Any]:
+    """What the viewer gets for one log type: its settings, and the browser
+    modules to set up for it (its own, then any extensions')."""
+    extensions = registry.extensions_for(log_type.id) if registry else []
     return {
         "name": log_type.name,
-        "rowSettings": view.get("rowSettings", {}),
-        "charts": view.get("charts", []),
-        "timelineViews": view.get("timelineViews", []),
+        "rowHeight": log_type.row_height,
         "search": log_type.search_config(payload),
-        "chartConfig": validate_chart_config(
-            log_type.chart_config(payload), log_type.id
-        ),
+        "config": log_type.view_config(payload),
+        "modules": [asset.module_id for asset in log_type.scripts()],
+        "extensions": [
+            {
+                "plugin": extension.plugin_id,
+                "modules": [asset.module_id for asset in extension.scripts],
+                "config": extension.config,
+            }
+            for extension in extensions
+        ],
     }
 
 
 def assemble_page_data(
     sections: list[tuple[Any, dict[str, Any]]],
+    registry: "Registry | None" = None,
 ) -> dict[str, Any]:
+    """Page data for one log from its ``(log type, payload)`` sections.
+
+    ``registry`` adds what plugins contributed: extensions to these types and
+    global scripts and styles."""
     events: list[dict[str, Any]] = []
     configs: dict[str, dict[str, Any]] = {}
     summary: dict[str, Any] = {}
-    scripts: list[str] = []
-    styles: list[str] = []
+    styles: list[Any] = list(registry.styles) if registry else []
     track_groups: list[list[dict[str, Any]]] = []
     # Section i's rows get ids i+1, i+1+n, ... (n sections), so ids are stable
     # as a live log grows (see LiveHub.post).
@@ -56,19 +76,21 @@ def assemble_page_data(
                 log_type, payload, row_id_base=slot, row_id_step=len(sections)
             )
         )
-        configs[log_type.id] = type_config(log_type, payload)
+        configs[log_type.id] = type_config(log_type, payload, registry)
         summary.update(log_type.log_summary(payload))
         track_groups.append(log_type.tracks(payload))
-        scripts.extend(log_type.inline_scripts())
-        styles.extend(log_type.inline_styles())
+        styles.extend(log_type.styles())
+        if registry:
+            for extension in registry.extensions_for(log_type.id):
+                styles.extend(extension.styles)
     events.sort(key=lambda event: (event["time"], event["row_id"]))
     return {
-        "apiVersion": 2,
+        "apiVersion": API_VERSION,
         "logTypes": configs,
         "log": {"summary": summary},
         "logData": {"events": events, "tracks": merge_tracks(track_groups)},
         "view": {
-            "scripts": list(dict.fromkeys(scripts)),
-            "styles": list(dict.fromkeys(styles)),
+            "modules": [a.module_id for a in registry.scripts] if registry else [],
+            "styles": [asset.read_text() for asset in dict.fromkeys(styles)],
         },
     }

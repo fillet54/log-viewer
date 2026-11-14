@@ -2,7 +2,7 @@ import pytest
 
 from cinc.app import create_app
 from cinc.core.assemble import assemble_page_data
-from cinc.core.registry import LogTypeRegistry
+from cinc.core.registry import Registry
 from cinc.core.basemap import basemap, clip_line, clip_ring, map_area, track_bounds
 from cinc.core.track import TrackLogType, build_tracks, merge_tracks
 from cinc.standalone import build_standalone_bundle
@@ -45,7 +45,7 @@ def test_merge_joins_tracks_with_the_same_id():
 
 
 def test_track_type_is_builtin_and_adds_no_rows():
-    registry = LogTypeRegistry.discover()
+    registry = Registry.discover()
     log_type = registry.get("track")
     assert isinstance(log_type, TrackLogType)
     page = assemble_page_data([(log_type, {"tracks": TRACKS, "events": track_rows(2)})])

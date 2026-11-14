@@ -5,7 +5,11 @@ A log viewer. Two modes:
 - **Standalone**: `cinc build PATH... -o out.html` writes one self-contained HTML page.
 - **Live**: `cinc serve --data DIR` shows rows as they are posted, and saves every log to `DIR`.
 
-`cinc types` lists the registered log types (`core_event`, `text_log`, and the built-in `track`).
+`cinc types` lists the registered log types (`core_event`, `text_log`, and the built-in `track`), and
+`cinc plugins` lists the installed plugins and what each adds.
+
+**Extending Cinc**: a project adds log types, charts, pages, commands and data helpers with a plugin
+package. See [docs/plugins.md](docs/plugins.md) and the example in `examples/acme_plugin`.
 
 ## Log folder format
 

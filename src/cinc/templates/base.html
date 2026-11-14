@@ -16,7 +16,8 @@
         "htm": "/static/vendor/htm-core.mjs",
         "htm/preact": "/static/vendor/htm-preact.mjs",
         "logview/lib": "/static/logview/lib.js",
-        "static/runtime.js": "/static/runtime.js"
+        "cinc": "/static/runtime.js",
+        "cinc-plugins/": "/plugin-assets/"
       }
     }
     </script>
@@ -37,7 +38,7 @@
           <span class="brand-name">Cinc</span>
         </a>
         <nav class="topbar-nav" aria-label="Primary">
-          {% for key, label, endpoint in [("live", "Live", "live"), ("history", "History", "history")] %}
+          {% for key, label, endpoint in [("live", "Live", "live"), ("history", "History", "history")] + (plugin_nav or []) %}
           <a href="{{ url_for(endpoint) }}"{% if nav_current == key %} aria-current="page"{% endif %}>{{ label }}</a>
           {% endfor %}
         </nav>

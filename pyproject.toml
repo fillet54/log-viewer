@@ -20,9 +20,9 @@ dev = ["pytest", "flake8", "black"]
 [project.scripts]
 cinc = "cinc.__main__:main"
 
-[project.entry-points."cinc.log_types"]
-core-event = "cinc.plugins.core_event:CoreEventLogType"
-text-log = "cinc.plugins.text_log:TextLogType"
+[project.entry-points."cinc.plugins"]
+core_event = "cinc.plugins.core_event:setup"
+text_log = "cinc.plugins.text_log:setup"
 
 [tool.setuptools]
 include-package-data = true

@@ -11,7 +11,7 @@
 // Leaflet is vendored (static/vendor/leaflet) and loaded on first use. The basemap is Natural
 // Earth (cinc/core/basemap.py): a low-detail world plus 1:10m layers cut to the tracks' area.
 // Standalone pages embed both; served pages fetch the basemap and widen it as live tracks grow.
-import { themeColor } from "./LogMainChart.js";
+import { themeColor, onThemeChange } from "../../../theme.js";
 import { signals } from "logview/lib";
 
 const LogMainViewChart = window.LogMainViewChart;
@@ -178,17 +178,6 @@ const timeDomain = (tracks, events) => {
   }
   if (!Number.isFinite(start)) return { start: 0, end: 1 };
   return { start, end: Math.max(end, start + 1) };
-};
-
-const onThemeChange = (callback) => {
-  const observer = new MutationObserver(callback);
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-  const media = window.matchMedia("(prefers-color-scheme: dark)");
-  media.addEventListener("change", callback);
-  return () => {
-    observer.disconnect();
-    media.removeEventListener("change", callback);
-  };
 };
 
 const element = (tag, className, text) => {

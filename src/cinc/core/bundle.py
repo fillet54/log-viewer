@@ -4,7 +4,7 @@ from typing import Any
 
 from ..logdir import LogDir, is_log_dir
 from .assemble import assemble_page_data
-from .registry import LogTypeRegistry
+from .registry import Registry
 
 
 def _registered(registry):
@@ -13,7 +13,7 @@ def _registered(registry):
 
 def resolve_sections(
     payload: Any,
-    registry: LogTypeRegistry,
+    registry: Registry,
     *,
     path: str = "<input>",
     log_type_id: str | None = None,
@@ -63,7 +63,7 @@ def resolve_sections(
     return [(matches[0], payload)]
 
 
-def _lookup(registry: LogTypeRegistry, type_id: str, path: str):
+def _lookup(registry: Registry, type_id: str, path: str):
     log_type = registry.get(type_id)
     if log_type is None:
         raise ValueError(
@@ -73,16 +73,14 @@ def _lookup(registry: LogTypeRegistry, type_id: str, path: str):
     return log_type
 
 
-def log_dir_sections(log: LogDir, registry: LogTypeRegistry):
+def log_dir_sections(log: LogDir, registry: Registry):
     return [
         (_lookup(registry, type_id, str(log.path)), payload)
         for type_id, payload in log.payloads()
     ]
 
 
-def read_sections(
-    path: Path, registry: LogTypeRegistry, *, log_type_id: str | None = None
-):
+def read_sections(path: Path, registry: Registry, *, log_type_id: str | None = None):
     """Sections for one CLI input: a log directory, a ``<type>.jsonl`` file,
     or a JSON payload/bundle file."""
     path = Path(path)
@@ -99,9 +97,9 @@ def read_sections(
 
 
 def build_from_paths(
-    paths: list[Path], registry: LogTypeRegistry, *, log_type_id: str | None = None
+    paths: list[Path], registry: Registry, *, log_type_id: str | None = None
 ):
     sections = []
     for path in paths:
         sections.extend(read_sections(path, registry, log_type_id=log_type_id))
-    return assemble_page_data(sections)
+    return assemble_page_data(sections, registry)

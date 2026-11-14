@@ -40,11 +40,21 @@ class LogDir:
         return self.path.name
 
     @classmethod
-    def create(cls, root: Path, name: str | None = None) -> "LogDir":
+    def create(
+        cls,
+        root: Path,
+        name: str | None = None,
+        *,
+        log_id: str | None = None,
+        started: datetime | None = None,
+    ) -> "LogDir":
         now = datetime.now(timezone.utc).replace(microsecond=0)
-        log = cls(Path(root) / new_log_id(now))
+        if log_id is not None and not valid_id(log_id):
+            raise ValueError(f"invalid log id {log_id!r}")
+        log = cls(Path(root) / (log_id or new_log_id(now)))
         log.path.mkdir(parents=True)
-        meta = {"name": name or f"Log {now:%Y-%m-%d %H:%M:%S}", "started": now}
+        started = started or now
+        meta = {"name": name or f"Log {started:%Y-%m-%d %H:%M:%S}", "started": started}
         log._write_json("log.json", meta)
         return log
 

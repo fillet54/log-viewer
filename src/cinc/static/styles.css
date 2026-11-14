@@ -92,9 +92,6 @@
   --event-text-dark: #1e2833;
   --event-text-light: #fcfcfe;
   --color-on-accent: var(--paper);
-  --color-channel-active-bg: var(--ink);
-  --color-channel-active-text: var(--paper);
-  --color-channel-active-border: var(--ink);
   --color-tooltip-bg: var(--ink);
   --color-tooltip-text: var(--paper);
   --color-timeline-hover: var(--faint);
@@ -559,8 +556,6 @@ button {
 }
 
 .mono-block,
-.ce-time,
-.ce-offset,
 .search-item .search-time {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -1003,62 +998,6 @@ button {
   white-space: nowrap;
 }
 
-.ce-status-board {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.ce-status-board {
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  gap: 0.4rem;
-  min-height: 140px;
-  padding-top: 0.15rem;
-}
-
-.ce-status-card {
-  min-width: 84px;
-  max-width: 160px;
-  height: 30px;
-  padding: 0 0.55rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius);
-}
-
-.ce-status-name {
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.ce-status-card.ce-status-green {
-  background: var(--event-green);
-  color: var(--event-text-dark);
-}
-
-.ce-status-card.ce-status-yellow {
-  background: var(--event-yellow);
-  color: var(--event-text-dark);
-}
-
-.ce-status-card.ce-status-red {
-  background: var(--event-red);
-  color: var(--event-text-light);
-}
-
-.ce-status-card.ce-status-flashing-red {
-  background: var(--event-dark-red);
-  color: var(--event-text-light);
-}
-
 #toggle-bottom.is-collapsed svg {
   transform: rotate(180deg);
 }
@@ -1138,6 +1077,10 @@ button {
   cursor: default;
 }
 .log-line:hover { background: var(--soft); }
+/* Rows of log types that bring no row component (PluginLogRow.js GenericRow). */
+.generic-row-type,
+.generic-row-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.generic-row-type { color: var(--color-text-muted); font: 12px var(--font-mono); }
 .log-line.sev-warn { --sev: var(--event-yellow); }
 .log-line.sev-error { --sev: var(--event-red); }
 .log-line.sev-fatal { --sev: var(--event-dark-red); }
@@ -1182,22 +1125,7 @@ button {
 .row-level-error { --c: var(--event-red); }
 .row-level-fatal { --c: var(--event-dark-red); }
 
-.ce-action[data-ce-color="green"] { --c: var(--event-green); }
-.ce-action[data-ce-color="yellow"] { --c: var(--event-yellow); color: var(--event-text-dark); }
-.ce-action[data-ce-color="red"] { --c: var(--event-red); }
-.ce-action[data-ce-color="dark-red"],
-.ce-action[data-ce-color="flashing-red"] { --c: var(--event-dark-red); }
-.log-line[data-ce-action="clear"] .ce-action {
-  background: color-mix(in srgb, var(--c) 14%, var(--paper));
-  border-color: color-mix(in srgb, var(--c) 55%, var(--paper));
-  color: var(--muted);
-  font-weight: 500;
-}
-
-.log-muted,
-.ce-prefix,
-.ce-meta,
-.ce-desc {
+.log-muted {
   color: var(--color-text-muted);
 }
 
@@ -1212,110 +1140,11 @@ button {
   background: var(--color-log-selected);
 }
 
-/* CLEAR rows recede in colour, not opacity, so they stay readable. */
-.log-line[data-ce-action="clear"] .ce-name { color: var(--color-text-muted); font-weight: 400; }
-
 @keyframes pulse-highlight {
   0% { background: var(--color-highlight-start); }
   70% { background: var(--color-highlight-mid); }
   100% { background: var(--color-log-card); }
 }
-
-.ce-action-group {
-  display: inline-flex;
-  align-items: center;
-  justify-self: start;
-  gap: 6px;
-  min-width: 0;
-}
-
-.log-match {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  white-space: nowrap;
-  font-size: 11px;
-  color: var(--color-text-muted);
-}
-
-.match-link {
-  border: none;
-  background: transparent;
-  color: inherit;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  font: inherit;
-  line-height: 1;
-  cursor: pointer;
-}
-.match-link:hover { color: var(--color-accent); text-decoration: underline; }
-
-.match-preview,
-.match-value,
-.match-separator {
-  font-family: var(--font-mono);
-}
-
-.match-direction {
-  color: var(--color-accent);
-  font-family: var(--font-body);
-  font-weight: 600;
-}
-
-.match-detail {
-  display: none;
-  align-items: center;
-  gap: 3px;
-}
-
-.ce-action-group:hover { width: max-content; z-index: 2; }
-.ce-action-group:hover .match-preview { display: none; }
-.ce-action-group:hover .match-detail { display: inline-flex; }
-
-/* Line 1: name, code, system:subsystem:unit. Line 2 (comfortable rows only): the description. Compact rows
- * leave the description to the info pane. */
-.ce-details {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  overflow: hidden;
-  white-space: nowrap;
-}
-.ce-title-row {
-  min-width: 0;
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-.ce-name {
-  min-width: 0;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ce-prefix {
-  flex: 0 0 auto;
-  font: 12px/1 var(--font-mono);
-  white-space: nowrap;
-}
-.ce-prefix.is-hidden { display: none; }
-.ce-name { flex: 0 1 auto; }
-.ce-meta,
-.ce-desc {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-}
-.ce-meta { flex: 0 1 auto; font-family: var(--font-mono); }
-.ce-desc { display: none; line-height: 1.2; }
-.layout-shell[data-density="comfortable"] .ce-desc:not(:empty) { display: block; }
 
 .bookmark-toggle,
 .pin-button {
@@ -1365,29 +1194,6 @@ button {
 
 .log-line[data-bookmark-color="5"] .bookmark-toggle {
   color: var(--bookmark-color-5);
-}
-
-.ce-data-indicator {
-  display: inline-grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  justify-self: center;
-  color: var(--color-text-faint);
-}
-
-.data-icon {
-  width: 14px;
-  height: 14px;
-  display: none;
-}
-
-.ce-data-indicator[data-has-data="true"] {
-  color: var(--color-accent);
-}
-
-.ce-data-indicator[data-has-data="true"] .data-icon-present {
-  display: block;
 }
 
 #log-spacer,
@@ -1935,12 +1741,7 @@ button {
     grid-template-columns: 84px 60px minmax(0, 1fr) 20px;
   }
 
-  .ce-channels,
-  .tl-logger,
-  .ce-data-indicator,
-  .tl-row > span:empty {
-    display: none;
-  }
+  /* Plugins hide their optional columns here too (see their row.css). */
 
 }
 

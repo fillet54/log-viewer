@@ -36,8 +36,8 @@ def test_text_log_contract_and_config():
     events = log_type.normalize_events(payload)
     assert [event["row_id"] for event in events] == list(range(1, 11))
     assert events[0]["time"].endswith("Z")
-    assert log_type.search_config(payload)["labelField"] == "message"
-    assert log_type.view_config(payload)["timelineViews"] == ["levels"]
+    assert "message" in log_type.search_config(payload)["fields"]
+    assert log_type.view_config(payload)["levels"][0] == "DEBUG"
 
 
 def test_text_plugin_isolated():

@@ -6,12 +6,15 @@ import json
 import base64
 import re
 import os
+from typing import Any
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from .core.basemap import basemap_for_tracks
-from .core.bundle import build_from_paths
-from .core.registry import LogTypeRegistry
+from .core.bundle import build_from_paths, resolve_sections
+from .core.assemble import assemble_page_data
+from .core.plugin import MODULE_PREFIX, Asset
+from .core.registry import Registry
 
 GLOBAL_SCRIPTS = [
     "static/vendor/chart.umd.min.js",
@@ -25,7 +28,12 @@ BARE_MODULES = {
     "@preact/signals-core": "static/vendor/signals-core.mjs",
     "htm": "static/vendor/htm-core.mjs",
     "htm/preact": "static/vendor/htm-preact.mjs",
+}
+# Bare names for core modules; they must resolve to the same module instance
+# as core's own relative imports, so they alias the module rather than copy it.
+ALIASES = {
     "logview/lib": "static/logview/lib.js",
+    "cinc": "static/runtime.js",
 }
 
 
@@ -35,7 +43,7 @@ def _discover_frontend_modules() -> list[str]:
     for item in root.rglob("*"):
         if item.suffix in {".js", ".mjs"} and "vendor" not in item.parts:
             modules.append(str(item.relative_to(files("cinc"))).replace("\\", "/"))
-    return sorted(set(modules + list(BARE_MODULES.values())))
+    return sorted(set(modules))
 
 
 ENTRY_POINT = "static/app.js"
@@ -114,36 +122,55 @@ def _map_assets(tracks: list) -> dict[str, str]:
     }
 
 
+def plugin_modules(page_data: dict[str, object]) -> dict[str, str]:
+    """Plugin modules a page sets up, plus every plugin file they import,
+    keyed by module id with relative imports rewritten to module ids."""
+    pending: list[str] = []
+    for entry in (page_data.get("logTypes") or {}).values():
+        pending.extend(entry.get("modules") or [])
+        for extension in entry.get("extensions") or []:
+            pending.extend(extension.get("modules") or [])
+    pending.extend((page_data.get("view") or {}).get("modules") or [])
+    modules: dict[str, str] = {}
+    while pending:
+        module_id = pending.pop()
+        if module_id in modules:
+            continue
+        source = _normalize_imports(
+            module_id, Asset.from_module_id(module_id).read_text()
+        )
+        modules[module_id] = source
+        pending.extend(
+            spec
+            for spec in re.findall(
+                r'(?:from|import)\s*\(?\s*["\']([^"\']+)["\']', source
+            )
+            if spec.startswith(MODULE_PREFIX)
+        )
+    return modules
+
+
 def build_standalone_html(
-    data_script: str, title: str = "HTML Log Viewer", *, tracks: list | None = None
+    page_data: dict[str, object], title: str = "HTML Log Viewer"
 ) -> str:
+    """One self-contained HTML page for ``page_data`` (see assemble_page_data)."""
     styles = _read_package_text("static/styles.css").replace(
         '@import url("fonts.css");', ""
     )
-
-    global_scripts = [data_script]
+    global_scripts = [build_page_data_script(page_data)]
     for path in GLOBAL_SCRIPTS:
         global_scripts.append(_read_package_text(path))
 
-    module_data = {}
-
-    # 1. Normalize and collect all modules
+    modules: dict[str, str] = {}
     for path in _discover_frontend_modules():
-        if path in GLOBAL_SCRIPTS:
-            continue
-        content = _read_package_text(path)
-        module_data[path] = _normalize_imports(path, content)
-
-    # 2. Add bare modules
+        modules[path] = _normalize_imports(path, _read_package_text(path))
     for name, path in BARE_MODULES.items():
-        if name in module_data:
-            continue
-        content = _read_package_text(path)
-        # Normalize defensively.
-        module_data[name] = _normalize_imports(path, content)
-
-    esm_data = json.dumps(module_data)
-
+        modules[name] = _normalize_imports(path, _read_package_text(path))
+    modules.update(plugin_modules(page_data))
+    esm_data = json.dumps({"modules": modules, "aliases": ALIASES}).replace(
+        "</", "<\\/"
+    )
+    tracks = page_tracks(page_data)
     return TEMPLATE_ENV.get_template("standalone.html").render(
         title=title,
         styles=_inline_fonts(_read_package_text("static/fonts.css")) + "\n" + styles,
@@ -172,13 +199,59 @@ def build_standalone_bundle(
     title: str = "HTML Log Viewer",
     *,
     log_type_id: str | None = None,
+    registry: Registry | None = None,
 ) -> Path:
+    """Write a standalone page for log folders, ``<type>.jsonl`` files or
+    JSON payload/bundle files (what ``cinc build`` takes)."""
     page_data = build_from_paths(
-        data_paths, LogTypeRegistry.discover(), log_type_id=log_type_id
+        data_paths, registry or Registry.discover(), log_type_id=log_type_id
     )
-    html = build_standalone_html(
-        build_page_data_script(page_data), title=title, tracks=page_tracks(page_data)
-    )
+    output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(html, encoding="utf-8")
+    output_path.write_text(build_standalone_html(page_data, title), encoding="utf-8")
+    return output_path
+
+
+def build_standalone(
+    data: Any,
+    title: str = "Log Viewer",
+    *,
+    registry: Registry | None = None,
+) -> str:
+    """A standalone page from data in memory.
+
+    ``data`` is ``{type_id: payload}`` (each payload ``{**header, "events":
+    rows}``), a list of ``(type_id, payload)``, a bundle dict
+    (``{"cinc": 1, "sections": [...]}``), or a log folder path."""
+    registry = registry or Registry.discover()
+    if isinstance(data, (str, Path)):
+        page_data = build_from_paths([Path(data)], registry)
+        return build_standalone_html(page_data, title)
+    if isinstance(data, dict) and "cinc" in data:
+        sections = resolve_sections(data, registry)
+    else:
+        items = data.items() if isinstance(data, dict) else data
+        sections = []
+        for type_id, payload in items:
+            log_type = registry.get(str(type_id))
+            if log_type is None:
+                known = ", ".join(item.id for item in registry.all())
+                raise ValueError(f"Unknown log type {type_id!r}. Registered: {known}")
+            sections.append((log_type, payload))
+    return build_standalone_html(assemble_page_data(sections, registry), title)
+
+
+def write_standalone(
+    data: Any,
+    output_path: Path | str,
+    title: str = "Log Viewer",
+    *,
+    registry: Registry | None = None,
+) -> Path:
+    """``build_standalone`` written to ``output_path``."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        build_standalone(data, title, registry=registry), encoding="utf-8"
+    )
     return output_path

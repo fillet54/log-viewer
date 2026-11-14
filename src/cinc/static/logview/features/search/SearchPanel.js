@@ -50,7 +50,7 @@ export const SearchPanel = () => {
     const rowHeights = new Map(
       Object.entries(services?.logTypes || {}).map(([id, config]) => [
         id,
-        Number(config.rowHeightHint) || rowStride,
+        Number(config.rowHeight) || rowStride,
       ])
     );
     const offsets = buildOffsets(results, rowHeights, rowStride);

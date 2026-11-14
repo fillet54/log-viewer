@@ -3,8 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from .config import severities as severity_scale
+
 DEFAULT_CORE_EVENT_CHANNELS = ["A", "B", "C", "D"]
-CORE_EVENT_SEVERITY = ["Green", "Yellow", "Red", "Flashing Red"]
 COLOR_PREFIX = {
     "green": "G",
     "yellow": "Y",
@@ -242,8 +243,7 @@ def _build_fault_prefix(event: dict[str, Any]) -> str:
     if not raw_code:
         return ""
 
-    color_class = str(event.get("color") or "Green").lower().replace(" ", "-")
-    severity = COLOR_PREFIX.get(color_class, "G")
+    severity = COLOR_PREFIX.get(str(event.get("tone") or "green"), "G")
     parts = [part for part in raw_code.split("-") if part]
 
     if len(parts) >= 2:
@@ -349,6 +349,7 @@ def _normalize_event(
     index: int,
     fallback_start: datetime | None,
     available_channels: list[str],
+    scale: list[dict[str, str]],
 ) -> dict[str, Any]:
     parsed_utc = _parse_datetime(raw_event.get("utctime"))
     if raw_event.get("norm_time") is not None:
@@ -369,8 +370,11 @@ def _normalize_event(
     except (TypeError, ValueError):
         row_id = index + 1
 
-    color = raw_event.get("color")
-    normalized_color = color if color in CORE_EVENT_SEVERITY else "Green"
+    # Unknown colours fall back to the lowest severity of the scale.
+    rank = next(
+        (i for i, item in enumerate(scale) if item["name"] == raw_event.get("color")),
+        0,
+    )
     raw_id = raw_event.get("id") or raw_event.get("name") or f"event-{index + 1}"
     raw_name = raw_event.get("name") or raw_event.get("id") or f"Event {index + 1}"
     system_fields = _normalize_entity_fields(raw_event, "system")
@@ -386,7 +390,9 @@ def _normalize_event(
         "id": str(raw_id),
         "name": str(raw_name),
         "description": str(raw_event.get("description") or ""),
-        "color": normalized_color,
+        "color": scale[rank]["name"],
+        "tone": scale[rank]["tone"],
+        "severity_rank": rank,
         **system_fields,
         **subsystem_fields,
         **unit_fields,
@@ -400,11 +406,13 @@ def _normalize_event(
 
 
 def _derive_core_events(
-    raw_events: list[dict[str, Any]], available_channels: list[str]
+    raw_events: list[dict[str, Any]],
+    available_channels: list[str],
+    scale: list[dict[str, str]],
 ) -> list[dict[str, Any]]:
     fallback_start = _resolve_fallback_start(raw_events)
     events = [
-        _normalize_event(event, index, fallback_start, available_channels)
+        _normalize_event(event, index, fallback_start, available_channels, scale)
         for index, event in enumerate(raw_events)
     ]
     ordered = sorted(
@@ -504,7 +512,7 @@ def build_log_data(payload: Any) -> tuple[dict[str, Any], list[str]]:
     event_list = raw_events if isinstance(raw_events, list) else []
     valid_events = [event for event in event_list if isinstance(event, dict)]
     channels = _resolve_channel_catalog(source, valid_events)
-    events = _derive_core_events(valid_events, channels)
+    events = _derive_core_events(valid_events, channels, severity_scale(source))
     bounds = _resolve_bounds(source, events)
     return (
         {

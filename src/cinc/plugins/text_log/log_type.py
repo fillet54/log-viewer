@@ -9,6 +9,7 @@ class TextLogType(LogType):
     description = "Plain timestamped application log lines"
     script_paths = ("static/row.js", "static/charts.js")
     style_paths = ("static/row.css",)
+    row_height = 36
 
     def normalize_events(self, payload, *, row_id_base=0, row_id_step=1):
         source = payload.get("lines", payload.get("events", []))
@@ -30,40 +31,12 @@ class TextLogType(LogType):
 
     def search_config(self, payload):
         return {
-            "labelField": "message",
             "excludeFromBareTerms": ["data"],
-            "aliasSuffix": None,
             "fields": ["time", "level", "logger", "message"],
-            "examples": [
-                "level:ERROR",
-                "logger~db",
-                "message~refused",
-                "NOT level:DEBUG",
-            ],
         }
 
     def view_config(self, payload):
-        return {
-            "rowSettings": {"levels": ["DEBUG", "INFO", "WARN", "ERROR"]},
-            "rowHeightHint": 36,
-            "charts": [],
-            "timelineViews": ["levels"],
-        }
-
-    def chart_config(self, payload):
-        return {
-            "severity": {
-                "field": "level",
-                "mapping": {
-                    "DEBUG": "green",
-                    "INFO": "green",
-                    "WARN": "yellow",
-                    "ERROR": "red",
-                    "FATAL": "flashing-red",
-                    "CRITICAL": "flashing-red",
-                },
-            }
-        }
+        return {"levels": ["DEBUG", "INFO", "WARN", "ERROR"]}
 
     def log_summary(self, payload):
         lines = payload.get("lines", payload.get("events", []))

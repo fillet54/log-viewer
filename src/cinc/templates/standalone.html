@@ -56,11 +56,11 @@
         if (!dataNode) return;
         const data = JSON.parse(dataNode.textContent);
         const imports = {};
-        for (const [id, code] of Object.entries(data)) {
-          const blob = new Blob([code], { type: 'text/javascript' });
-          const url = URL.createObjectURL(blob);
-          imports[id] = url;
+        for (const [id, code] of Object.entries(data.modules)) {
+          imports[id] = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
         }
+        // Bare names share the module instance of the file they name.
+        for (const [name, id] of Object.entries(data.aliases || {})) imports[name] = imports[id];
         const script = document.createElement('script');
         script.type = 'importmap';
         script.textContent = JSON.stringify({ imports });

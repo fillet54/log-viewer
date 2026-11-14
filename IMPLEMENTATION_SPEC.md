@@ -1,4 +1,4 @@
-> **Superseded (2026-10-26):** the app was simplified to a viewer with standalone and live modes; see README.md. The SQLite store, import routes and replay sources described here were removed.
+> **Superseded (2026-10-26):** the app was simplified to a viewer with standalone and live modes; see README.md. The SQLite store, import routes and replay sources described here were removed. The plugin API (entry points, page data, browser scripts) was replaced on 2026-11-14; see docs/plugins.md.
 
 # Cinc Log Viewer — Implementation Spec v2
 

@@ -1,7 +1,6 @@
+// Used when a log type gives no search_config of its own.
 export const DEFAULT_SEARCH_CONFIG = {
-  labelField: "name",
   excludeFromBareTerms: ["data"],
-  aliasSuffix: "_search",
 };
 
 export const buildParser = () => {

@@ -11,14 +11,14 @@ from typing import Any
 
 from .core.assemble import assemble_page_data, normalize_section
 from .core.bundle import log_dir_sections
-from .core.registry import LogTypeRegistry
+from .core.registry import Registry
 from .logdir import LogDir
 
 BACKLOG_BATCHES = 1000
 
 
 class LiveHub:
-    def __init__(self, root: Path, registry: LogTypeRegistry):
+    def __init__(self, root: Path, registry: Registry):
         self.root = Path(root)
         self.registry = registry
         self._lock = threading.Lock()
@@ -138,7 +138,9 @@ class LiveHub:
         """Assemble a log for the viewer; for the current log, include the
         stream position so the viewer can pick up exactly where it left off."""
         with self._lock:
-            page = assemble_page_data(log_dir_sections(log, self.registry))
+            page = assemble_page_data(
+                log_dir_sections(log, self.registry), self.registry
+            )
             if self._current is not None and log.id == self._current.id:
                 page["live"] = {"logId": log.id, "seq": self._seq}
             return page

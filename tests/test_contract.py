@@ -81,11 +81,12 @@ def test_event_augmenters_run_in_order_and_protect_identity():
         log_type.register_event_augmenter("first", lambda events, context: events)
 
 
-def test_chart_config_validation_rejects_invalid_declarations():
-    from cinc.core.chart_config import validate_chart_config
+def test_core_event_header_config_is_validated():
+    from cinc.plugins.core_event import config
 
-    with pytest.raises(ValueError, match="unsupported chart series kind"):
-        validate_chart_config(
-            {"series": [{"id": "x", "field": "data.x", "kind": "bar"}]},
-            "demo",
-        )
+    with pytest.raises(ValueError, match="tone"):
+        config.severities({"severities": [{"name": "Bad", "tone": "purple"}]})
+    with pytest.raises(ValueError, match="field path"):
+        config.series({"series": [{"id": "x", "field": "data..x"}]})
+    assert config.series({}) == []
+    assert [s["tone"] for s in config.severities({})] == list(config.TONES)

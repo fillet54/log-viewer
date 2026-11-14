@@ -19,10 +19,11 @@ from flask import (
 )
 
 from .core.basemap import basemap, parse_bounds
-from .core.registry import LogTypeRegistry
+from .core.plugin import Asset
+from .core.registry import Registry
 from .live import LiveHub
 from .logdir import LogDir, is_log_dir, list_logs, valid_id
-from .standalone import build_page_data_script, build_standalone_html, page_tracks
+from .standalone import build_page_data_script, build_standalone_html
 
 
 def when(value) -> str:
@@ -36,14 +37,44 @@ def when(value) -> str:
     return parsed.strftime("%Y-%m-%d %H:%M:%SZ")
 
 
-def create_app(data_dir: Path | None = None) -> Flask:
+# Plugin files the server hands to browsers; never Python sources.
+ASSET_TYPES = {
+    ".js": "text/javascript",
+    ".mjs": "text/javascript",
+    ".css": "text/css",
+    ".json": "application/json",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".woff2": "font/woff2",
+}
+
+
+def create_app(
+    data_dir: Path | None = None, *, registry: Registry | None = None
+) -> Flask:
+    """The live viewer. ``registry`` defaults to the installed plugins."""
     root = Path(data_dir or os.environ.get("CINC_DATA_DIR", "./cinc-data"))
     root.mkdir(parents=True, exist_ok=True)
-    registry = LogTypeRegistry.discover()
+    registry = registry or Registry.discover()
     hub = LiveHub(root, registry)
     app = Flask(__name__)
     app.extensions["cinc"] = {"registry": registry, "hub": hub, "root": root}
     app.jinja_env.filters["when"] = when
+    asset_packages = registry.asset_packages()
+    for blueprint, options in registry.blueprints:
+        app.register_blueprint(blueprint, **options)
+
+    @app.context_processor
+    def plugin_pages():
+        # Plugin blueprints that set nav_label show up in the top bar.
+        return {
+            "plugin_nav": [
+                (bp.name, getattr(bp, "nav_label"), f"{bp.name}.index")
+                for bp, _ in registry.blueprints
+                if getattr(bp, "nav_label", None)
+            ]
+        }
 
     def find_log(log_id: str) -> LogDir:
         path = root / log_id
@@ -98,16 +129,24 @@ def create_app(data_dir: Path | None = None) -> Flask:
         log = find_log(log_id)
         page = hub.page_data(log)
         page.pop("live", None)
-        html = build_standalone_html(
-            build_page_data_script(page),
-            title=log.meta()["name"],
-            tracks=page_tracks(page),
-        )
+        html = build_standalone_html(page, title=log.meta()["name"])
         return Response(
             html,
             mimetype="text/html",
             headers={"Content-Disposition": f'attachment; filename="{log.id}.html"'},
         )
+
+    @app.get("/plugin-assets/<package>/<path:path>")
+    def plugin_asset(package: str, path: str):
+        """Browser files of installed plugins (import "cinc-plugins/<package>/...")."""
+        parts = path.split("/")
+        mimetype = ASSET_TYPES.get(Path(path).suffix.lower())
+        if package not in asset_packages or ".." in parts or not mimetype:
+            abort(404)
+        asset = Asset(package, path)
+        if not asset.exists():
+            abort(404)
+        return Response(asset.read_bytes(), mimetype=mimetype)
 
     # -- API ---------------------------------------------------------------
 

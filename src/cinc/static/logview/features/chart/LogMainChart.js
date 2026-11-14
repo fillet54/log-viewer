@@ -1,45 +1,12 @@
 import { queryById } from "../../../shared.js";
 import { Cinc } from "../../../runtime.js";
+import { themeColor, themeFont, onThemeChange } from "../../../theme.js";
 
 const LogMainViewChart = window.LogMainViewChart || (window.LogMainViewChart = {});
 const LogMainViewTimeline = window.LogMainViewTimeline || (window.LogMainViewTimeline = {});
 import { signals } from "logview/lib";
 
 const signalEffect = signals?.effect || null;
-
-// Canvas can't read CSS variables, so chart colors written as "var(--token)" are resolved through a probe
-// element into rgba(). Cached per colour scheme; onThemeChange tells charts to redraw with the new values.
-const colorCache = new Map();
-let colorProbe = null;
-const toRgba = (computed) => {
-  const srgb = computed.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
-  if (!srgb) return computed;
-  const [r, g, b] = srgb.slice(1, 4).map((v) => Math.round(Number(v) * 255));
-  return `rgba(${r}, ${g}, ${b}, ${srgb[4] ?? 1})`;
-};
-export const themeColor = (value, fallback = "rgba(128, 128, 128, 0.6)") => {
-  if (typeof value !== "string" || !value.includes("var(")) return value || fallback;
-  if (colorCache.has(value)) return colorCache.get(value);
-  if (!colorProbe) {
-    colorProbe = document.createElement("span");
-    colorProbe.style.display = "none";
-    document.body.appendChild(colorProbe);
-  }
-  colorProbe.style.color = "";
-  colorProbe.style.color = value;
-  const resolved = toRgba(getComputedStyle(colorProbe).color) || fallback;
-  colorCache.set(value, resolved);
-  return resolved;
-};
-const themeFont = () => getComputedStyle(document.documentElement).getPropertyValue("--font-body").trim();
-const onThemeChange = (callback) => {
-  const run = () => { colorCache.clear(); callback(); };
-  const observer = new MutationObserver(run);
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-  const media = window.matchMedia("(prefers-color-scheme: dark)");
-  media.addEventListener("change", run);
-  return () => { observer.disconnect(); media.removeEventListener("change", run); };
-};
 
 const normalizePluginId = (id) => String(id || "").trim().toLowerCase().replace(/_/g, "-") || null;
 
@@ -87,6 +54,17 @@ LogMainViewTimeline.registerPluginView = (pluginId, definition) => {
   const normalizedPluginId = String(pluginId || "").trim();
   if (!normalizedPluginId) throw new Error("Plugin timeline views must define a plugin id.");
   LogMainViewTimeline.registerView({ ...definition, pluginId: normalizedPluginId });
+};
+
+// Timeline views for a log with these types: the global ones, then each type's own (first id wins).
+LogMainViewTimeline.listFor = (typeIds = []) => {
+  const present = new Set((typeIds || []).map((id) => normalizePluginId(id)).filter(Boolean));
+  const views = Array.from(LogMainViewTimeline.registry.values()).filter(
+    (view) => !view.pluginId || present.has(normalizePluginId(view.pluginId))
+  );
+  return views
+    .filter((view, index) => views.findIndex((other) => other.id === view.id) === index)
+    .map((view) => ({ id: view.id, label: view.label }));
 };
 
 if (Cinc._pendingViewRegistrations.length) {
@@ -459,7 +437,15 @@ const buildTimelineDatasets = (view, context) => {
       };
     }
 
-    const data = context.helpers.buildBucketPoints(sourceEvents, spec);
+    // A line with a `value` plots each event's value (a measurement); otherwise counts per time bucket.
+    const data =
+      kind === "line" && typeof spec.value === "function"
+        ? sourceEvents
+            .filter((event) => (typeof spec.filter === "function" ? spec.filter(event) : true))
+            .map((event) => ({ x: context.helpers.eventToSeconds(event), y: Number(spec.value(event)) }))
+            .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
+            .sort((a, b) => a.x - b.x)
+        : context.helpers.buildBucketPoints(sourceEvents, spec);
     if (kind === "line") {
       return {
         label: spec.label,

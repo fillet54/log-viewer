@@ -7,13 +7,17 @@ cinc build DIR/<log-id>                             view a written folder
 
 from __future__ import annotations
 
-import json
 import math
 import sys
 import time
-import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+try:
+    from cinc import LiveClient, LogWriter
+except ImportError:  # run from a checkout without installing: use ../src
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+    from cinc import LiveClient, LogWriter
 
 START = datetime(2026, 1, 1, 8, tzinfo=timezone.utc)
 CHANNELS = ["A", "B", "C"]
@@ -179,51 +183,45 @@ def track_rows(count: int, start: int = 0) -> list[dict]:
     return rows
 
 
+# core_event header: the demo's channels, plus a timeline line for the bus load
+# every event carries (see cinc/plugins/core_event/config.py).
+CORE_EVENT_HEADER = {
+    "channels": CHANNELS,
+    "series": [
+        {
+            "id": "bus-load",
+            "label": "Bus Load",
+            "field": "data.bus.load_pct",
+            "unit": "%",
+            "min": 0,
+            "max": 100,
+        }
+    ],
+}
+
+
 def write_log(root: Path, rows: int = 40, name: str = "Fake log") -> Path:
     """Write a log folder in the on-disk format, the way any tool could."""
-    path = Path(root) / f"fake-{START:%Y%m%d}"
-    path.mkdir(parents=True, exist_ok=True)
-    (path / "log.json").write_text(
-        json.dumps({"name": name, "started": START.isoformat()})
-    )
-    (path / "core_event.json").write_text(json.dumps({"channels": CHANNELS}))
-    (path / "track.json").write_text(json.dumps({"tracks": TRACKS}))
-    for type_id, make in (
-        ("core_event", core_event_rows),
-        ("text_log", text_rows),
-        ("track", track_rows),
-    ):
-        lines = [json.dumps(row) for row in make(rows)]
-        (path / f"{type_id}.jsonl").write_text("\n".join(lines) + "\n")
-    return path
-
-
-def _post(url: str, body: dict) -> None:
-    request = urllib.request.Request(
-        url,
-        data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json"},
-    )
-    urllib.request.urlopen(request).close()
+    log = LogWriter(root, name, log_id=f"fake-{START:%Y%m%d}", started=START)
+    log.header("core_event", CORE_EVENT_HEADER)
+    log.header("track", tracks=TRACKS)
+    log.write("core_event", core_event_rows(rows))
+    log.write("text_log", text_rows(rows))
+    log.write("track", track_rows(rows))
+    return log.path
 
 
 def post_live(base_url: str, rows: int = 200, delay: float = 0.5) -> None:
     """Start a new log on a running server and trickle rows into it."""
-    base_url = base_url.rstrip("/")
-    _post(f"{base_url}/api/logs", {"name": "Fake live log"})
-    _post(
-        f"{base_url}/api/events",
-        {"type": "core_event", "header": {"channels": CHANNELS}},
-    )
-    _post(f"{base_url}/api/events", {"type": "track", "header": {"tracks": TRACKS}})
+    client = LiveClient(base_url)
+    client.start("Fake live log")
+    client.post("core_event", header=CORE_EVENT_HEADER)
+    client.post("track", header={"tracks": TRACKS})
     # One row per post, so a SET and its CLEAR arrive in different requests.
     for i in range(rows):
-        _post(
-            f"{base_url}/api/events",
-            {"type": "core_event", "events": core_event_rows(1, i)},
-        )
-        _post(f"{base_url}/api/events", {"type": "text_log", "events": text_rows(1, i)})
-        _post(f"{base_url}/api/events", {"type": "track", "events": track_rows(1, i)})
+        client.post("core_event", core_event_rows(1, i))
+        client.post("text_log", text_rows(1, i))
+        client.post("track", track_rows(1, i))
         time.sleep(delay)
 
 
