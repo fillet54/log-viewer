@@ -2,6 +2,7 @@ from typing import Any
 
 from .chart_config import validate_chart_config
 from .contract import validate_events
+from .track import merge_tracks
 
 
 def normalize_section(
@@ -46,6 +47,7 @@ def assemble_page_data(
     summary: dict[str, Any] = {}
     scripts: list[str] = []
     styles: list[str] = []
+    track_groups: list[list[dict[str, Any]]] = []
     # Section i's rows get ids i+1, i+1+n, ... (n sections), so ids are stable
     # as a live log grows (see LiveHub.post).
     for slot, (log_type, payload) in enumerate(sections):
@@ -56,6 +58,7 @@ def assemble_page_data(
         )
         configs[log_type.id] = type_config(log_type, payload)
         summary.update(log_type.log_summary(payload))
+        track_groups.append(log_type.tracks(payload))
         scripts.extend(log_type.inline_scripts())
         styles.extend(log_type.inline_styles())
     events.sort(key=lambda event: (event["time"], event["row_id"]))
@@ -63,7 +66,7 @@ def assemble_page_data(
         "apiVersion": 2,
         "logTypes": configs,
         "log": {"summary": summary},
-        "logData": {"events": events},
+        "logData": {"events": events, "tracks": merge_tracks(track_groups)},
         "view": {
             "scripts": list(dict.fromkeys(scripts)),
             "styles": list(dict.fromkeys(styles)),

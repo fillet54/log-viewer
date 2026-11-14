@@ -24,6 +24,7 @@
     <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
     <script src="{{ url_for('static', filename='vendor/split.min.js') }}"></script>
     <script type="module" src="{{ url_for('static', filename='runtime.js') }}"></script>
+    <script>window.CINC_MAP = {leafletUrl: "{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}", leafletCssUrl: "{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}", basemapUrl: "{{ url_for('api_basemap') }}"};</script>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
     {% block head_extra %}{% endblock %}
   </head>

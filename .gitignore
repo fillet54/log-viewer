@@ -1,6 +1,6 @@
 .venv/
 __pycache__/
-data/
+/data/
 log_viewer.db
 build/
 *.egg-info/

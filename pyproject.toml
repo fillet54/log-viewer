@@ -41,6 +41,8 @@ cinc = [
     "plugins/**/*.js",
     "plugins/**/*.css",
     "static/vendor/MANIFEST.json",
+    "static/vendor/leaflet/*",
+    "data/basemap/*.json.gz",
     "static/img/*.png",
     "static/fonts/*",
 ]

@@ -1,5 +1,9 @@
 from importlib.metadata import entry_points
 from .log_type import LogType
+from .track import TrackLogType
+
+# Log types that ship with the core and are always registered.
+BUILTIN_TYPES = (TrackLogType,)
 
 
 class LogTypeRegistry:
@@ -31,4 +35,7 @@ class LogTypeRegistry:
             loaded = point.load()
             obj = loaded() if isinstance(loaded, type) else loaded
             registry.register(obj)
+        for builtin in BUILTIN_TYPES:
+            if registry.get(builtin.id) is None:
+                registry.register(builtin())
         return registry

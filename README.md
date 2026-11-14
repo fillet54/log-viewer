@@ -5,7 +5,7 @@ A log viewer. Two modes:
 - **Standalone**: `cinc build PATH... -o out.html` writes one self-contained HTML page.
 - **Live**: `cinc serve --data DIR` shows rows as they are posted, and saves every log to `DIR`.
 
-`cinc types` lists the registered log types (`core_event`, `text_log`).
+`cinc types` lists the registered log types (`core_event`, `text_log`, and the built-in `track`).
 
 ## Log folder format
 
@@ -23,6 +23,33 @@ Each type receives the payload `{**header, "events": rows}`. The `<log-id>` can 
 made of letters, digits, `.`, `_` and `-`.
 
 `cinc build` accepts a log folder, a single `<type>.jsonl` file, or a JSON payload or bundle file.
+
+## Tracks and the Map chart
+
+The **Map** chart (Leaflet on a Natural Earth basemap, vendored and fully offline) shows position
+tracks and follows the log: scrolling or selecting a row moves the map's clock, and scrubbing,
+playing, or clicking a track jumps the log to that time. Clicking a track's marker or legend row
+focuses it (and keeps it in view while playing). It appears in the chart picker when the log has
+tracks. Toggles in the map's corner show or hide country/state borders and names, places, and roads.
+
+Supply tracks as rows of the built-in `track` type. It adds nothing to the row list:
+
+```
+<data>/<log-id>/track.jsonl   {"time": "2026-01-01T08:00:05Z", "track": "UAV-1", "lat": 34.1, "lon": -117.2, "alt": 1200}
+<data>/<log-id>/track.json    {"tracks": {"UAV-1": {"label": "Survey drone", "color": "#d1495b"}}}   optional
+```
+
+`alt` is metres above the WGS84 ellipsoid (default 0) and `track` defaults to `"track"`. Between
+samples a track moves at constant heading and speed (a rhumb line), so one sample per heading or
+speed change is enough. Live: `POST /api/events {"type": "track", "events": [...]}`. A plugin can
+also supply tracks from its own rows by overriding `LogType.tracks(payload)` (see
+`cinc/core/track.py`).
+
+The basemap is a low-detail world plus 1:10m layers (coast, land, lakes, rivers, urban areas,
+glaciers, roads, borders, place names) cut to the tracks' area with a margin. A standalone page
+embeds just that area (a few hundred KB); the live server cuts it on request
+(`GET /api/basemap?bbox=w,s,e,n`) and widens it as live tracks grow. The data is built from
+Natural Earth by `scripts/build_basemap.py` into `src/cinc/data/basemap/`.
 
 ## Live API
 

@@ -80,6 +80,7 @@ class LiveHub:
             # Normalize first so a bad batch is rejected before anything is stored.
             all_rows = previous["rows"] + rows
             events = self._normalize(log_type, header, all_rows, slots) if rows else []
+            tracks = log_type.tracks({**(header or {}), "events": rows}) if rows else []
             log = log or self._start(None)
             if changed_header:
                 log.set_header(type_id, header)
@@ -106,6 +107,8 @@ class LiveHub:
                         new for old, new in zip(old_events, events) if old != new
                     ],
                 }
+                if tracks:
+                    message["tracks"] = tracks
             self._backlog.append(message)
             self._broadcast(message)
             return log

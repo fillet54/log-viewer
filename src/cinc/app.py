@@ -18,10 +18,11 @@ from flask import (
     url_for,
 )
 
+from .core.basemap import basemap, parse_bounds
 from .core.registry import LogTypeRegistry
 from .live import LiveHub
 from .logdir import LogDir, is_log_dir, list_logs, valid_id
-from .standalone import build_page_data_script, build_standalone_html
+from .standalone import build_page_data_script, build_standalone_html, page_tracks
 
 
 def when(value) -> str:
@@ -98,7 +99,9 @@ def create_app(data_dir: Path | None = None) -> Flask:
         page = hub.page_data(log)
         page.pop("live", None)
         html = build_standalone_html(
-            build_page_data_script(page), title=log.meta()["name"]
+            build_page_data_script(page),
+            title=log.meta()["name"],
+            tracks=page_tracks(page),
         )
         return Response(
             html,
@@ -128,6 +131,21 @@ def create_app(data_dir: Path | None = None) -> Flask:
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
         return jsonify({"log": log.id, "count": len(rows)}), 202
+
+    @app.get("/api/basemap")
+    def api_basemap():
+        """Map chart basemap around ``bbox`` (the tracks' west,south,east,north);
+        ``world=0`` leaves out the world layers the page already has."""
+        try:
+            bounds = (
+                parse_bounds(request.args["bbox"]) if "bbox" in request.args else None
+            )
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        world = request.args.get("world", "1") != "0"
+        response = jsonify(basemap(bounds, world=world))
+        response.headers["Cache-Control"] = "max-age=86400"
+        return response
 
     @app.get("/api/stream")
     def api_stream():

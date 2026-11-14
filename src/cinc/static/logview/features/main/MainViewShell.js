@@ -1,5 +1,6 @@
 import { smoothScrollTo } from "../../../shared.js";
 import "../chart/LogMainChart.js";
+import "../chart/MapChart.js";
 import {
   MainLogPane,
   buildEventByRowId,

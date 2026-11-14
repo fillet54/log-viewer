@@ -37,6 +37,16 @@
     </script>
     {% endfor %}
 
+    {% if map %}
+    <style id="cinc-leaflet-style">
+{{ map.style|safe }}
+    </style>
+    <script>{{ map.config|safe }}</script>
+    <script id="cinc-leaflet-source" type="text/plain">
+{{ map.source|safe }}
+    </script>
+    {% endif %}
+
     <script id="esm-data" type="application/json">
 {{ esm_data|safe }}
     </script>

@@ -12,6 +12,4 @@ easier.
 * htmx
 * splitjs
 * chartjs
-
-
-
+* leaflet (Map chart; its Natural Earth basemap data is in src/cinc/data/basemap)

@@ -52,11 +52,35 @@ export const createViewerStore = ({ logData, standalone = false }) => {
   };
   const appendEvents = (newEvents) => applyLiveEvents(newEvents, []);
 
+  // Position tracks for the Map chart: [{ id, label, color, samples: [[ms, lat, lon, alt]] }].
+  const tracksSignal = signal(Array.isArray(logData?.tracks) ? logData.tracks : []);
+  // Live mode: merge newly posted samples into their tracks (same id = same track).
+  const applyLiveTracks = (batch = []) => {
+    if (!Array.isArray(batch) || !batch.length) return;
+    const byId = new Map(tracksSignal.value.map((track) => [track.id, track]));
+    batch.forEach((incoming) => {
+      const existing = byId.get(incoming.id);
+      if (!existing) {
+        byId.set(incoming.id, { ...incoming, samples: [...(incoming.samples || [])] });
+        return;
+      }
+      const samples = [...existing.samples, ...(incoming.samples || [])];
+      const last = existing.samples[existing.samples.length - 1];
+      if (last && incoming.samples?.[0] && incoming.samples[0][0] < last[0]) {
+        samples.sort((a, b) => a[0] - b[0]);
+      }
+      byId.set(incoming.id, { ...existing, color: existing.color || incoming.color, samples });
+    });
+    tracksSignal.value = Array.from(byId.values());
+  };
+
   return {
     get allEvents() { return allEventsSignal.value; },
     allEventsSignal,
     appendEvents,
     applyLiveEvents,
+    tracksSignal,
+    applyLiveTracks,
     timeReferenceRowId,
     setTimeReference,
     clearTimeReference,

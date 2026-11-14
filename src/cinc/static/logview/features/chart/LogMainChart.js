@@ -137,7 +137,8 @@ LogMainViewChart.mount = (root, services) => {
   const listTypes = () => {
     const chartTypes = Array.from(LogMainViewChart.registry.values()).filter(
       (type) =>
-        !type.pluginId || availablePluginIds.has(normalizePluginId(type.pluginId))
+        (!type.pluginId || availablePluginIds.has(normalizePluginId(type.pluginId))) &&
+        (typeof type.available !== "function" || type.available(services))
     );
     const timelineTypes = Array.from(LogMainViewTimeline.registry.values())
       .filter(

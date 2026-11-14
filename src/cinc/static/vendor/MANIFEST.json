@@ -6,5 +6,7 @@
   "signals-core.mjs": {"version": "1.7.0", "sha256": "93284268a0e37da474d3a3fa80cfd7473ba0c00827b8ffd4aab61894bd74d69f"},
   "signals.mjs": {"version": "1.7.0", "sha256": "b62072decfda6ad4fa935dca2f03c574b99877b7d502fd077adf52d4d8f2136c"},
   "htm-core.mjs": {"version": "3.1.1", "sha256": "ab33dd3f38059b9be4d5f5350128eefb2356639c4e0bbe9d9e8b3ba75847e9e4"},
-  "htm-preact.mjs": {"version": "3.1.1", "sha256": "b3f51db71c12eabba61819feb74ace7cadc2744af41866c3fcad2ab960415746"}
+  "htm-preact.mjs": {"version": "3.1.1", "sha256": "b3f51db71c12eabba61819feb74ace7cadc2744af41866c3fcad2ab960415746"},
+  "leaflet/leaflet.js": {"version": "1.9.4", "sha256": "db49d009c841f5ca34a888c96511ae936fd9f5533e90d8b2c4d57596f4e5641a"},
+  "leaflet/leaflet.css": {"version": "1.9.4", "sha256": "a7837102824184820dfa198d1ebcd109ff6d0ff9a2672a074b9a1b4d147d04c6"}
 }

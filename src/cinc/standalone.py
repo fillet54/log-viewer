@@ -9,6 +9,7 @@ import os
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
+from .core.basemap import basemap_for_tracks
 from .core.bundle import build_from_paths
 from .core.registry import LogTypeRegistry
 
@@ -92,7 +93,30 @@ def build_page_data_script(page_data: dict[str, object]) -> str:
     return f"window.CINC_PAGE_DATA = {safe_payload};"
 
 
-def build_standalone_html(data_script: str, title: str = "HTML Log Viewer") -> str:
+LEAFLET_SCRIPT = "static/vendor/leaflet/leaflet.js"
+LEAFLET_STYLE = "static/vendor/leaflet/leaflet.css"
+
+
+def page_tracks(page_data: dict[str, object]) -> list:
+    log_data = page_data.get("logData") if isinstance(page_data, dict) else None
+    tracks = log_data.get("tracks") if isinstance(log_data, dict) else None
+    return tracks if isinstance(tracks, list) else []
+
+
+def _map_assets(tracks: list) -> dict[str, str]:
+    """Leaflet (kept as inert text; the Map chart loads it on first use) and the
+    basemap cut to the tracks' area, for a standalone page with tracks."""
+    config = json.dumps({"basemap": basemap_for_tracks(tracks)}, separators=(",", ":"))
+    return {
+        "source": _read_package_text(LEAFLET_SCRIPT).replace("</script", "<\\/script"),
+        "style": _read_package_text(LEAFLET_STYLE),
+        "config": "window.CINC_MAP = " + config.replace("</", "<\\/") + ";",
+    }
+
+
+def build_standalone_html(
+    data_script: str, title: str = "HTML Log Viewer", *, tracks: list | None = None
+) -> str:
     styles = _read_package_text("static/styles.css").replace(
         '@import url("fonts.css");', ""
     )
@@ -128,6 +152,7 @@ def build_standalone_html(data_script: str, title: str = "HTML Log Viewer") -> s
         entry_point_id=ENTRY_POINT,
         logo_light=_read_package_data_uri("static/img/logo_lightmode.png", "image/png"),
         logo_dark=_read_package_data_uri("static/img/logo_darkmode.png", "image/png"),
+        map=_map_assets(tracks) if tracks else None,
     )
 
 
@@ -151,7 +176,9 @@ def build_standalone_bundle(
     page_data = build_from_paths(
         data_paths, LogTypeRegistry.discover(), log_type_id=log_type_id
     )
-    html = build_standalone_html(build_page_data_script(page_data), title=title)
+    html = build_standalone_html(
+        build_page_data_script(page_data), title=title, tracks=page_tracks(page_data)
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")
     return output_path

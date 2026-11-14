@@ -37,6 +37,7 @@ const connectLiveStream = (services, live) => {
       }
       seq = msg.seq;
       services.viewerStore.applyLiveEvents(msg.events, msg.updates);
+      if (Array.isArray(msg.tracks)) services.viewerStore.applyLiveTracks(msg.tracks);
     };
     es.onerror = () => {
       es.close();

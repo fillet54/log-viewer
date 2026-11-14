@@ -63,6 +63,15 @@ class LogType:
     def log_summary(self, payload: dict[str, Any]) -> dict[str, Any]:
         return {}
 
+    def tracks(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
+        """Position tracks for the Map chart (see ``cinc.core.track``).
+
+        Return ``[{"id", "label", "color", "samples": [[ms, lat, lon, alt]]}]``;
+        ``cinc.core.track.build_tracks`` builds this from sample rows. Called
+        with the whole payload on a page load and with only the new rows in
+        live mode, so each sample must depend on its own row only."""
+        return []
+
     def inline_scripts(self) -> list[str]:
         return [self.read_asset_text(path) for path in self.script_paths]
 
