@@ -143,7 +143,15 @@ export const MainViewShell = () => {
         if (!predicatesByConfig.has(key)) {
           predicatesByConfig.set(
             key,
-            terms.map((term) => getQueryPredicate(term, config))
+            terms.map((term) => {
+              // A saved filter that no longer parses matches nothing rather than breaking the view.
+              try {
+                return getQueryPredicate(term, config);
+              } catch (error) {
+                console.warn(`Cinc: ignoring filter "${term}":`, error.message);
+                return () => false;
+              }
+            })
           );
         }
         return predicatesByConfig.get(key);

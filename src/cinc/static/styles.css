@@ -1292,8 +1292,8 @@ button {
 }
 
 .search-help-card {
-  width: min(720px, calc(100vw - 2rem));
-  max-height: min(80vh, 760px);
+  width: min(920px, calc(100vw - 2rem));
+  max-height: min(86vh, 900px);
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 0.75rem;
@@ -1374,6 +1374,98 @@ button {
   background: var(--color-accent-soft);
 }
 
+.search-help-example {
+  font: 12px/1.3 var(--font-mono);
+  color: inherit;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.search-help-section-title,
+.search-help-group-title { margin: 0; }
+
+/* Show >= and <= as typed: they are what the user types. */
+.search-help-card code,
+.search-help-example { font-variant-ligatures: none; }
+
+.search-help-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.search-help-type-id {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.search-help-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.search-help-table td {
+  padding: 0.3rem 0.5rem 0.3rem 0;
+  border-top: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.search-help-table td:first-child { white-space: nowrap; width: 1%; }
+.search-help-table td:last-child { width: 1%; }
+
+.search-help-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 0.9rem 1.2rem;
+}
+
+.search-help-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.search-help-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.search-help-note {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.search-help-rules {
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.search-help-rule {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 0.75rem;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.search-help-rule dt { font-weight: 600; }
+.search-help-rule dd { margin: 0; color: var(--color-text-muted); }
+
+.search-help-field-group { display: grid; gap: 0.2rem; }
+
+@media (max-width: 640px) {
+  .search-help-rule { grid-template-columns: 1fr; gap: 0.1rem; }
+  .search-help-table td:nth-child(2) { display: none; }
+  .search-help-groups { grid-template-columns: 1fr; }
+}
+
 .search-list {
   flex: 1 1 auto;
   overflow: auto;
@@ -1421,6 +1513,9 @@ button {
   border: 1px solid var(--color-border);
   grid-template-columns: 1fr 46px 20px;
 }
+
+.search-error { color: var(--color-danger); }
+.search-input.is-invalid { border-color: var(--color-danger); box-shadow: 0 0 0 1px var(--color-danger-soft); }
 
 .no-results {
   display: flex;

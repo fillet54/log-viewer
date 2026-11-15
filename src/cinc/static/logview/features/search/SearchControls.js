@@ -2,6 +2,7 @@ import { html } from "logview/lib";
 
 export const SearchControls = ({
     query,
+    invalid = false,
     queryInputRef,
     onQueryInput,
     onQueryKeyDown,
@@ -12,7 +13,8 @@ export const SearchControls = ({
       <input
         id="search-query"
         ref=${queryInputRef}
-        class="text-input text-input-small search-input"
+        class=${`text-input text-input-small search-input${invalid ? " is-invalid" : ""}`}
+        aria-invalid=${invalid ? "true" : "false"}
         placeholder="Search…  e.g. level:ERROR, name~timeout"
         value=${query}
         onInput=${onQueryInput}

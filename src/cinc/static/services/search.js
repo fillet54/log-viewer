@@ -4,13 +4,46 @@ export const DEFAULT_SEARCH_CONFIG = {
 };
 
 export const buildParser = () => {
+  // A key as typed, else the first key that matches ignoring case (`System:` finds `system`).
+  const childOf = (node, key) => {
+    if (Object.prototype.hasOwnProperty.call(node, key)) return node[key];
+    const lower = key.toLowerCase();
+    const match = Object.keys(node).find((candidate) => candidate.toLowerCase() === lower);
+    return match === undefined ? undefined : node[match];
+  };
+
   const getFieldValue = (event, path) => {
     if (!event || !path) return null;
     const parts = path.split(".");
     let current = event;
     for (const part of parts) {
       if (current == null || typeof current !== "object") return null;
-      current = current[part];
+      current = childOf(current, part);
+    }
+    return current;
+  };
+
+  // Every value at a dotted path; an array in the middle fans out to its items
+  // (`data.items.code` reads `code` from each item), unless the part is an index (`items.0`).
+  const getPathValues = (root, parts) => {
+    let current = [root];
+    for (const part of parts) {
+      const next = [];
+      current.forEach((node) => {
+        if (node == null || typeof node !== "object") return;
+        if (Array.isArray(node) && !/^\d+$/.test(part)) {
+          node.forEach((item) => {
+            if (item != null && typeof item === "object") {
+              const value = childOf(item, part);
+              if (value !== undefined) next.push(value);
+            }
+          });
+          return;
+        }
+        const value = childOf(node, part);
+        if (value !== undefined) next.push(value);
+      });
+      current = next;
     }
     return current;
   };
@@ -28,12 +61,12 @@ export const buildParser = () => {
     }
     const deepIndex = path.indexOf("$.");
     if (deepIndex === -1) {
-      const directValue = getFieldValue(event, path);
+      const values = getPathValues(event, path.split("."));
       const aliasValue = path.includes(".") ? null : getFieldValue(event, `${path}_search`);
-      if (aliasValue == null) return [directValue];
-      return [directValue, aliasValue];
+      if (aliasValue != null) values.push(aliasValue);
+      return values.length ? values : [null];
     }
-    const basePath = path.slice(0, deepIndex);
+    const basePath = path.slice(0, deepIndex).replace(/\.$/, "");
     const subPath = path.slice(deepIndex + 2);
     const baseValue = basePath ? getFieldValue(event, basePath) : event;
     if (baseValue == null) return [];
@@ -54,7 +87,7 @@ export const buildParser = () => {
   };
 
   const globToRegex = (pattern) => {
-    const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
     const regex = "^" + escaped.replace(/\*/g, ".*") + "$";
     return new RegExp(regex, "i");
   };
@@ -108,7 +141,11 @@ export const buildParser = () => {
         continue;
       }
       if (typeof value === "number") {
-        if (String(value) === cleaned) return true;
+        if (term.includes("*")) {
+          if (globToRegex(cleaned).test(String(value))) return true;
+        } else if (cleaned.trim() !== "" && Number(cleaned) === value) {
+          return true;
+        }
         continue;
       }
       if (applyMatch(value)) return true;
@@ -167,13 +204,9 @@ export const buildParser = () => {
     }
 
     function evalFilter(node, obj) {
-      const key = node.key.toLowerCase();
-
-      if (fieldHandlers[key]) {
-        return fieldHandlers[key](obj, node.value, evaluate, node.op);
-      }
-
-      return defaultFieldEval(key, node.value, obj, node.op);
+      const handler = fieldHandlers[node.key.toLowerCase()];
+      if (handler) return handler(obj, node.value, evaluate, node.op);
+      return defaultFieldEval(node.key, node.value, obj, node.op);
     }
 
     function defaultFieldEval(key, valueNode, obj, op) {
@@ -195,6 +228,8 @@ export const buildParser = () => {
       const target = Number(rawValue);
       if (!Number.isFinite(target)) return false;
       const compareOne = (value) => {
+        // Only numbers and numeric text compare; a missing field or "" is not 0.
+        if (typeof value !== "number" && (typeof value !== "string" || value.trim() === "")) return false;
         const num = Number(value);
         if (!Number.isFinite(num)) return false;
         switch (op) {
@@ -226,7 +261,7 @@ export const buildParser = () => {
       const needle = String(rawValue).toLowerCase();
       const contains = (value) => {
         if (value == null) return false;
-        return String(value).toLowerCase().includes(needle);
+        return toComparable(value).toLowerCase().includes(needle);
       };
       const values = getFieldValues(obj, key);
       for (const fieldValue of values) {
@@ -510,21 +545,24 @@ export const buildParser = () => {
       let op = null;
       let lbp = 0;
 
-    if (next && next.type === "OR") {
-      op = "OR";
-      lbp = 1;
-    } else if (next && next.type === "AND") {
-      op = "AND";
-      lbp = 2;
-    } else if (next && ts.startsExpression(next.type)) {
-      op = "AND";
-      lbp = 2;
-    } else {
-      break;
-    }
+      let explicit = false;
+      if (next && next.type === "OR") {
+        op = "OR";
+        lbp = 1;
+        explicit = true;
+      } else if (next && next.type === "AND") {
+        op = "AND";
+        lbp = 2;
+        explicit = true;
+      } else if (next && ts.startsExpression(next.type)) {
+        op = "AND"; // terms side by side: an implicit AND; the token starts the next term
+        lbp = 2;
+      } else {
+        break;
+      }
 
       if (lbp < minBp) break;
-    if (op === "OR" || op === "AND") ts.next();
+      if (explicit) ts.next();
 
       const right = parseExpression(ts, lbp + 1);
       if (op === "AND") {
@@ -539,8 +577,7 @@ export const buildParser = () => {
 
   function parsePrimary(ts) {
     const token = ts.next();
-    if (!token) return { type: "EMPTY" };
-    if (token.type === "EOF") return { type: "EMPTY" };
+    if (!token || token.type === "EOF") throw ts.error("Expected a term after the operator", token);
 
     if (token.type === "WORD") {
       if (ts.peek().type === "COMP" || ts.peek().type === "CONTAINS") {
@@ -631,6 +668,19 @@ export const buildParser = () => {
 };
 
 export const parser = buildParser();
+
+// "Expected ')' at 13" -> a sentence that names the spot in the query.
+export const describeQueryError = (query, error) => {
+  const message = String(error?.message || error || "Invalid query");
+  const match = message.match(/^(.*) at (\d+)$/);
+  if (!match) return `Can't run this search: ${message}.`;
+  const [, reason, at] = match;
+  const position = Number(at);
+  const near = String(query).slice(position, position + 12).trim();
+  return near
+    ? `Can't run this search: ${reason}, near “${near}” (character ${position + 1}).`
+    : `Can't run this search: ${reason}, at the end of the query.`;
+};
 export const {
   getFieldValue,
   toComparable,

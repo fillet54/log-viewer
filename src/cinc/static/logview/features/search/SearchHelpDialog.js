@@ -1,84 +1,123 @@
 import { html } from "logview/lib";
+import { EXAMPLES, RULES, SYNTAX } from "../../../services/search-help.js";
 
-const HELP_EXAMPLES = [
-    "name:temp_core",
-    "system:Power",
-    "color:Red",
-    "data.bus.load_pct>=68",
-    "description~timeout",
-    "system:Power OR system:Thermal",
-    "NOT color:Green",
-    "$:sensor",
-    "$.*:writer",
-  ];
+// Text with `code` spans.
+const withCode = (text) =>
+  String(text)
+    .split("`")
+    .map((part, index) => (index % 2 ? html`<code>${part}</code>` : part));
 
-export const SearchHelpDialog = ({ dialogRef, fields, onSelectExample }) => html`
-    <dialog ref=${dialogRef} id="search-help-dialog" class="search-help-dialog">
-      <form method="dialog" class="search-help-card">
-        <div class="search-help-header">
-          <div>
-            <div class="section-label">Search Help</div>
-            <div class="search-help-title">Query Syntax</div>
-          </div>
-          <button class="button button-ghost button-xs" value="close" aria-label="Close search help">Close</button>
+const Example = ({ query, onSelectExample }) => html`
+  <button
+    type="button"
+    class="search-help-example"
+    data-search-example=${query}
+    title="Run this search"
+    onClick=${() => onSelectExample(query)}
+  >
+    ${query}
+  </button>
+`;
+
+// fieldGroups: [{id, name, fields: [{name, nested}]}], one per log type in the open log.
+export const SearchHelpDialog = ({ dialogRef, fieldGroups = [], onSelectExample }) => html`
+  <dialog ref=${dialogRef} id="search-help-dialog" class="search-help-dialog" aria-labelledby="search-help-title">
+    <form method="dialog" class="search-help-card">
+      <div class="search-help-header">
+        <div>
+          <div class="section-label">Search help</div>
+          <div class="search-help-title" id="search-help-title">Query syntax</div>
         </div>
-        <div class="search-help-body">
-          <div class="search-help-section">
-            <div class="search-help-section-title">Basics</div>
-            <div class="support-text">
-              Bare terms search across the main event fields and also prefix-match the event <code>name</code>.
-              For example, typing <code>temp</code> will match names that start with <code>temp</code> and exact
-              matching values in common fields.
-            </div>
-            <div class="support-text">
-              Use <code>field:value</code> for exact field matching and <code>field~text</code> for substring matching.
-              Numeric fields support <code>&gt;</code>, <code>&gt;=</code>, <code>&lt;</code>, and <code>&lt;=</code>.
-            </div>
-            <div class="support-text">
-              Boolean logic is supported with <code>AND</code>, <code>OR</code>, and <code>NOT</code>. If you omit an
-              operator between filters, it behaves like an <code>AND</code>.
-            </div>
-            <div class="support-text">
-              Use <code>*</code> as a wildcard for text matching. Use <code>$:key</code> to search object key names and
-              <code> $.*:value</code> to search deeply across nested object values.
-            </div>
-          </div>
-          <div class="search-help-section">
-            <div class="search-help-section-title">Examples</div>
-            <div class="search-help-examples">
-              ${HELP_EXAMPLES.map(
-                (example) => html`
-                  <button
-                    type="button"
-                    class="search-help-example"
-                    data-search-example=${example}
-                    onClick=${() => onSelectExample(example)}
-                  >
-                    ${example}
-                  </button>
+        <button class="button button-ghost button-xs" value="close" aria-label="Close search help">Close</button>
+      </div>
+      <div class="search-help-body">
+        <p class="support-text">
+          Type a query and press Enter; matching rows are listed below the log. Pin a search to keep it, or
+          make it a filter to narrow the log itself. Click any example here to run it.
+        </p>
+
+        <section class="search-help-section">
+          <h3 class="search-help-section-title">At a glance</h3>
+          <table class="search-help-table">
+            <tbody>
+              ${SYNTAX.map(
+                ([syntax, meaning, example]) => html`
+                  <tr>
+                    <td><code>${syntax}</code></td>
+                    <td>${meaning}</td>
+                    <td><${Example} query=${example} onSelectExample=${onSelectExample} /></td>
+                  </tr>
                 `
               )}
-            </div>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="search-help-section">
+          <h3 class="search-help-section-title">Examples</h3>
+          <div class="search-help-groups">
+            ${EXAMPLES.map(
+              (group) => html`
+                <div class="search-help-group">
+                  <h4 class="search-help-group-title">${group.title}</h4>
+                  <ul class="search-help-list">
+                    ${group.items.map(
+                      ([query, note]) => html`
+                        <li>
+                          <${Example} query=${query} onSelectExample=${onSelectExample} />
+                          <span class="search-help-note">${note}</span>
+                        </li>
+                      `
+                    )}
+                  </ul>
+                </div>
+              `
+            )}
           </div>
-          <div class="search-help-section">
-            <div class="search-help-section-title">Searchable Columns</div>
-            <div class="support-text">
-              These are top-level event fields. Fields marked <code>map</code> contain nested object data and can still
-              be queried with dotted paths like <code>data.bus.load_pct</code> when needed.
-            </div>
-            <div class="search-help-fields">
-              ${fields.map(
-                (field) => html`
-                  <span class="search-help-field">
-                    <code>${field.name}</code>${field.nested
-                      ? html`<span class="search-help-field-badge">map</span>`
-                      : null}
-                  </span>
-                `
-              )}
-            </div>
-          </div>
-        </div>
-      </form>
-    </dialog>
+        </section>
+
+        <section class="search-help-section">
+          <h3 class="search-help-section-title">How matching works</h3>
+          <dl class="search-help-rules">
+            ${RULES.map(
+              ([title, text]) => html`
+                <div class="search-help-rule">
+                  <dt>${title}</dt>
+                  <dd>${withCode(text)}</dd>
+                </div>
+              `
+            )}
+          </dl>
+        </section>
+
+        <section class="search-help-section">
+          <h3 class="search-help-section-title">Fields in this log</h3>
+          <p class="support-text">
+            Top-level fields of each row type. Fields marked <code>map</code> hold nested data: search them with a
+            dotted path (<code>data.bus.load_pct</code>), <code>~</code>, or <code>$</code>.
+          </p>
+          ${fieldGroups.map(
+            (group) => html`
+              <div class="search-help-field-group">
+                <h4 class="search-help-group-title">
+                  ${group.name} <code class="search-help-type-id">log_type:${group.id}</code>
+                </h4>
+                <div class="search-help-fields">
+                  ${group.fields.map(
+                    (field) => html`
+                      <span class="search-help-field">
+                        <code>${field.name}</code>${field.nested
+                          ? html`<span class="search-help-field-badge">map</span>`
+                          : null}
+                      </span>
+                    `
+                  )}
+                </div>
+              </div>
+            `
+          )}
+        </section>
+      </div>
+    </form>
+  </dialog>
 `;

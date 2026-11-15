@@ -4,24 +4,35 @@ import { SearchSidebar } from "./SearchSidebar.js";
 import { SearchResultsPane } from "./SearchResultsPane.js";
 import { SearchHelpDialog } from "./SearchHelpDialog.js";
 import { SearchControls } from "./SearchControls.js";
-import { getQueryPredicate } from "../../../services/search.js";
+import { getQueryPredicate, describeQueryError } from "../../../services/search.js";
 import { buildOffsets } from "../../row-metrics.js";
 
 const { useEffect, useRef, useState } = hooks;
 
-const getSearchFieldPaths = (events) => {
-    const source = Array.isArray(events) ? events : [];
-    const sample = source.find((event) => event && typeof event === "object") || null;
-    if (!sample) return [];
-    return Object.entries(sample)
-      .map(([key, value]) => ({
-        name: key,
-        nested:
+// Top-level fields per log type, for the help dialog: the union over (up to) the first 500 rows of
+// each type, since rows of one type don't all carry the same optional fields.
+const getSearchFieldGroups = (events, logTypes) => {
+    const groups = new Map();
+    (Array.isArray(events) ? events : []).forEach((event) => {
+      if (!event || typeof event !== "object") return;
+      const id = String(event.log_type || "");
+      const group = groups.get(id) || { id, name: logTypes?.[id]?.name || id || "Rows", fields: new Map(), seen: 0 };
+      groups.set(id, group);
+      if (group.seen >= 500) return;
+      group.seen += 1;
+      Object.entries(event).forEach(([key, value]) => {
+        const nested =
           value != null &&
           typeof value === "object" &&
-          (!Array.isArray(value) ? Object.keys(value).length > 0 : value.length > 0),
-      }))
-      .sort((left, right) => left.name.localeCompare(right.name));
+          (!Array.isArray(value) ? Object.keys(value).length > 0 : value.some((item) => item && typeof item === "object"));
+        group.fields.set(key, Boolean(group.fields.get(key)) || nested);
+      });
+    });
+    return Array.from(groups.values()).map((group) => ({
+      id: group.id,
+      name: group.name,
+      fields: Array.from(group.fields, ([name, nested]) => ({ name, nested })).sort((a, b) => a.name.localeCompare(b.name)),
+    }));
   };
 
 const getBookmarkEvents = ({ events, bookmarkState, commentState }) => {
@@ -46,6 +57,7 @@ export const SearchPanel = () => {
     const [query, setQuery] = useState ? useState("") : ["", () => {}];
     const [results, setResults] = useState ? useState([]) : [[], () => {}];
     const [searchedQuery, setSearchedQuery] = useState ? useState(null) : [null, () => {}];
+    const [searchError, setSearchError] = useState ? useState(null) : [null, () => {}];
     const [rowStride, setRowStride] = useState ? useState(28) : [28, () => {}];
     const rowHeights = new Map(
       Object.entries(services?.logTypes || {}).map(([id, config]) => [
@@ -87,7 +99,7 @@ export const SearchPanel = () => {
       : [];
 
     const rowVersion = resultsVersion;
-    const fields = getSearchFieldPaths(events);
+    const fieldGroups = getSearchFieldGroups(events, services?.logTypes);
 
     appHooks.useSplit({
       refs: [splitLeftRef, splitRightRef],
@@ -139,6 +151,7 @@ export const SearchPanel = () => {
       const isBookmarks = activeTab === SEARCH_TAB_BOOKMARKS;
       const source = isBookmarks ? bookmarkEvents : events;
 
+      setSearchError(null);
       if (!trimmedQuery) {
         // An empty search would only repeat the log above; bookmarks still list everything.
         setResults(isBookmarks ? source : []);
@@ -147,6 +160,15 @@ export const SearchPanel = () => {
         return;
       }
       setSearchedQuery(trimmedQuery);
+      // A query that doesn't parse says why instead of doing nothing.
+      try {
+        getQueryPredicate(trimmedQuery);
+      } catch (error) {
+        setSearchError(describeQueryError(trimmedQuery, error));
+        setResults([]);
+        setResultsVersion((value) => value + 1);
+        return;
+      }
 
       const requestId = ++pendingSearchRef.current;
       const predicatesByConfig = new Map();
@@ -259,9 +281,13 @@ export const SearchPanel = () => {
       }
     };
 
+    // Clicking an example runs it.
     const onSelectExample = (example) => {
       setQuery(example);
       helpDialogRef.current?.close?.();
+      if (currentTab === SEARCH_TAB_BOOKMARKS) viewerStore?.setSearchTab?.(SEARCH_TAB_HISTORY);
+      executeSearch(true, SEARCH_TAB_HISTORY, example);
+      viewerStore?.setBottomCollapsed?.(false);
       queryInputRef.current?.focus?.();
     };
 
@@ -288,6 +314,7 @@ export const SearchPanel = () => {
     const onQueryInput = (eventInput) => {
       setQuery(eventInput.currentTarget.value);
       setSearchedQuery(null);
+      setSearchError(null);
       setResults([]);
       setResultsVersion((value) => value + 1);
     };
@@ -302,7 +329,9 @@ export const SearchPanel = () => {
       if (eventKey.key === "Enter") runSearch();
     };
 
-    const emptyMessage = searchedQuery
+    const emptyMessage = searchError
+      ? html`<span class="search-error" role="alert">${searchError}</span>`
+      : searchedQuery
       ? `No events match “${searchedQuery}”.`
       : "Type a query and press Enter. Results show here; the log above keeps every row.";
 
@@ -318,6 +347,7 @@ export const SearchPanel = () => {
         >
           <${SearchControls}
             query=${query}
+            invalid=${Boolean(searchError)}
             queryInputRef=${queryInputRef}
             onQueryInput=${onQueryInput}
             onQueryKeyDown=${onQueryKeyDown}
@@ -369,7 +399,7 @@ export const SearchPanel = () => {
             />
           </div>
         </div>
-        <${SearchHelpDialog} dialogRef=${helpDialogRef} fields=${fields} onSelectExample=${onSelectExample} />
+        <${SearchHelpDialog} dialogRef=${helpDialogRef} fieldGroups=${fieldGroups} onSelectExample=${onSelectExample} />
       </${Fragment}>
     `;
 };
