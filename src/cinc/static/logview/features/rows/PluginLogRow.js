@@ -86,6 +86,12 @@ export const PluginLogRow = ({
 
   const onSelect = (selectedEvent = event) => {
     if (!selectedEvent) return;
+    // Clicking the selected row again clears the selection, so charts follow the scroll again.
+    const current = viewerStore?.selectedEvent?.value;
+    if (current && String(current.row_id) === String(selectedEvent.row_id)) {
+      viewerStore?.setSelectedEvent?.(null);
+      return;
+    }
     viewerStore?.setSelectedEvent?.(selectedEvent);
     if (jumpOnSelect) viewerStore?.setLogJump?.({ rowId: selectedEvent.row_id });
   };

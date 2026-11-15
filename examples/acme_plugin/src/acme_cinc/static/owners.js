@@ -9,6 +9,7 @@ export default function setup({ logTypeId, config, registerChart }) {
   registerChart({
     id: "acme-owners",
     label: "Faults by Owner",
+    slots: ["main", "side"],
     renderPanel(panel, context) {
       const events = (context.logData?.events || []).filter((event) => event.log_type === logTypeId);
       panel.innerHTML = '<div class="acme-bars"></div>';

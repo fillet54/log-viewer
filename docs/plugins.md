@@ -125,12 +125,36 @@ export default function setup({ logTypeId, config, registerRow, registerDetail, 
 | `logTypeId`, `config` | The type being set up and its `view_config` (or, for an extension, the `config` given to `ctx.extend`). Both are null/empty for `add_script` scripts. |
 | `registerRow(Component)` | The type's row component (Preact). |
 | `registerDetail(Component)` | The summary at the top of the info pane. |
-| `registerChart(definition)` | A chart in the chart picker: `{id, label, renderPanel(panel, context), buildCommands?(container, context), available?(services)}`. Global for `add_script` scripts. |
+| `registerChart(definition)` | A chart: `{id, label, slots?, renderPanel(panel, context), buildCommands?(container, context), available?(services)}`. Global for `add_script` scripts. See *Where charts go* below. |
 | `registerTimelineView(definition)` | A timeline view: `{id, label, kind: "histogram" | "line", stacked?, datasets: [{label, color, filter(event), value?(event)}], configureChart?(chart)}`. A line with `value` plots each event's value; otherwise it counts events per time bucket. |
 
 The `cinc` module also exports `html` (htm bound to Preact), `hooks`, `signals`,
 `themeColor("var(--token)")`, `onThemeChange(fn)` and `TONE_COLORS`. `context.viewerStore` carries
 the shared state charts sync on: `selectedEvent`, `logScroll` and `setLogJump({timeMs | rowId})`.
+
+### Where charts go
+
+A chart can live in two **slots**: `"main"`, the wide chart area above the log, and `"side"`, the
+right pane under the selected row's details (each side chart is a collapsible section there, with
+its `buildCommands` in the section header). `slots` lists the ones a chart supports, the first
+being where it starts; the default is `["main"]`. Users move a chart between its slots (a button in
+the chart toolbar, or in the side section's header), and the choice is remembered per browser.
+
+```js
+registerChart({
+  id: "systems",
+  label: "Subsystem Status",
+  slots: ["side", "main"],          // a list that grows with the systems: start in the side panel
+  renderPanel(panel, context) {
+    const vertical = context.slot === "side";   // lay out tall and narrow, or wide and short
+    ...
+    return { activate() {}, deactivate() {}, resize() {}, destroy() {} };
+  },
+});
+```
+
+The same controller contract applies in both slots; `resize()` is called when the section or pane
+changes size. Timeline views always stay in the chart area.
 
 Served pages load scripts from `/plugin-assets/<package>/<path>` (imported as
 `cinc-plugins/<package>/<path>`); standalone pages inline them and every file they import. Use static

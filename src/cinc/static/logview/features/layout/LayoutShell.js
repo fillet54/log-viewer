@@ -2,6 +2,7 @@ import { html, hooks, appHooks } from "logview/lib";
 import { MainViewShell } from "../main/MainViewShell.js";
 import { DetailPanel } from "../detail/DetailPanel.js";
 import { SearchPanel } from "../search/SearchPanel.js";
+import { SideDock } from "../side/SideDock.js";
 
 const useLayoutEffect = hooks.useLayoutEffect || null;
 const useRef = hooks.useRef || null;
@@ -30,9 +31,17 @@ export const LayoutShell = () => {
   const bottomPaneRef = useRef ? useRef(null) : { current: null };
   const centerPaneRef = useRef ? useRef(null) : { current: null };
   const rightPaneRef = useRef ? useRef(null) : { current: null };
-  // The info pane only takes room once there is something to show.
+  const detailRef = useRef ? useRef(null) : { current: null };
+  const dockRef = useRef ? useRef(null) : { current: null };
+  // The right pane holds the selected row's details and, below them, charts placed in the side slot.
+  // It only takes room once there is something to show.
   const hasSelection = viewerStore?.selectedEvent?.value != null;
-  const detailCollapsed = Boolean(viewerStore?.detailCollapsed?.value) || !hasSelection;
+  void viewerStore?.chartPlacement?.value; // re-render when charts move between slots
+  const sideCount = window.LogMainViewChart?.chartsIn?.("side", services)?.length || 0;
+  const hasSide = sideCount > 0;
+  const hasRightContent = hasSelection || hasSide;
+  const detailCollapsed = Boolean(viewerStore?.detailCollapsed?.value) || !hasRightContent;
+  const rightSplitSizes = viewerStore?.rightSplitSizes?.value || [50, 50];
   const density = viewerStore?.density?.value === "comfortable" ? "comfortable" : "compact";
   const bottomCollapsed = Boolean(viewerStore?.bottomCollapsed?.value);
   const topSplitSizes = viewerStore?.topSplitSizes?.value || TOP_SPLIT_DEFAULT;
@@ -65,6 +74,27 @@ export const LayoutShell = () => {
       },
     },
     dependencies: [detailCollapsed, topSplitSizes[0], topSplitSizes[1]],
+  });
+
+  appHooks.useSplit({
+    refs: [detailRef, dockRef],
+    enabled: !detailCollapsed && hasSelection && hasSide,
+    options: {
+      direction: "vertical",
+      sizes: rightSplitSizes,
+      minSize: [120, 120],
+      gutterSize: 8,
+      elementStyle: (dimension, size, gutterSizeValue) => ({
+        "flex-basis": `calc(${size}% - ${gutterSizeValue}px)`,
+      }),
+      gutterStyle: (dimension, gutterSizeValue) => ({
+        "flex-basis": `${gutterSizeValue}px`,
+      }),
+      onDragEnd: (sizes) => {
+        viewerStore?.setRightSplitSizes?.(sizes);
+      },
+    },
+    dependencies: [detailCollapsed, hasSelection, hasSide, rightSplitSizes[0], rightSplitSizes[1]],
   });
 
   appHooks.useSplit({
@@ -143,7 +173,24 @@ export const LayoutShell = () => {
       }
 
       requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
-    }, [detailCollapsed, bottomCollapsed, hasSelection]);
+    }, [detailCollapsed, bottomCollapsed, hasSelection, hasSide]);
+  }
+
+  // Esc clears the selected row (not while typing, or when a dialog or menu would take it).
+  const useEffect = hooks.useEffect || null;
+  if (typeof useEffect === "function") {
+    useEffect(() => {
+      const onKey = (event) => {
+        if (event.key !== "Escape" || event.defaultPrevented) return;
+        const active = document.activeElement;
+        if (active?.closest?.("input, textarea, select, [contenteditable], dialog")) return;
+        if (document.querySelector("dialog[open]")) return;
+        if (viewerStore?.selectedEvent?.value == null) return;
+        viewerStore.setSelectedEvent(null);
+      };
+      window.addEventListener("keydown", onKey);
+      return () => window.removeEventListener("keydown", onKey);
+    }, [viewerStore]);
   }
 
   const handleShellClick = (event) => {
@@ -156,7 +203,12 @@ export const LayoutShell = () => {
       return;
     }
 
-    const toggleDetail = target.closest("#toggle-detail, #toggle-detail-restore");
+    if (target.closest("[data-clear-selection]")) {
+      viewerStore?.setSelectedEvent?.(null);
+      return;
+    }
+
+    const toggleDetail = target.closest("#toggle-detail, #toggle-detail-restore, [data-toggle-detail]");
     if (toggleDetail) {
       viewerStore?.setDetailCollapsed((current) => !current);
     }
@@ -193,10 +245,19 @@ export const LayoutShell = () => {
             hostClassName="pane"
             hostStyle=${detailCollapsed ? { display: "none", flex: "0 0 0" } : {}}
           >
-            <${DetailPanel} />
+            <div class="right-stack">
+              ${hasSelection
+                ? html`<div class="right-stack-detail" ref=${detailRef}><${DetailPanel} /></div>`
+                : null}
+              ${hasSide
+                ? html`<div class="right-stack-dock" ref=${dockRef}>
+                    <${SideDock} showHeaderToggle=${!hasSelection} />
+                  </div>`
+                : null}
+            </div>
           </${LayoutPane}>
         </div>
-        ${hasSelection ? html`<button
+        ${hasRightContent ? html`<button
           id="toggle-detail-restore"
           class=${`button button-ghost button-xs top-pane-toggle${detailCollapsed ? " is-collapsed" : ""}`}
           title="Show info pane"
@@ -208,7 +269,7 @@ export const LayoutShell = () => {
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 6l-6 6 6 6" />
               </svg>
             </span>
-            <span class="top-pane-toggle-label">INFO</span>
+            <span class="top-pane-toggle-label">${hasSelection ? "INFO" : "CHARTS"}</span>
           </span>
         </button>` : null}
       </section>

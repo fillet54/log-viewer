@@ -855,8 +855,10 @@ const createMapController = (panel, context) => {
     status.hidden = true;
     syncTracks();
     applyTheme();
+    // Start where the log is: the selected row, else its scroll position.
+    const selected = Date.parse(store?.selectedEvent?.value?.time || "");
     const scroll = store?.logScroll?.value?.timeMs;
-    setTime(Number.isFinite(scroll) ? scroll : domain.start);
+    setTime(Number.isFinite(selected) ? selected : Number.isFinite(scroll) ? scroll : domain.start);
     fitView(null, false);
   };
 
@@ -941,6 +943,7 @@ const createMapController = (panel, context) => {
 LogMainViewChart.registerType({
   id: "map",
   label: "Map",
+  slots: ["main", "side"],
   // Only offered when the log has position tracks.
   available: (services) =>
     (services?.viewerStore?.tracksSignal?.value || services?.logData?.tracks || []).length > 0,

@@ -53,6 +53,7 @@ export const MainViewShell = () => {
     const [chartTypes, setChartTypes] = useState([]);
     const timelineViews = window.LogMainViewTimeline?.listFor?.(services?.presentTypes) || [];
     const selectedChartType = viewerStore?.chartType?.value || "";
+    const placementKey = JSON.stringify(viewerStore?.chartPlacement?.value || {});
     const [rowStride, setRowStride] = useState(38);
     const rowHeights = new Map(
       Object.entries(services?.logTypes || {}).map(([id, config]) => [
@@ -328,6 +329,20 @@ export const MainViewShell = () => {
         requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
       }, [safeViewMode, chartSplit[0], chartSplit[1]]);
 
+      // A chart moved between the chart area and the side panel: relist, and pick another if it left.
+      useEffect(() => {
+        const controller = chartControllerRef.current;
+        if (!controller?.refreshTypes) return;
+        const types = controller.refreshTypes();
+        setChartTypes(types);
+        const current = viewerStore?.chartType?.value || "";
+        if (!types.some((type) => type.id === current)) {
+          const next = types[0]?.id || "";
+          viewerStore?.setChartType(next);
+          if (next) controller.setType(next);
+        }
+      }, [placementKey]);
+
       useEffect(() => {
         const controller = chartControllerRef.current;
         if (!controller) return;
@@ -363,6 +378,7 @@ export const MainViewShell = () => {
           }}
           onClearReference=${() => viewerStore?.clearTimeReference?.()}
           onToggleLockToBottom=${() => setLockToBottom((v) => !v)}
+          onMoveChartToSide=${(chartId) => viewerStore?.setChartPlacement?.(chartId, "side")}
           onChartTypeChange=${(nextType) => {
             viewerStore?.setChartType(nextType);
           }}

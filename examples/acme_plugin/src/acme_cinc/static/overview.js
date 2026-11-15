@@ -252,6 +252,7 @@ export default function setup({ logTypeId, registerChart }) {
   registerChart({
     id: "acme-overview",
     label: "Overview",
+    slots: ["main", "side"],
     renderPanel(panel, context) {
       const root = element("div", "acme-overview");
       panel.appendChild(root);

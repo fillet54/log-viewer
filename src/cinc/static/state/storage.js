@@ -17,6 +17,9 @@ export const STORAGE_KEYS = {
   chartTooltips: "loglayout.chart.tooltips",
   chartType: "loglayout.chart.type",
   chartTimelineView: "loglayout.timeline.view",
+  chartPlacement: "loglayout.chart.placement",
+  sideCollapsed: "loglayout.side.collapsed",
+  rightSplit: "loglayout.v2.split.right",
   mainViewMode: "loglayout.mainview.mode",
   mainViewSplit: "loglayout.v2.mainview.split",
   bookmarks: "loglayout.bookmarks",
@@ -72,6 +75,20 @@ export const STRING_STORAGE = {
     }
   },
   serialize: (value) => String(value || ""),
+};
+
+export const OBJECT_STORAGE = {
+  parse: (raw) => {
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw;
+    if (typeof raw !== "string") return {};
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  },
+  serialize: (value) => JSON.stringify(value && typeof value === "object" ? value : {}),
 };
 
 export const ARRAY_STORAGE = {

@@ -53,6 +53,7 @@ export const MainViewToolbar = ({
     timeMode = "absolute",
     onToggleLockToBottom,
     onChartTypeChange,
+    onMoveChartToSide,
     onTimelineViewChange,
     onViewModeChange,
     onDensityChange,
@@ -77,6 +78,19 @@ export const MainViewToolbar = ({
             >
               ${chartPanels.map((type) => html`<option value=${type.id}>${type.label}</option>`)}
             </select>`
+          : null}
+        ${(chartPanels.find((type) => type.id === selectedChartType)?.slots || []).includes("side") && viewMode !== "list"
+          ? html`<button
+              type="button"
+              class="button button-ghost button-xs chart-move-side"
+              title="Move this chart to the side panel"
+              aria-label="Move this chart to the side panel"
+              onClick=${() => onMoveChartToSide?.(selectedChartType)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" /><path d="M14.5 4.5v15" />
+              </svg>
+            </button>`
           : null}
         ${selectedChartType === "timeline" && timelineViews.length && viewMode !== "list"
           ? html`<${Segmented}

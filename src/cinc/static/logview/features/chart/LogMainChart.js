@@ -56,6 +56,37 @@ LogMainViewTimeline.registerPluginView = (pluginId, definition) => {
   LogMainViewTimeline.registerView({ ...definition, pluginId: normalizedPluginId });
 };
 
+// -- slots: where a chart can be shown -------------------------------------------------------------
+// "main" is the chart area above the log; "side" is the dock in the right pane, under the row details.
+// A chart lists the slots it supports in `slots` (default ["main"]); the first is where it starts, and
+// the user can move it to another of its slots (stored in viewerStore.chartPlacement).
+const SLOTS = ["main", "side"];
+LogMainViewChart.slotsOf = (type) => {
+  const slots = (Array.isArray(type?.slots) ? type.slots : ["main"]).filter((slot) => SLOTS.includes(slot));
+  return slots.length ? slots : ["main"];
+};
+LogMainViewChart.placementOf = (type, placement = {}) => {
+  const slots = LogMainViewChart.slotsOf(type);
+  const chosen = placement?.[type?.id];
+  return slots.includes(chosen) ? chosen : slots[0];
+};
+// Charts (not timeline views) offered for this page: global ones, plus those of log types present.
+LogMainViewChart.availableCharts = (services) => {
+  const { logData, presentTypes } = services || {};
+  const present = new Set((presentTypes || []).map((id) => normalizePluginId(id)).filter(Boolean));
+  const declared = normalizePluginId(logData?.logTypeId || logData?.pluginId);
+  if (declared) present.add(declared);
+  return Array.from(LogMainViewChart.registry.values()).filter(
+    (type) =>
+      (!type.pluginId || present.has(normalizePluginId(type.pluginId))) &&
+      (typeof type.available !== "function" || type.available(services))
+  );
+};
+LogMainViewChart.chartsIn = (slot, services) =>
+  LogMainViewChart.availableCharts(services).filter(
+    (type) => LogMainViewChart.placementOf(type, services?.viewerStore?.chartPlacement?.value) === slot
+  );
+
 // Timeline views for a log with these types: the global ones, then each type's own (first id wins).
 LogMainViewTimeline.listFor = (typeIds = []) => {
   const present = new Set((typeIds || []).map((id) => normalizePluginId(id)).filter(Boolean));
@@ -113,11 +144,7 @@ LogMainViewChart.mount = (root, services) => {
   let commandBar = null;
 
   const listTypes = () => {
-    const chartTypes = Array.from(LogMainViewChart.registry.values()).filter(
-      (type) =>
-        (!type.pluginId || availablePluginIds.has(normalizePluginId(type.pluginId))) &&
-        (typeof type.available !== "function" || type.available(services))
-    );
+    const chartTypes = LogMainViewChart.chartsIn("main", services);
     const timelineTypes = Array.from(LogMainViewTimeline.registry.values())
       .filter(
         (view) =>
@@ -141,6 +168,7 @@ LogMainViewChart.mount = (root, services) => {
 
   const buildContext = (extra = {}) => ({
     root,
+    slot: "main",
     plugin: logType,
     logType,
     viewerStore,
@@ -274,6 +302,23 @@ LogMainViewChart.mount = (root, services) => {
       renderCommands(type, panelRecord);
       controller.resize();
     },
+    // After charts move between slots: drop panels of charts no longer here; returns the new list.
+    refreshTypes() {
+      const types = controller.listTypes();
+      const ids = new Set(types.map((type) => type.id));
+      mountedPanels.forEach((record, id) => {
+        if (ids.has(id)) return;
+        if (record === activePanel) {
+          clearCommandBar();
+          activePanel = null;
+          activeType = null;
+        }
+        record.controller?.destroy?.(buildContext({ type: record.type, panel: record.panel, panelController: record.controller }));
+        record.panel.remove();
+        mountedPanels.delete(id);
+      });
+      return types;
+    },
     attachToolbar({ commandBarEl = null } = {}) {
       commandBar = commandBarEl || commandBar;
 
@@ -325,6 +370,124 @@ LogMainViewChart.mount = (root, services) => {
   };
 
   return controller;
+};
+
+// The side dock: one collapsible section per chart placed in the "side" slot, each with the chart's own
+// commands in its header. Panels get context.slot = "side" so they can lay themselves out vertically.
+LogMainViewChart.mountSide = (host, services) => {
+  const { viewerStore, logData } = services || {};
+  const sections = new Map(); // chart id -> { type, section, body, commands, controller, cleanup, observer, open }
+  const buildContext = (extra = {}) => ({
+    root: host,
+    slot: "side",
+    viewerStore,
+    logData,
+    bookmarks: viewerStore,
+    comments: viewerStore,
+    ...extra,
+  });
+  const contextFor = (record) =>
+    buildContext({ type: record.type, panel: record.body, panelController: record.controller || null });
+
+  const createSection = (type) => {
+    const section = document.createElement("section");
+    section.className = "side-section";
+    section.dataset.chart = type.id;
+    const header = document.createElement("div");
+    header.className = "side-section-header";
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "side-section-toggle";
+    toggle.title = "Show or hide this chart";
+    toggle.innerHTML = '<span class="side-section-caret" aria-hidden="true">▾</span><span class="side-section-label"></span>';
+    toggle.querySelector(".side-section-label").textContent = type.label;
+    toggle.addEventListener("click", () => {
+      viewerStore?.setSideCollapsed?.(type.id, !viewerStore?.sideCollapsed?.value?.includes(type.id));
+    });
+    const commands = document.createElement("div");
+    commands.className = "side-section-commands";
+    header.append(toggle, commands);
+    if (LogMainViewChart.slotsOf(type).includes("main")) {
+      const move = document.createElement("button");
+      move.type = "button";
+      move.className = "button button-ghost button-xs side-section-move";
+      move.title = "Move to the chart area";
+      move.setAttribute("aria-label", "Move to the chart area");
+      move.innerHTML =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">' +
+        '<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 10h17"/></svg>';
+      move.addEventListener("click", () => {
+        viewerStore?.setChartPlacement?.(type.id, "main");
+        viewerStore?.setChartType?.(type.id);
+      });
+      header.appendChild(move);
+    }
+    const body = document.createElement("div");
+    body.className = "chart-panel is-active side-section-body";
+    section.append(header, body);
+    const record = { type, section, body, commands, controller: null, cleanup: null, observer: null, open: false };
+    sections.set(type.id, record);
+    return record;
+  };
+
+  const open = (record) => {
+    if (record.open) return;
+    record.open = true;
+    if (!record.controller) {
+      record.controller = record.type.renderPanel?.(record.body, contextFor(record)) || {};
+      const buildCommands = record.type.buildCommands || record.type.renderControls;
+      if (typeof buildCommands === "function") record.cleanup = buildCommands(record.commands, contextFor(record)) || null;
+      if (typeof ResizeObserver === "function") {
+        record.observer = new ResizeObserver(() => record.controller?.resize?.(contextFor(record)));
+        record.observer.observe(record.body);
+      }
+    }
+    record.controller?.activate?.(contextFor(record));
+  };
+
+  const close = (record) => {
+    if (!record.open) return;
+    record.open = false;
+    record.controller?.deactivate?.(contextFor(record));
+  };
+
+  const destroySection = (id) => {
+    const record = sections.get(id);
+    if (!record) return;
+    close(record);
+    record.observer?.disconnect();
+    if (typeof record.cleanup === "function") record.cleanup();
+    record.controller?.destroy?.(contextFor(record));
+    record.section.remove();
+    sections.delete(id);
+  };
+
+  return {
+    // Match the sections to the charts placed in the side slot; returns how many there are.
+    sync() {
+      const types = LogMainViewChart.chartsIn("side", services);
+      const ids = new Set(types.map((type) => type.id));
+      Array.from(sections.keys()).forEach((id) => {
+        if (!ids.has(id)) destroySection(id);
+      });
+      const collapsed = new Set(viewerStore?.sideCollapsed?.value || []);
+      types.forEach((type) => {
+        const record = sections.get(type.id) || createSection(type);
+        host.appendChild(record.section); // keeps registration order
+        const isCollapsed = collapsed.has(type.id);
+        record.section.classList.toggle("is-collapsed", isCollapsed);
+        if (isCollapsed) close(record);
+        else open(record);
+      });
+      return types.length;
+    },
+    resize() {
+      sections.forEach((record) => record.open && record.controller?.resize?.(contextFor(record)));
+    },
+    destroy() {
+      Array.from(sections.keys()).forEach(destroySection);
+    },
+  };
 };
 
 const getEventAbsoluteMs = (event) => {

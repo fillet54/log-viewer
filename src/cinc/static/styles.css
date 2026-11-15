@@ -732,6 +732,12 @@ button {
   justify-content: space-between;
 }
 
+.pane-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .compact-header {
   min-height: 0;
   height: 34px;
@@ -1820,6 +1826,40 @@ html[data-theme="dark"] .brand-logo-dark { display: block; }
 .log-table td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--rule); vertical-align: middle; }
 .log-table tbody tr:hover { background: var(--soft); }
 .log-table .live-badge { margin-left: 8px; }
+
+/* -- Right pane: row details above, side-slot charts below (SideDock.js) ------------------------ */
+.right-stack { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; height: 100%; }
+.right-stack-detail,
+.right-stack-dock { display: flex; flex-direction: column; flex: 0 0 auto; min-height: 0; overflow: hidden; }
+/* Alone (no split gutter beside it), a part takes the whole pane. */
+.right-stack > :only-child { flex: 1 1 auto; }
+.right-stack-dock { border-top: 1px solid var(--rule); }
+.right-stack > :only-child.right-stack-dock { border-top: 0; }
+.side-dock-shell { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.side-dock { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+/* Each side chart: a header (toggle, its commands, move back) and a body that shares the dock's height. */
+.side-section { display: flex; flex-direction: column; flex: 1 1 0; min-height: 160px; border-bottom: 1px solid var(--rule); }
+.side-section.is-collapsed { flex: 0 0 auto; min-height: 0; }
+.side-section-header {
+  display: flex; align-items: center; gap: 6px; flex: 0 0 auto; min-height: 30px; padding: 0 6px 0 4px;
+  background: var(--soft); border-bottom: 1px solid var(--rule);
+}
+.side-section.is-collapsed .side-section-header { border-bottom: 0; }
+.side-section-toggle {
+  display: inline-flex; align-items: center; gap: 4px; min-width: 0; padding: 2px 4px;
+  border: 0; background: none; color: var(--ink); font: 600 12px var(--font-body); cursor: pointer;
+}
+.side-section-toggle:hover .side-section-label { text-decoration: underline; }
+.side-section-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-section-caret { color: var(--muted); transition: transform 0.12s; }
+.side-section.is-collapsed .side-section-caret { transform: rotate(-90deg); }
+.side-section-commands { display: flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0; justify-content: flex-end; overflow: hidden; }
+.side-section-commands .chart-command-hint { display: none; } /* hints are for the wide chart area */
+.side-section-move svg { width: 14px; height: 14px; }
+.side-section-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.side-section.is-collapsed .side-section-body { display: none; }
+.chart-move-side svg { width: 14px; height: 14px; }
 
 /* -- Map chart (MapChart.js) ----------------------------------------------------------------- */
 .map-panel {
