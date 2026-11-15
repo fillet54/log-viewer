@@ -90,13 +90,26 @@ export const Cinc = {
 
 // The `ctx` passed to a plugin script's setup: registration functions bound to the log type it runs for
 // (or global ones when logTypeId is null, for scripts added with ctx.add_script).
-export const createSetupContext = ({ logTypeId = null, config = {}, plugin = null } = {}) => {
+// What a served page knows about its server: {logId, live, url(path)}; null on a standalone page.
+// `url("/acme/api/...")` adds the app's mount prefix, if any.
+export const createServerInfo = (server, live = null) => {
+  if (!server || typeof server !== "object" || server.logId == null) return null;
+  const root = String(server.root || "").replace(/\/+$/, "");
+  return Object.freeze({
+    logId: String(server.logId),
+    live: Boolean(live),
+    url: (path) => `${root}${String(path).startsWith("/") ? "" : "/"}${path}`,
+  });
+};
+
+export const createSetupContext = ({ logTypeId = null, config = {}, plugin = null, server = null } = {}) => {
   const typed = logTypeId != null;
   return {
     apiVersion: API_VERSION,
     logTypeId,
     config: config || {},
     plugin,
+    server,
     registerRow: (Component) => {
       if (!typed) throw new Error("registerRow needs a log type; this script was added globally.");
       return Cinc.registerLogRowComponent(logTypeId, Component);
@@ -115,6 +128,7 @@ export const createSetupContext = ({ logTypeId = null, config = {}, plugin = nul
 // Import each plugin module and call its setup for every log type that uses it (see app.js).
 export const setupPlugins = async (pageData) => {
   const logTypes = pageData?.logTypes || {};
+  const server = createServerInfo(pageData?.server, pageData?.live);
   const jobs = [];
   Object.entries(logTypes).forEach(([logTypeId, entry]) => {
     (entry?.modules || []).forEach((moduleId) =>
@@ -151,7 +165,7 @@ export const setupPlugins = async (pageData) => {
       continue;
     }
     try {
-      await module.default(createSetupContext(context));
+      await module.default(createSetupContext({ ...context, server }));
     } catch (error) {
       console.error(`Cinc: setup failed in ${moduleId}`, error);
     }

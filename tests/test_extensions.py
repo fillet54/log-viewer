@@ -111,6 +111,24 @@ def test_plugin_pages_and_assets_are_served(tmp_path):
     assert demo.status_code == 302 and "/logs/" in demo.location
 
 
+def test_plugin_api_endpoint_and_server_info(tmp_path):
+    client = create_app(tmp_path, registry=acme_registry()).test_client()
+    log_id = acme_cinc.write_demo_log(tmp_path).name
+    owners = client.get(f"/acme/api/logs/{log_id}/owners").get_json()
+    assert owners["logId"] == log_id
+    assert owners["owners"]["Electrical"]["setAtEnd"] == 1  # PWR-09 cell imbalance
+    assert owners["owners"]["Avionics"]["setAtEnd"] == 1  # COM-09 antenna fault
+    assert client.get("/acme/api/logs/nope/owners").status_code == 404
+    # Served pages tell plugin scripts their log id; standalone pages have no server.
+    viewer = client.get(f"/logs/{log_id}").data.decode()
+    assert f'"server":{{"logId":"{log_id}","root":""}}' in viewer
+    download = client.get(f"/logs/{log_id}/standalone.html").data.decode()
+    assert '"server"' not in download
+    assert '"server"' not in build_standalone(
+        tmp_path / log_id, "Demo", registry=acme_registry()
+    )
+
+
 def test_standalone_inlines_plugin_modules_and_their_imports(tmp_path):
     path = acme_cinc.write_demo_log(tmp_path, minutes=2)
     html = build_standalone(path, "Demo", registry=acme_registry())

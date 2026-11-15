@@ -14,6 +14,12 @@ OWNERS = {
     "Comms": "Avionics",
     "Nav": "Avionics",
 }
+# Who to call about each team's faults: a lookup a project would keep on its server.
+TEAMS = {
+    "Avionics": {"lead": "R. Okafor", "channel": "#acme-avionics"},
+    "Electrical": {"lead": "M. Lindqvist", "channel": "#acme-electrical"},
+    "Thermal": {"lead": "S. Tanaka", "channel": "#acme-thermal"},
+}
 CHANNELS = ["A", "B"]
 FLIGHT_MINUTES = 30
 

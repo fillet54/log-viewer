@@ -16,7 +16,7 @@ What `setup(ctx)` in `src/acme_cinc/__init__.py` adds:
 |---|---|
 | `ctx.extend("core_event", augmenters=...)` | Every core_event row gets an `owner` (the team for its system); search `owner:Thermal`. |
 | `ctx.extend("core_event", scripts=..., config=...)` | Three charts for core_event logs (below). |
-| `ctx.add_blueprint(...)` | `/acme/`: open faults per owner across all logs, and a button that writes a demo log. |
+| `ctx.add_blueprint(...)` | `/acme/`: open faults per owner across all logs, and a button that writes a demo log. `/acme/api/logs/<id>/owners`: JSON with each team's contacts and faults still set at the end of that log (`pages.py`). |
 | `ctx.add_command("acme-demo", ...)` | `cinc acme-demo DIR`: a 30-minute demo flight built with `cinc.LogWriter` and `core_event.event`, plus its standalone page. |
 
 The charts (pick them in the chart menu of a core_event log):
@@ -30,6 +30,8 @@ The charts (pick them in the chart menu of a core_event log):
   row, or empty track to move the log to that time. The toolbar picks one subsystem or collapses
   all sections.
 - **Faults by Owner** (`owners.js` + `bars.js`): open faults per owning team at the selected row.
+  On a served page it also lists each team's contacts, fetched from the plugin's own endpoint with
+  `ctx.server`; a standalone page has no server, so it shows only the bars.
 
 `model.js` turns core_event rows into fault intervals for the first two; both import it, which also
 shows a plugin split across several files (standalone pages inline every imported file).

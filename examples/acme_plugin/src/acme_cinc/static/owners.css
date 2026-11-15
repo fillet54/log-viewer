@@ -4,3 +4,8 @@
 .acme-bar-track { height: 10px; background: var(--soft); border-radius: var(--radius); overflow: hidden; }
 .acme-bar-fill { display: block; height: 100%; background: var(--series-1); }
 .acme-bar-value { font-family: var(--font-mono); text-align: right; }
+.acme-contacts { padding: 4px 12px 10px; font-size: 12px; }
+.acme-contacts-heading { margin: 4px 0 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.acme-contact { display: grid; grid-template-columns: 130px 1fr auto; gap: 8px; padding: 2px 0; }
+.acme-contact-team { color: var(--muted); }
+.acme-contact-end { font-family: var(--font-mono); color: var(--muted); }

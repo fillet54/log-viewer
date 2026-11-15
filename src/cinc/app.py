@@ -112,6 +112,9 @@ def create_app(
             page = hub.page_data(log)
         except ValueError as exc:
             return f"Cannot open log {log_id}: {exc}", 400
+        # Served pages say where they came from, so plugin scripts can call their own
+        # endpoints. Standalone pages have no server and never get this key.
+        page["server"] = {"logId": log.id, "root": request.script_root}
         ids = [item.id for item in list_logs(root)]
         index = ids.index(log.id) if log.id in ids else -1
         return render_template(
