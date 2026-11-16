@@ -5,7 +5,7 @@ import { createSearchState } from "./search.js";
 import { createChartState } from "./chart.js";
 import { createActivityState } from "./activity.js";
 
-export const createViewerStore = ({ logData, standalone = false }) => {
+export const createViewerStore = ({ logData, standalone = false, logId = null }) => {
   const initialEvents = Array.isArray(logData?.events) ? logData.events : [];
   const allEventsSignal = signal(initialEvents);
   const navigation = createNavigationState({ allEvents: initialEvents });
@@ -91,6 +91,6 @@ export const createViewerStore = ({ logData, standalone = false }) => {
     ...createLayoutState(),
     ...createSearchState(),
     ...createChartState(),
-    ...createActivityState({ logData, allEventsSignal, standalone }),
+    ...createActivityState({ logData, allEventsSignal, standalone, logId }),
   };
 };

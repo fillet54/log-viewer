@@ -1,5 +1,5 @@
-import { signal, computed } from "preact/signals";
-import { readStorage, syncSignalToStorage, setSignal, STORAGE_KEYS } from "./storage.js";
+import { effect, signal, computed } from "preact/signals";
+import { readStorage, setSignal, activityKeys, removeLegacyActivityKeys } from "./storage.js";
 
 const sameBookmarkMap = (left, right) => {
   if (left === right) return true;
@@ -23,10 +23,27 @@ const sameComments = (left, right) => {
   return true;
 };
 
-export const createActivityState = ({ logData, allEventsSignal, standalone = false }) => {
+// Keep a value under `key` only while it has content.
+const syncActivityToStorage = (key, sig, isEmpty) => {
+  effect(() => {
+    const value = sig.value;
+    try {
+      if (isEmpty(value)) localStorage.removeItem(key);
+      else localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // ignore
+    }
+  });
+};
+
+// Bookmarks and comments belong to one log (`logId`); without one (standalone
+// pages) they are disabled.
+export const createActivityState = ({ logData, allEventsSignal, standalone = false, logId = null }) => {
   const validIdSet = computed(() => new Set((allEventsSignal?.value || logData?.events || []).map((event) => String(event.row_id))));
   const validIds = () => validIdSet.value;
-  const enabled = !standalone;
+  const enabled = !standalone && logId != null && logId !== "";
+  const keys = enabled ? activityKeys(logId) : null;
+  removeLegacyActivityKeys();
 
   const normalizeBookmarks = (value) => {
     if (!enabled || !value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -53,8 +70,8 @@ export const createActivityState = ({ logData, allEventsSignal, standalone = fal
       }));
   };
 
-  const bookmarks = signal(enabled ? normalizeBookmarks(readStorage(STORAGE_KEYS.bookmarks, {})) : {});
-  const comments = signal(enabled ? normalizeComments(readStorage(STORAGE_KEYS.comments, [])) : []);
+  const bookmarks = signal(enabled ? normalizeBookmarks(readStorage(keys.bookmarks, {})) : {});
+  const comments = signal(enabled ? normalizeComments(readStorage(keys.comments, [])) : []);
   const commentsByRowId = computed(() => {
     const map = new Map();
     comments.value.forEach((comment) => {
@@ -66,8 +83,8 @@ export const createActivityState = ({ logData, allEventsSignal, standalone = fal
   });
 
   if (enabled) {
-    syncSignalToStorage(STORAGE_KEYS.bookmarks, bookmarks);
-    syncSignalToStorage(STORAGE_KEYS.comments, comments);
+    syncActivityToStorage(keys.bookmarks, bookmarks, (value) => !Object.keys(value || {}).length);
+    syncActivityToStorage(keys.comments, comments, (value) => !value?.length);
   }
 
   const setBookmarks = (v) => setSignal(bookmarks, v, { normalize: normalizeBookmarks, equals: sameBookmarkMap });

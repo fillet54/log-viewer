@@ -22,9 +22,27 @@ export const STORAGE_KEYS = {
   rightSplit: "loglayout.v2.split.right",
   mainViewMode: "loglayout.mainview.mode",
   mainViewSplit: "loglayout.v2.mainview.split",
+  // Per log: the log id is appended (see activityKeys).
   bookmarks: "loglayout.bookmarks",
   comments: "loglayout.comments",
 };
+
+// Bookmarks and comments are kept per log, under "<key>.<log id>".
+export const activityKeys = (logId) => ({
+  bookmarks: `${STORAGE_KEYS.bookmarks}.${logId}`,
+  comments: `${STORAGE_KEYS.comments}.${logId}`,
+});
+
+// Before they were per log, bookmarks and comments lived under the bare keys
+// and every log overwrote the others'. Drop them.
+export function removeLegacyActivityKeys() {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.bookmarks);
+    localStorage.removeItem(STORAGE_KEYS.comments);
+  } catch {
+    // ignore
+  }
+}
 
 export function readStorage(key, fallback, options = {}) {
   try {
