@@ -8,10 +8,10 @@ version = "0.1.0"
 description = "HTML log viewer"
 requires-python = ">=3.10"
 dependencies = [
-    "flask",
-    "jinja2",
-    "waitress",
-    "docopt",
+    "flask>=3.1.3",
+    "jinja2>=3.1.6",
+    "waitress>=3.0.2",
+    "docopt>=0.6.2",
 ]
 
 [project.optional-dependencies]
