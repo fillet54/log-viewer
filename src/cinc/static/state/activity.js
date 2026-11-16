@@ -24,7 +24,8 @@ const sameComments = (left, right) => {
 };
 
 export const createActivityState = ({ logData, allEventsSignal, standalone = false }) => {
-  const validIds = () => new Set((allEventsSignal?.value || logData?.events || []).map((event) => String(event.row_id)));
+  const validIdSet = computed(() => new Set((allEventsSignal?.value || logData?.events || []).map((event) => String(event.row_id))));
+  const validIds = () => validIdSet.value;
   const enabled = !standalone;
 
   const normalizeBookmarks = (value) => {
@@ -114,7 +115,7 @@ export const createActivityState = ({ logData, allEventsSignal, standalone = fal
   const addComment = async (rowId, body, parentId = null) => {
     if (!enabled) return null;
     const key = String(rowId);
-    if (!validIds.has(key)) return null;
+    if (!validIds().has(key)) return null;
     const nextBody = String(body || "").trim();
     if (!nextBody) return null;
     const comment = {
