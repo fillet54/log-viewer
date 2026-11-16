@@ -35,7 +35,9 @@ The **Map** chart (Leaflet on a Natural Earth basemap, vendored and fully offlin
 tracks and follows the log: scrolling or selecting a row moves the map's clock, and scrubbing,
 playing, or clicking a track jumps the log to that time. Clicking a track's marker or legend row
 focuses it (and keeps it in view while playing). It appears in the chart picker when the log has
-tracks. Toggles in the map's corner show or hide country/state borders and names, places, and roads.
+tracks. Zoom with the scroll wheel, a pinch or a double-click. The gear in the map's toolbar opens
+settings: show or hide country/state borders and names, places, and roads, and choose when to mark
+the real sample points with dots (Auto marks them on tracks that lack a steady sample rate).
 
 Supply tracks as rows of the built-in `track` type. It adds nothing to the row list:
 

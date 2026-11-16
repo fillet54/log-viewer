@@ -23,6 +23,24 @@ const INCOMING_QUIET_MS = 700; // ignore log -> map sync this long after the map
 const OUTGOING_JUMP_MS = 150; // throttle map -> log jumps
 const PICK_RADIUS_PX = 10;
 const LAYER_STORAGE_KEY = "cinc.map.layers";
+const POINTS_STORAGE_KEY = "cinc.map.points";
+const POINT_MODES = [
+  { id: "auto", label: "Auto" },
+  { id: "on", label: "Show" },
+  { id: "off", label: "Hide" },
+];
+// A track counts as irregular when more than this share of its sample gaps stray more than
+// RATE_TOLERANCE from the median gap; irregular tracks get a dot at each real sample.
+const RATE_TOLERANCE = 0.25;
+const IRREGULAR_SHARE = 0.1;
+const GEAR_ICON =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">' +
+  '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 ' +
+  "1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06" +
+  ".06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 " +
+  "1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3" +
+  "a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 " +
+  '0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
 const OVERLAYS = [
   { id: "political", label: "Borders & names" },
   { id: "places", label: "Places" },
@@ -147,6 +165,21 @@ const trackBounds = (tracks) => {
   return [west, south, east, north];
 };
 
+// True when samples do not arrive at a steady rate (too few to tell counts as irregular).
+const isIrregular = (samples) => {
+  if (samples.length < 3) return true;
+  const gaps = new Array(samples.length - 1);
+  for (let i = 1; i < samples.length; i += 1) gaps[i - 1] = samples[i][0] - samples[i - 1][0];
+  const sorted = gaps.slice().sort((a, b) => a - b);
+  const median = sorted[sorted.length >> 1];
+  if (!(median > 0)) return true;
+  let off = 0;
+  gaps.forEach((gap) => {
+    if (Math.abs(gap - median) > median * RATE_TOLERANCE) off += 1;
+  });
+  return off / gaps.length > IRREGULAR_SHARE;
+};
+
 const contains = (outer, inner) =>
   !!outer && !!inner && inner[0] >= outer[0] && inner[1] >= outer[1] && inner[2] <= outer[2] && inner[3] <= outer[3];
 
@@ -195,6 +228,22 @@ const readOverlayPrefs = () => {
     /* storage unavailable: defaults */
   }
   return prefs;
+};
+const readPointMode = () => {
+  try {
+    const mode = localStorage.getItem(POINTS_STORAGE_KEY);
+    if (POINT_MODES.some((option) => option.id === mode)) return mode;
+  } catch {
+    /* storage unavailable: default */
+  }
+  return "auto";
+};
+const savePointMode = (mode) => {
+  try {
+    localStorage.setItem(POINTS_STORAGE_KEY, mode);
+  } catch {
+    /* storage unavailable */
+  }
 };
 const saveOverlayPrefs = (prefs) => {
   try {
@@ -279,8 +328,10 @@ const createMapController = (panel, context) => {
   slider.setAttribute("aria-label", "Map time");
   const clockLabel = element("span", "map-clock");
   scrubber.append(slider, clockLabel);
+  const settings = element("div", "map-settings");
+  settings.hidden = true;
   const stage = element("div", "map-stage");
-  stage.append(host, legend, status);
+  stage.append(host, legend, settings, status);
   root.append(stage, scrubber);
   panel.appendChild(root);
 
@@ -302,6 +353,8 @@ const createMapController = (panel, context) => {
   let detailBounds = null; // area the detailed basemap covers
   let basemapRequest = null;
   const overlayPrefs = readOverlayPrefs();
+  let pointMode = readPointMode();
+  let settingsRefresh = null;
   const renderers = {};
   const basemapLayers = new Map(); // layer name -> Leaflet layer
   let mask = null;
@@ -506,12 +559,49 @@ const createMapController = (panel, context) => {
     model.legs = legs;
     model.route.setLatLngs(latlngs);
     model.flownIndex = -2;
+    model.irregular = isIrregular(samples);
+    buildDots(model);
+  };
+
+  const dotsShown = (model) => pointMode === "on" || (pointMode === "auto" && model.irregular);
+
+  // A dot at each real sample, so interpolated stretches can be told from reported positions.
+  const buildDots = (model) => {
+    model.dots.clearLayers();
+    if (!dotsShown(model)) return;
+    const options = {
+      pane: "cinc-tracks",
+      renderer: renderers["cinc-tracks"],
+      interactive: false,
+      radius: 2.5,
+      weight: 1,
+      fillOpacity: 1,
+    };
+    model.latlngs.forEach((latlng) => model.dots.addLayer(L.circleMarker(latlng, options)));
+    styleDots(model);
+  };
+
+  const styleDots = (model) => {
+    const focused = focusId == null || focusId === model.track.id;
+    model.dots.setStyle({
+      color: themeColor("var(--paper)"),
+      fillColor: model.color,
+      opacity: focused ? 0.9 : 0.3,
+      fillOpacity: focused ? 1 : 0.3,
+    });
+  };
+
+  const setPointMode = (mode) => {
+    pointMode = mode;
+    savePointMode(mode);
+    models.forEach(buildDots);
   };
 
   const styleModel = (model) => {
     const focused = focusId == null || focusId === model.track.id;
     model.route.setStyle({ color: model.color, opacity: focused ? 0.45 : 0.18, weight: 2 });
     model.flown.setStyle({ color: model.color, opacity: focused ? 1 : 0.35, weight: focused ? 3.5 : 2.5 });
+    styleDots(model);
     const icon = model.marker.getElement();
     if (icon) {
       icon.style.setProperty("--craft", model.color);
@@ -526,6 +616,7 @@ const createMapController = (panel, context) => {
       color: trackColor(track, index),
       route: L.polyline([], { ...lineOptions }).addTo(map),
       flown: L.polyline([], { ...lineOptions }).addTo(map),
+      dots: L.featureGroup().addTo(map),
       marker: L.marker([0, 0], {
         keyboard: false,
         title: track.label || track.id,
@@ -794,28 +885,53 @@ const createMapController = (panel, context) => {
     );
   }
 
-  // -- layer toggles (a small Leaflet control)
-  const layerControl = () => {
-    const Control = L.Control.extend({
-      options: { position: "topright" },
-      onAdd() {
-        const box = element("div", "leaflet-bar map-layers");
-        OVERLAYS.forEach(({ id, label }) => {
-          const row = element("label", "map-layers-row");
-          const input = element("input");
-          input.type = "checkbox";
-          input.checked = overlayOn(id);
-          input.addEventListener("change", () => setOverlay(id, input.checked));
-          row.append(input, element("span", null, label));
-          box.appendChild(row);
-        });
-        L.DomEvent.disableClickPropagation(box);
-        L.DomEvent.disableScrollPropagation(box);
-        return box;
-      },
+  // -- settings panel (opened from the toolbar's gear)
+  const renderSettings = () => {
+    settings.innerHTML = "";
+    const layers = element("fieldset", "map-settings-group");
+    layers.appendChild(element("legend", null, "Layers"));
+    OVERLAYS.forEach(({ id, label }) => {
+      const row = element("label", "map-settings-row");
+      const input = element("input");
+      input.type = "checkbox";
+      input.checked = overlayOn(id);
+      input.addEventListener("change", () => setOverlay(id, input.checked));
+      row.append(input, element("span", null, label));
+      layers.appendChild(row);
     });
-    return new Control();
+    const points = element("fieldset", "map-settings-group");
+    points.appendChild(element("legend", null, "Sample points"));
+    POINT_MODES.forEach(({ id, label }) => {
+      const row = element("label", "map-settings-row");
+      const input = element("input");
+      input.type = "radio";
+      input.name = "map-points";
+      input.checked = pointMode === id;
+      input.addEventListener("change", () => input.checked && setPointMode(id));
+      row.append(input, element("span", null, label));
+      points.appendChild(row);
+    });
+    points.appendChild(element("p", "map-settings-hint", "Auto shows them on tracks without a steady sample rate."));
+    settings.append(layers, points);
   };
+
+  const setSettingsOpen = (open) => {
+    if (open) renderSettings();
+    settings.hidden = !open;
+    settingsRefresh?.();
+  };
+  const onOutside = (event) => {
+    if (settings.hidden || settings.contains(event.target) || event.target.closest?.(".map-settings-toggle")) return;
+    setSettingsOpen(false);
+  };
+  const onKey = (event) => {
+    if (event.key === "Escape" && !settings.hidden) setSettingsOpen(false);
+  };
+  document.addEventListener("pointerdown", onOutside, true);
+  document.addEventListener("keydown", onKey);
+  off.push(() => document.removeEventListener("pointerdown", onOutside, true));
+  off.push(() => document.removeEventListener("keydown", onKey));
+  settings.addEventListener("wheel", (event) => event.stopPropagation());
 
   // -- build the map once Leaflet is loaded
   const buildMap = (basemapData) => {
@@ -836,8 +952,6 @@ const createMapController = (panel, context) => {
       // Extra canvas around the view so panning does not show blank edges.
       renderers[name] = L.canvas({ pane: name, padding: name === "cinc-tracks" ? 0.1 : 0.5 });
     });
-    L.control.zoom({ position: "topright" }).addTo(map);
-    layerControl().addTo(map);
     L.control.scale({ position: "bottomleft", imperial: false }).addTo(map);
     L.control.attribution({ position: "bottomright", prefix: "Leaflet" }).addAttribution("Natural Earth").addTo(map);
     map.setView([20, 0], 2);
@@ -893,10 +1007,18 @@ const createMapController = (panel, context) => {
       const fitButton = element("button", "button button-ghost button-xs", "Fit");
       fitButton.type = "button";
       fitButton.title = "Zoom to the tracks";
+      const gearButton = element("button", "button button-ghost button-xs map-settings-toggle");
+      gearButton.type = "button";
+      gearButton.title = "Map settings";
+      gearButton.setAttribute("aria-label", "Map settings");
+      gearButton.innerHTML = GEAR_ICON;
+      gearButton.addEventListener("click", () => setSettingsOpen(settings.hidden));
       const refresh = () => {
         playButton.textContent = playing ? "Pause" : "Play";
         playButton.classList.toggle("is-active", playing);
         speedButton.textContent = `${SPEEDS[speedIndex]}×`;
+        gearButton.classList.toggle("is-active", !settings.hidden);
+        gearButton.setAttribute("aria-expanded", String(!settings.hidden));
       };
       playButton.addEventListener("click", () => (playing ? stop() : play()));
       speedButton.addEventListener("click", () => {
@@ -904,12 +1026,14 @@ const createMapController = (panel, context) => {
         refresh();
       });
       fitButton.addEventListener("click", () => fitView());
-      group.append(playButton, speedButton, fitButton);
+      group.append(playButton, speedButton, fitButton, gearButton);
       container.appendChild(group);
       commandRefresh = refresh;
+      settingsRefresh = refresh;
       refresh();
       return () => {
         if (commandRefresh === refresh) commandRefresh = null;
+        if (settingsRefresh === refresh) settingsRefresh = null;
       };
     },
     activate() {
@@ -920,6 +1044,7 @@ const createMapController = (panel, context) => {
     },
     deactivate() {
       stop();
+      setSettingsOpen(false);
     },
     resize() {
       if (!map) return;
@@ -929,6 +1054,7 @@ const createMapController = (panel, context) => {
     destroy() {
       destroyed = true;
       stop();
+      setSettingsOpen(false);
       if (jumpTimer) clearTimeout(jumpTimer);
       off.forEach((unsubscribe) => unsubscribe && unsubscribe());
       map?.remove();
