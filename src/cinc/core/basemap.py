@@ -1,6 +1,7 @@
-"""Basemap for the Map chart: Natural Earth layers cut to the tracks' area.
+"""Basemap for the Map chart: Natural Earth and aviation layers cut to the tracks' area.
 
-The data lives in ``cinc/data/basemap`` (built by ``scripts/build_basemap.py``).
+The data lives in ``cinc/data/basemap`` (built by ``scripts/build_basemap.py``;
+the airports, runways, navaids and airspace by ``scripts/build_aviation.py``).
 Detailed 1:10m layers are cut to an area around the tracks; a 1:110m world and
 the country names are always included, so zooming out still shows context.
 
@@ -10,7 +11,8 @@ The viewer gets::
      "layers": {name: {"kind": "polygon" | "line" | "point", "items": [...]}}}
 
 Polygon and line items are flat integer coordinate lists ``[x0, y0, x1, y1, ...]``
-(degrees * scale); point items are ``[x, y, name, min_zoom]``.
+(degrees * scale); point items are ``[x, y, name, min_zoom]``, aviation points
+add a fifth field, their kind.
 """
 
 from __future__ import annotations
@@ -36,6 +38,13 @@ DETAIL_LAYERS = (
     "state_borders",
     "state_labels",
     "places",
+    # aviation (scripts/build_aviation.py)
+    "runways",
+    "airspace_b",
+    "airspace_c",
+    "airspace_d",
+    "airports",
+    "navaids",
 )
 MIN_MARGIN_DEG = 1.5  # around the tracks, at least this much on each side
 MARGIN_FRACTION = 0.5  # ... or this fraction of the tracks' extent

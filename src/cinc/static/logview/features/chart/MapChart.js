@@ -9,7 +9,8 @@
 // clicking a track jumps the log to that time.
 //
 // Leaflet is vendored (static/vendor/leaflet) and loaded on first use. The basemap is Natural
-// Earth (cinc/core/basemap.py): a low-detail world plus 1:10m layers cut to the tracks' area.
+// Earth (cinc/core/basemap.py): a low-detail world plus 1:10m layers cut to the tracks' area, with
+// OurAirports airports, runways and navaids and FAA Class B/C/D airspace on top.
 // Standalone pages embed both; served pages fetch the basemap and widen it as live tracks grow.
 import { themeColor, onThemeChange } from "../../../theme.js";
 import { signals } from "logview/lib";
@@ -42,9 +43,12 @@ const GEAR_ICON =
   "a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 " +
   '0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
 const OVERLAYS = [
-  { id: "political", label: "Borders & names" },
-  { id: "places", label: "Places" },
-  { id: "roads", label: "Roads" },
+  { id: "political", label: "Borders & names", section: "Layers" },
+  { id: "places", label: "Places", section: "Layers" },
+  { id: "roads", label: "Roads", section: "Layers" },
+  { id: "airports", label: "Airports & runways", section: "Aviation" },
+  { id: "airspace", label: "Airspace (US B/C/D)", section: "Aviation" },
+  { id: "navaids", label: "Navaids", section: "Aviation" },
 ];
 
 // -- loading ------------------------------------------------------------------------------------
@@ -221,7 +225,7 @@ const element = (tag, className, text) => {
 };
 
 const readOverlayPrefs = () => {
-  const prefs = { political: true, places: true, roads: true };
+  const prefs = { political: true, places: true, roads: true, airports: true, airspace: true, navaids: false };
   try {
     Object.assign(prefs, JSON.parse(localStorage.getItem(LAYER_STORAGE_KEY) || "{}"));
   } catch {
@@ -265,6 +269,10 @@ const mapPalette = () => {
     road: color("--map-road"),
     border: color("--map-border"),
     stateBorder: color("--map-state-border"),
+    runway: color("--map-runway"),
+    airspaceB: color("--map-airspace-b"),
+    airspaceC: color("--map-airspace-c"),
+    airspaceD: color("--map-airspace-d"),
   };
 };
 const BASEMAP_STYLES = {
@@ -279,6 +287,10 @@ const BASEMAP_STYLES = {
   world_borders: (p) => ({ color: p.border, weight: 1 }),
   borders: (p) => ({ color: p.border, weight: 1.2 }),
   state_borders: (p) => ({ color: p.stateBorder, weight: 0.8, dashArray: "4 3" }),
+  runways: (p) => ({ color: p.runway, weight: 3, lineCap: "butt" }),
+  airspace_b: (p) => ({ color: p.airspaceB, weight: 1.6, opacity: 0.85 }),
+  airspace_c: (p) => ({ color: p.airspaceC, weight: 1.6, opacity: 0.85 }),
+  airspace_d: (p) => ({ color: p.airspaceD, weight: 1.2, opacity: 0.85, dashArray: "5 4" }),
 };
 // layer -> [pane, overlay group (null: always shown)]
 const BASEMAP_PLACEMENT = {
@@ -293,16 +305,33 @@ const BASEMAP_PLACEMENT = {
   roads: ["cinc-detail", "roads"],
   state_borders: ["cinc-political", "political"],
   borders: ["cinc-political", "political"],
+  airspace_b: ["cinc-aviation", "airspace"],
+  airspace_c: ["cinc-aviation", "airspace"],
+  airspace_d: ["cinc-aviation", "airspace"],
+  runways: ["cinc-aviation", "airports"],
 };
+// offset: px from the point to the label box's left edge (null: centred); charWidth: px per character.
 const LABEL_LAYERS = {
-  country_labels: { group: "political", className: "map-label map-label-country", priority: 0 },
-  state_labels: { group: "political", className: "map-label map-label-state", priority: 1 },
-  places: { group: "places", className: "map-label map-label-place", priority: 2 },
+  country_labels: { group: "political", className: "map-label map-label-country", priority: 0, charWidth: 7.5 },
+  state_labels: { group: "political", className: "map-label map-label-state", priority: 1, charWidth: 6.5 },
+  // Small fields give way to place names; large and medium airports do not.
+  airports: {
+    group: "airports",
+    className: "map-label map-label-airport",
+    priority: 2,
+    minorKinds: ["small", "heliport", "seaplane"],
+    minorPriority: 5,
+    offset: 6,
+    charWidth: 6.5,
+  },
+  navaids: { group: "navaids", className: "map-label map-label-navaid", priority: 3, offset: 6, charWidth: 6.5 },
+  places: { group: "places", className: "map-label map-label-place", priority: 4, offset: 4, charWidth: 6.5 },
 };
 const PANES = [
   ["cinc-world", 200],
   ["cinc-detail", 210],
   ["cinc-political", 380],
+  ["cinc-aviation", 390],
   ["cinc-tracks", 420],
   ["cinc-labels", 450],
 ];
@@ -451,14 +480,16 @@ const createMapController = (panel, context) => {
         labels.splice(i, 1);
       }
     }
-    items.forEach(([x, y, text, zoom]) => {
+    items.forEach(([x, y, text, zoom, kind]) => {
+      const className = kind ? `${config.className} is-${kind}` : config.className;
+      const priority = config.minorKinds?.includes(kind) ? config.minorPriority : config.priority;
       const marker = L.marker([y / scale, x / scale], {
         pane: "cinc-labels",
         interactive: false,
         keyboard: false,
-        icon: L.divIcon({ className: config.className, html: `<span></span>`, iconSize: null }),
+        icon: L.divIcon({ className, html: `<span></span>`, iconSize: null }),
       });
-      labels.push({ layer: name, marker, text, zoom: Number(zoom) || 0, ...config, shown: false });
+      labels.push({ layer: name, marker, text, zoom: Number(zoom) || 0, ...config, priority, shown: false });
     });
     labels.sort((a, b) => a.priority - b.priority || a.zoom - b.zoom);
   };
@@ -475,8 +506,8 @@ const createMapController = (panel, context) => {
       let box = null;
       if (show) {
         const point = map.latLngToContainerPoint(label.marker.getLatLng());
-        const width = label.text.length * (label.priority === 0 ? 7.5 : 6.5) + 10;
-        const left = label.priority === 2 ? point.x - 4 : point.x - width / 2;
+        const width = label.text.length * label.charWidth + 10;
+        const left = label.offset != null ? point.x - label.offset : point.x - width / 2;
         box = [left, point.y - 8, left + width, point.y + 8];
         show =
           box[2] > 0 &&
@@ -888,16 +919,20 @@ const createMapController = (panel, context) => {
   // -- settings panel (opened from the toolbar's gear)
   const renderSettings = () => {
     settings.innerHTML = "";
-    const layers = element("fieldset", "map-settings-group");
-    layers.appendChild(element("legend", null, "Layers"));
-    OVERLAYS.forEach(({ id, label }) => {
+    const sections = new Map();
+    OVERLAYS.forEach(({ id, label, section }) => {
+      if (!sections.has(section)) {
+        const group = element("fieldset", "map-settings-group");
+        group.appendChild(element("legend", null, section));
+        sections.set(section, group);
+      }
       const row = element("label", "map-settings-row");
       const input = element("input");
       input.type = "checkbox";
       input.checked = overlayOn(id);
       input.addEventListener("change", () => setOverlay(id, input.checked));
       row.append(input, element("span", null, label));
-      layers.appendChild(row);
+      sections.get(section).appendChild(row);
     });
     const points = element("fieldset", "map-settings-group");
     points.appendChild(element("legend", null, "Sample points"));
@@ -912,7 +947,7 @@ const createMapController = (panel, context) => {
       points.appendChild(row);
     });
     points.appendChild(element("p", "map-settings-hint", "Auto shows them on tracks without a steady sample rate."));
-    settings.append(layers, points);
+    settings.append(...sections.values(), points);
   };
 
   const setSettingsOpen = (open) => {
@@ -953,7 +988,7 @@ const createMapController = (panel, context) => {
       renderers[name] = L.canvas({ pane: name, padding: name === "cinc-tracks" ? 0.1 : 0.5 });
     });
     L.control.scale({ position: "bottomleft", imperial: false }).addTo(map);
-    L.control.attribution({ position: "bottomright", prefix: "Leaflet" }).addAttribution("Natural Earth").addTo(map);
+    L.control.attribution({ position: "bottomright", prefix: "Leaflet" }).addAttribution("Natural Earth · OurAirports · FAA").addTo(map);
     map.setView([20, 0], 2);
 
     addBasemap(basemapData);

@@ -38,6 +38,10 @@ focuses it (and keeps it in view while playing). It appears in the chart picker 
 tracks. Zoom with the scroll wheel, a pinch or a double-click. The gear in the map's toolbar opens
 settings: show or hide country/state borders and names, places, and roads, and choose when to mark
 the real sample points with dots (Auto marks them on tracks that lack a steady sample rate).
+Aviation layers sit in the same panel: airports (by size, with ICAO idents) and runways, US Class
+B/C/D airspace outlines, and VOR/DME/NDB navaids with frequencies (off by default). Airports, runways
+and navaids come from OurAirports and the airspace from the FAA's ADDS open data, both public; rebuild
+them with `scripts/build_aviation.py` (see its docstring for the sources).
 
 Supply tracks as rows of the built-in `track` type. It adds nothing to the row list:
 

@@ -37,6 +37,12 @@
   --map-label: #4A5163;
   --map-label-strong: #5E556B;
   --map-halo: #F6F4EE;
+  --map-airport: #2B4F9E;
+  --map-navaid: #2F7474;
+  --map-runway: #4A5163;
+  --map-airspace-b: #2B4F9E;
+  --map-airspace-c: #A2477A;
+  --map-airspace-d: #2B4F9E;
 
   --font-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-heading: "IBM Plex Serif", Georgia, serif;
@@ -133,6 +139,12 @@ html[data-theme="dark"] {
   --map-label: #B9C0D0;
   --map-label-strong: #CFC6DD;
   --map-halo: #14171F;
+  --map-airport: #8FB0E8;
+  --map-navaid: #7FC4C4;
+  --map-runway: #B9C0D0;
+  --map-airspace-b: #7FA3E0;
+  --map-airspace-c: #D98AB8;
+  --map-airspace-d: #7FA3E0;
   --color-overlay: rgba(0, 0, 0, 0.5);
 }
 
@@ -2113,6 +2125,75 @@ html[data-theme="dark"] .brand-logo-dark { display: block; }
   border-radius: 50%;
   background: var(--map-label);
   box-shadow: 0 0 0 1px var(--map-halo);
+}
+
+/* Aviation symbols: drawn by ::before at the point, ident to the right. */
+.map-label-airport span,
+.map-label-navaid span {
+  transform: translate(-6px, -50%);
+  padding-left: 15px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.map-label-airport span { color: var(--map-airport); }
+.map-label-navaid span { color: var(--map-navaid); font-weight: 500; }
+
+.map-label-airport span::before,
+.map-label-navaid span::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin-top: -5px;
+  box-sizing: border-box;
+}
+
+/* Airports: filled for large, ringed for medium, hollow and smaller for the rest. */
+.map-label-airport span::before {
+  border-radius: 50%;
+  border: 1.5px solid var(--map-airport);
+  background: var(--map-halo);
+}
+.map-label-airport.is-large span::before {
+  background: var(--map-airport);
+  box-shadow: 0 0 0 1px var(--map-halo);
+}
+.map-label-airport.is-medium span::before {
+  background: radial-gradient(circle, var(--map-airport) 0 2px, var(--map-halo) 2.5px);
+}
+.map-label-airport.is-small span::before,
+.map-label-airport.is-heliport span::before,
+.map-label-airport.is-seaplane span::before {
+  left: 2px;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+}
+.map-label-airport.is-heliport span::before,
+.map-label-airport.is-seaplane span::before {
+  border-style: dotted;
+}
+
+/* Navaids: hexagon (VOR), square (DME/TACAN), dotted ring (NDB). */
+.map-label-navaid.is-vor span::before {
+  clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%);
+  background: radial-gradient(circle, var(--map-halo) 0 1.5px, var(--map-navaid) 2px);
+}
+.map-label-navaid.is-dme span::before {
+  left: 2px;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border: 1.5px solid var(--map-navaid);
+}
+.map-label-navaid.is-ndb span::before {
+  border-radius: 50%;
+  border: 2px dotted var(--map-navaid);
+  background: radial-gradient(circle, var(--map-navaid) 0 1.5px, transparent 2px);
 }
 
 .map-craft {

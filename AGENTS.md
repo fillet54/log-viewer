@@ -15,7 +15,8 @@ package.
   build inlines it via `standalone.py` (`GLOBAL_SCRIPTS` / `BARE_MODULES`).
 - **No frontend build step.** Plain ES modules, with htm instead of JSX.
 - **Ship data with the package.** Fonts live in `static/fonts/`, Map basemap
-  data in `src/cinc/data/basemap/` (rebuilt with `scripts/build_basemap.py`).
+  data in `src/cinc/data/basemap/` (rebuilt with `scripts/build_basemap.py`;
+  aviation layers with `scripts/build_aviation.py`).
   New asset types need a glob in `pyproject.toml` `package-data` or they won't
   be installed (`tests/test_packaging.py` fails until they have one).
 - **Keep Python dependencies minimal** — they must be installable from an

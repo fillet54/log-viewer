@@ -141,6 +141,17 @@ def test_basemap_covers_the_tracks_with_detail_and_the_world():
         assert s * scale - 1 <= min(ys) and max(ys) <= n * scale + 1
 
 
+def test_basemap_carries_aviation_layers_for_the_area():
+    tracks = build_tracks(track_rows(20), {"tracks": TRACKS})
+    layers = basemap(track_bounds(tracks))["layers"]
+    airports = {item[2]: item for item in layers["airports"]["items"]}
+    assert airports["KLAX"][4] == "large"
+    assert not any("-" in ident for ident in airports)  # placeholder idents left out
+    assert any(item[2].startswith("LAX ") and item[4] == "vor" for item in layers["navaids"]["items"])
+    assert layers["runways"]["items"]
+    assert layers["airspace_b"]["items"] and layers["airspace_d"]["items"]
+
+
 def test_track_bounds_across_the_antimeridian_take_the_whole_width():
     tracks = build_tracks(
         [
