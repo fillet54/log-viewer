@@ -126,7 +126,18 @@ export const createSetupContext = ({ logTypeId = null, config = {}, plugin = nul
 };
 
 // Import each plugin module and call its setup for every log type that uses it (see app.js).
+export const checkApiVersion = (pageData) => {
+  const pageVersion = pageData?.apiVersion;
+  if (pageVersion === API_VERSION) return true;
+  console.error(
+    `cinc: this page's data is API version ${pageVersion ?? "(none)"} but the viewer is ` +
+      `version ${API_VERSION}; plugins may not work. Rebuild the page or reload the server.`
+  );
+  return false;
+};
+
 export const setupPlugins = async (pageData) => {
+  checkApiVersion(pageData);
   const logTypes = pageData?.logTypes || {};
   const server = createServerInfo(pageData?.server, pageData?.live);
   const jobs = [];

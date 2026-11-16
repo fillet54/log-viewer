@@ -81,3 +81,24 @@ return { batched: run(true), single: run(false) };
     assert result["batched"]["calls"] == 1
     assert result["single"]["events"][1]["paired"] is True
 
+
+def test_runtime_reports_an_api_version_mismatch(tmp_path):
+    from cinc import API_VERSION
+
+    result = run_js(
+        tmp_path,
+        """
+const errors = [];
+console.error = (...a) => errors.push(a.join(" "));
+const { checkApiVersion, API_VERSION } = await import(`${STATIC}/runtime.js`);
+return {
+  version: API_VERSION,
+  same: checkApiVersion({ apiVersion: API_VERSION }),
+  other: checkApiVersion({ apiVersion: 3 }),
+  errors,
+};
+""",
+    )
+    assert result["version"] == API_VERSION
+    assert result["same"] is True and result["other"] is False
+    assert len(result["errors"]) == 1 and "API version 3" in result["errors"][0]
