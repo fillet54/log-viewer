@@ -46,6 +46,18 @@ def test_text_plugin_isolated():
             assert "plugins.core_event" not in path.read_text()
 
 
+def test_core_event_channels_match_whatever_their_case():
+    rows = core_event_rows(2)
+    for row in rows:
+        row["channels"] = [c.lower() for c in row["channels"]]
+    events = CoreEventLogType().normalize_events({"channels": CHANNELS, "events": rows})
+    assert events[0]["channels"] == sorted(c.upper() for c in rows[0]["channels"])
+    with pytest.raises(ValueError, match="unknown channel"):
+        CoreEventLogType().normalize_events(
+            {"channels": CHANNELS, "events": [dict(rows[0], channels=["z"])]}
+        )
+
+
 def test_a_broken_plugin_is_skipped_with_a_warning(monkeypatch, capsys):
     from cinc import __main__ as cli
     from cinc.core import registry as registry_module

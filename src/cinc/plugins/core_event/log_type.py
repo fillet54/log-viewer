@@ -1,20 +1,21 @@
 from cinc.core.log_type import LogType, row_id
 
 from . import config
-from .plugin import build_log_data, channel_catalog
+from .plugin import _normalize_channel_name, build_log_data, channel_catalog
 
 
 def _validate_raw_payload(payload, type_id="core_event"):
     if not isinstance(payload, dict) or not isinstance(payload.get("events"), list):
         raise ValueError(f"{type_id}: raw payload must contain an events list")
-    declared = set(payload.get("channels") or [])
+    # Compared as the viewer shows them: trimmed and upper-cased.
+    declared = {_normalize_channel_name(c) for c in payload.get("channels") or []}
     for index, event in enumerate(payload["events"]):
         if not isinstance(event, dict):
             raise ValueError(f"{type_id}: raw event {index} is not an object")
         channels = event.get("channels")
         if not isinstance(channels, list) or not channels:
             raise ValueError(f"{type_id}: raw event {index} requires channels")
-        if declared and not set(channels) <= declared:
+        if declared and not {_normalize_channel_name(c) for c in channels} <= declared:
             raise ValueError(f"{type_id}: raw event {index} has an unknown channel")
 
 
