@@ -16,6 +16,7 @@
         <td>
           <a href="{{ url_for('view_log', log_id=item.log.id) }}">{{ item.meta.name }}</a>
           {% if item.log.id == current_id %}<span class="live-badge">Live</span>{% endif %}
+          {% if item.meta.error %}<span class="chip chip-error" title="{{ item.meta.error }}">unreadable log.json</span>{% endif %}
         </td>
         <td class="mono"><time datetime="{{ item.meta.started }}">{{ item.meta.started|when }}</time></td>
         <td>{% for type_id in item.types %}<span class="chip">{{ type_id }}</span> {% else %}—{% endfor %}</td>

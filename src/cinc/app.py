@@ -23,7 +23,7 @@ from .core.plugin import Asset
 from .core.registry import Registry
 from .core.times import parse_time
 from .live import LiveHub
-from .logdir import LogDir, is_log_dir, list_logs, valid_id
+from .logdir import LogDir, is_log_dir, list_logs, list_logs_with_meta, valid_id
 from .standalone import build_page_data_script, build_standalone_html
 
 
@@ -95,8 +95,8 @@ def create_app(
     @app.get("/logs")
     def history():
         logs = [
-            {"log": log, "meta": log.meta(), "types": log.types()}
-            for log in list_logs(root)
+            {"log": log, "meta": meta, "types": log.types()}
+            for log, meta in list_logs_with_meta(root)
         ]
         current_id = hub.current.id if hub.current else None
         return render_template("history.html", logs=logs, current_id=current_id)

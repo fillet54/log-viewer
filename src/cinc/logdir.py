@@ -61,10 +61,19 @@ class LogDir:
         return log
 
     def meta(self) -> dict[str, Any]:
-        meta = self._read_json("log.json")
+        """``log.json`` with ``name`` and ``started`` filled in (folder name,
+        folder mtime). An unreadable ``log.json`` gives just those, plus
+        ``"error"`` saying why, so one bad folder does not break the rest."""
+        try:
+            meta = self._read_json("log.json")
+        except (ValueError, OSError) as exc:
+            meta = {"error": f"unreadable log.json: {exc}"}
         meta.setdefault("name", self.id)
         if not meta.get("started"):
-            mtime = self.path.stat().st_mtime
+            try:
+                mtime = self.path.stat().st_mtime
+            except OSError:
+                mtime = 0
             meta["started"] = datetime.fromtimestamp(mtime, timezone.utc).isoformat()
         return meta
 
@@ -139,15 +148,24 @@ def is_log_dir(path: Path) -> bool:
 
 def list_logs(root: Path) -> list[LogDir]:
     """All logs under ``root``, newest first."""
+    return [log for log, _ in list_logs_with_meta(root)]
+
+
+def list_logs_with_meta(root: Path) -> list[tuple[LogDir, dict[str, Any]]]:
+    """``(log, log.meta())`` for every log under ``root``, newest first; each
+    meta is read once."""
     root = Path(root)
     if not root.is_dir():
         return []
     logs = [
-        LogDir(path)
-        for path in root.iterdir()
-        if valid_id(path.name) and is_log_dir(path)
+        (log, log.meta())
+        for log in (
+            LogDir(path)
+            for path in root.iterdir()
+            if valid_id(path.name) and is_log_dir(path)
+        )
     ]
-    return sorted(logs, key=lambda log: _started(log.meta()), reverse=True)
+    return sorted(logs, key=lambda item: _started(item[1]), reverse=True)
 
 
 _NEVER = datetime.min.replace(tzinfo=timezone.utc)

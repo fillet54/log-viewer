@@ -36,3 +36,19 @@ def test_list_logs_newest_first_and_includes_tool_written(tmp_path):
     created = LogDir.create(tmp_path)  # started now
     (tmp_path / "not-a-log").mkdir()
     assert [log.id for log in list_logs(tmp_path)] == [created.id, written.name]
+
+
+def test_a_corrupt_log_json_does_not_break_other_logs(tmp_path):
+    from cinc.app import create_app
+
+    good = write_log(tmp_path)
+    bad = LogDir.create(tmp_path, "Bad")
+    (bad.path / "log.json").write_text("{not json")
+    (bad.path / "text_log.jsonl").write_text("")
+    meta = bad.meta()
+    assert meta["name"] == bad.id and "log.json" in meta["error"]
+    client = create_app(tmp_path).test_client()
+    history = client.get("/logs")
+    assert history.status_code == 200
+    assert "unreadable log.json" in history.data.decode()
+    assert client.get(f"/logs/{good.name}").status_code == 200
