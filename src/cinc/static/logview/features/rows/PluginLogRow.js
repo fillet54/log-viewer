@@ -65,7 +65,7 @@ export const PluginLogRow = ({
   const pluginId = String(event?.log_type || "");
   const RowComponent = Cinc.resolveRowComponent(pluginId);
   const viewerStore = services?.viewerStore || null;
-  const bookmarkColor = viewerStore?.getColor?.(event?.row_id) || 0;
+  const bookmarkColor = (event ? viewerStore?.getColor?.(event) : 0) || 0;
   const classList = Array.isArray(extraClasses) ? extraClasses.filter(Boolean) : [];
   const timeMode = viewerStore?.timeMode?.value === "relative" ? "relative" : "absolute";
   const relativeTime = viewerStore?.getRelativeTime?.(event);
@@ -98,7 +98,7 @@ export const PluginLogRow = ({
 
   const onBookmark = (bookmarkEvent = event) => {
     if (!activityEnabled || !bookmarkEvent) return 0;
-    return viewerStore?.cycle?.(bookmarkEvent.row_id) || 0;
+    return viewerStore?.cycle?.(bookmarkEvent) || 0;
   };
 
   const onJump = (rowId) => {

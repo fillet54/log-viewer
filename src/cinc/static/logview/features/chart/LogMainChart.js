@@ -753,14 +753,15 @@ const createTimelineChartController = (panel, context) => {
       id: "timelineMarkers",
       afterDatasetsDraw(chart) {
         const { ctx, chartArea } = chart;
-        const bookmarkIds = context.bookmarks?.getAll() || [];
-        const commentMap = context.comments?.getByRowId() || new Map();
-        const commentIds = Array.from(commentMap.keys());
+        const bookmarkKeys = context.bookmarks?.getAll() || [];
+        const commentMap = context.comments?.getByRowKey() || new Map();
+        const commentKeys = Array.from(commentMap.keys());
         const markers = [];
         const markerRadius = 4;
-        const drawMarker = (rowId, y, fillStyle) => {
-          const event = allEvents.find((entry) => String(entry.row_id) === String(rowId));
+        const drawMarker = (rowKey, y, fillStyle) => {
+          const event = context.bookmarks?.eventForKey?.(rowKey);
           if (!event) return;
+          const rowId = event.row_id;
           const x = chart.scales.x.getPixelForValue(helpers.eventToSeconds(event));
           ctx.save();
           ctx.beginPath();
@@ -775,11 +776,11 @@ const createTimelineChartController = (panel, context) => {
           ctx.restore();
           markers.push({ x, y, rowId });
         };
-        bookmarkIds.forEach((rowId) => {
-          const colorIndex = context.bookmarks?.getColor(rowId) || 1;
-          drawMarker(rowId, chartArea.top + 8, themeColor(`var(--bookmark-color-${colorIndex})`));
+        bookmarkKeys.forEach((rowKey) => {
+          const colorIndex = context.bookmarks?.getColor(rowKey) || 1;
+          drawMarker(rowKey, chartArea.top + 8, themeColor(`var(--bookmark-color-${colorIndex})`));
         });
-        commentIds.forEach((rowId) => drawMarker(rowId, chartArea.bottom - 8, themeColor("var(--chart-tick)")));
+        commentKeys.forEach((rowKey) => drawMarker(rowKey, chartArea.bottom - 8, themeColor("var(--chart-tick)")));
         chart.$timelineMarkers = markers;
       },
     },

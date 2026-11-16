@@ -8,11 +8,12 @@ def validate_events(events: list[dict[str, Any]], log_type_id: str) -> list[date
     """Validate the small, domain-neutral normalized-event contract. Returns
     each event's time as an aware datetime, in order."""
     seen: set[int] = set()
+    seen_keys: set[str] = set()
     instants: list[datetime] = []
     for index, event in enumerate(events):
         if not isinstance(event, dict):
             raise ValueError(f"{log_type_id}: event {index} is not an object")
-        for key in ("row_id", "time", "log_type"):
+        for key in ("row_id", "row_key", "time", "log_type"):
             if key not in event:
                 raise ValueError(f"{log_type_id}: event {index} missing {key}")
         row_id = event["row_id"]
@@ -21,6 +22,12 @@ def validate_events(events: list[dict[str, Any]], log_type_id: str) -> list[date
         if row_id in seen:
             raise ValueError(f"{log_type_id}: duplicate row_id {row_id}")
         seen.add(row_id)
+        row_key = event["row_key"]
+        if not isinstance(row_key, str) or not row_key:
+            raise ValueError(f"{log_type_id}: event {index} row_key must be a string")
+        if row_key in seen_keys:
+            raise ValueError(f"{log_type_id}: duplicate row_key {row_key!r}")
+        seen_keys.add(row_key)
         try:
             instants.append(parse_time(event["time"], require_zone=True))
         except MissingZoneError:

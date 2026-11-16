@@ -9,7 +9,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .registry import Registry
 
 # Version of the page data and browser plugin API (docs/plugins.md).
-API_VERSION = 3
+API_VERSION = 4
 
 
 def normalize_section(
@@ -43,8 +43,15 @@ def _normalize_with_instants(
     produced = log_type.normalize_events(
         payload, row_id_base=row_id_base, row_id_step=row_id_step
     )
-    if any("log_type" in event for event in produced):
-        raise ValueError(f"{log_type.id}: normalized events must not supply log_type")
+    for key in ("log_type", "row_key"):
+        if any(key in event for event in produced):
+            raise ValueError(f"{log_type.id}: normalized events must not supply {key}")
+    # row_key: the event's position in its type's output. Unlike row_id it does
+    # not depend on how many types the log has, so it is what to store.
+    produced = [
+        dict(event, row_key=f"{log_type.id}:{index}")
+        for index, event in enumerate(produced)
+    ]
     produced = log_type.augment_events(produced, payload=payload, mode=mode)
     events = [dict(event, log_type=log_type.id) for event in produced]
     instants = validate_events(events, log_type.id)

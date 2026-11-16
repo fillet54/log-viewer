@@ -36,14 +36,13 @@ const getSearchFieldGroups = (events, logTypes) => {
   };
 
 const getBookmarkEvents = ({ events, bookmarkState, commentState }) => {
-    const bookmarkIds = Object.keys(bookmarkState || {});
-    const commentRowIds = Array.isArray(commentState)
-      ? commentState.map((item) => String(item?.row_id ?? ""))
+    const bookmarkKeys = Object.keys(bookmarkState || {});
+    const commentKeys = Array.isArray(commentState)
+      ? commentState.map((item) => String(item?.row_key ?? ""))
       : [];
-    const ids = new Set([...bookmarkIds, ...commentRowIds.filter(Boolean)]);
-    return Array.from(ids)
-      .map((id) => events.find((entry) => String(entry.row_id) === String(id)))
-      .filter(Boolean)
+    const keys = new Set([...bookmarkKeys, ...commentKeys.filter(Boolean)]);
+    return events
+      .filter((entry) => keys.has(String(entry.row_key)))
       .sort((left, right) => Date.parse(left.time || "") - Date.parse(right.time || ""));
   };
 
@@ -76,7 +75,7 @@ export const SearchPanel = () => {
     const bookmarkRevision = Object.keys(bookmarkState || {}).sort().join("\u0000");
     const commentRevision = Array.isArray(commentState)
       ? commentState
-          .map((item) => `${item?.id || ""}:${item?.row_id || ""}:${item?.parent_id || ""}`)
+          .map((item) => `${item?.id || ""}:${item?.row_key || ""}:${item?.parent_id || ""}`)
           .join("\u0000")
       : "";
 

@@ -13,7 +13,7 @@ cinc plugins             # what each installed plugin adds
 cinc acme-demo out/      # a plugin command: writes a demo log folder and a standalone page
 ```
 
-Page data and the browser API are versioned together as `API_VERSION` (currently 3):
+Page data and the browser API are versioned together as `API_VERSION` (currently 4):
 `cinc.API_VERSION` in Python, `API_VERSION` from the `cinc` browser module.
 
 ## 1. Register the plugin
@@ -79,8 +79,12 @@ team's contacts from `/acme/api/logs/<id>/owners`.
 ## 3. Log types (Python)
 
 Subclass `cinc.LogType`. A type turns a payload, `{**header, "events": rows}`, into normalized
-events: each needs `time` (ISO 8601 with a zone) and gets `row_id` (from the base class) and
-`log_type` (added by Cinc).
+events: each needs `time` (ISO 8601 with a zone) and gets `row_id` (from the base class),
+`row_key` and `log_type` (both added by Cinc; a type or augmenter may not set or change them).
+
+`row_id` is the row's place in the page and changes when a live log gains a type. `row_key`
+(`"<type id>:<index>"`, the event's position in its type's output) does not: store `row_key`, not
+`row_id`, for anything kept across page loads, as bookmarks and comments do.
 
 | Member | Purpose |
 |---|---|

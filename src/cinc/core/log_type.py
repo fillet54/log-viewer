@@ -122,7 +122,7 @@ class LogType:
         current = [dict(event) for event in events]
         protected = {
             key: [event.get(key) for event in current]
-            for key in ("row_id", "time", "log_type")
+            for key in ("row_id", "row_key", "time", "log_type")
         }
         context = {"log_type": self.id, "payload": dict(payload or {}), "mode": mode}
         for name, callback in getattr(self, "_event_augmenters", []):

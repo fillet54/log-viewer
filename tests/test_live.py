@@ -118,3 +118,18 @@ def test_live_events_match_a_fresh_page_load(tmp_path):
         live.update({e["row_id"]: e for e in message["updates"] + message["events"]})
     fresh = hub.page_data(hub.current)["logData"]["events"]
     assert live == {e["row_id"]: e for e in fresh}
+
+
+def test_row_key_survives_a_live_log_gaining_a_type(tmp_path):
+    app, client, hub = make(tmp_path)
+    hub.post("text_log", text_rows(3))
+    before = hub.page_data(hub.current)["logData"]["events"]
+    hub.post("core_event", core_event_rows(2), {"channels": CHANNELS})
+    after = hub.page_data(hub.current)["logData"]["events"]
+    by_key = {e["row_key"]: e for e in after}
+    for event in before:
+        moved = by_key[event["row_key"]]
+        assert moved["message"] == event["message"]
+    assert {e["row_id"] for e in before} != {
+        by_key[e["row_key"]]["row_id"] for e in before
+    }

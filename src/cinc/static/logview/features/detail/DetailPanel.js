@@ -28,9 +28,9 @@ export const DetailPanel = () => {
   }
 
   const event = selectedEvent || null;
-  const threads = commentsEnabled && event ? comments?.buildThreads(event.row_id) || [] : [];
-  const colorIndex = bookmarksEnabled && event ? bookmarks?.getColor(event.row_id) || 0 : 0;
-  const isBookmarked = bookmarksEnabled && event ? bookmarks?.isBookmarked(event.row_id) : false;
+  const threads = commentsEnabled && event ? comments?.buildThreads(event) || [] : [];
+  const colorIndex = bookmarksEnabled && event ? bookmarks?.getColor(event) || 0 : 0;
+  const isBookmarked = bookmarksEnabled && event ? bookmarks?.isBookmarked(event) : false;
   const dataTree = event?.data && typeof event.data === "object" ? buildDataTree(event.data) : null;
   const allExpandablePaths = dataTree ? collectExpandablePaths(dataTree) : [];
 
@@ -45,14 +45,14 @@ export const DetailPanel = () => {
 
   const setBookmarkColor = (nextColor) => {
     if (!event) return;
-    bookmarks?.setColor(event.row_id, Number(nextColor) || 1);
+    bookmarks?.setColor(event, Number(nextColor) || 1);
   };
 
   const submitComment = async () => {
     if (!event) return;
     const body = commentBody.trim();
     if (!body) return;
-    const created = await comments?.addComment(event.row_id, body, activeReply);
+    const created = await comments?.addComment(event, body, activeReply);
     if (created) {
       setCommentBody("");
       setActiveReply(null);

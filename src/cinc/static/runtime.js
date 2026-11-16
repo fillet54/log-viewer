@@ -12,7 +12,7 @@ import * as hooksApi from "preact/hooks";
 import * as signalsApi from "preact/signals";
 import { themeColor, themeFont, onThemeChange, TONE_COLORS } from "./theme.js";
 
-export const API_VERSION = 3;
+export const API_VERSION = 4;
 export const html = htmHtml;
 export const hooks = hooksApi;
 export const signals = signalsApi;

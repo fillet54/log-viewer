@@ -7,6 +7,7 @@ from cinc.core.assemble import assemble_page_data
 def valid(row_id=1):
     return {
         "row_id": row_id,
+        "row_key": f"demo:{row_id}",
         "time": "2026-01-01T00:00:00Z",
         "log_type": "demo",
     }
@@ -16,7 +17,7 @@ def test_contract_accepts_valid_events():
     validate_events([valid()], "demo")
 
 
-@pytest.mark.parametrize("field", ["row_id", "time", "log_type"])
+@pytest.mark.parametrize("field", ["row_id", "row_key", "time", "log_type"])
 def test_contract_rejects_missing_fields(field):
     event = valid()
     del event[field]
@@ -31,6 +32,24 @@ def test_contract_rejects_bad_time_and_duplicates():
         validate_events([event], "demo")
     with pytest.raises(ValueError, match="duplicate"):
         validate_events([valid(), valid()], "demo")
+    other = valid(2)
+    other["row_key"] = "demo:1"
+    with pytest.raises(ValueError, match="duplicate row_key"):
+        validate_events([valid(), other], "demo")
+
+
+def test_types_and_augmenters_may_not_touch_row_key():
+    from cinc.plugins.text_log import TextLogType
+
+    payload = {"lines": [{"ts": "2026-01-01T00:00:00Z", "message": "x"}]}
+    events = assemble_page_data([(TextLogType(), payload)])["logData"]["events"]
+    assert events[0]["row_key"] == "text_log:0"
+    log_type = TextLogType()
+    log_type.register_event_augmenter(
+        "rekey", lambda events, context: [{**e, "row_key": "x"} for e in events]
+    )
+    with pytest.raises(ValueError, match="changed row_key"):
+        assemble_page_data([(log_type, payload)])
 
 
 def test_assembly_includes_declared_plugin_styles():

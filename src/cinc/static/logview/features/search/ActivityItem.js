@@ -12,7 +12,7 @@ export const ActivityItem = ({
     bookmarkState,
     commentState,
   }) => {
-    const threads = comments?.buildThreads(event.row_id) || [];
+    const threads = comments?.buildThreads(event) || [];
 
     return html`
       <div class="activity-item">
