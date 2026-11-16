@@ -6,6 +6,7 @@ import { AppServicesContext } from "./context.js";
 import { ViewerRoot } from "./logview/ViewerRoot.js";
 import { createRootServices } from "./services/app-services.js";
 import { setupPlugins } from "./runtime.js";
+import { createLiveQueue } from "./services/live-queue.js";
 
 const loadPageData = () => window["CINC_" + "PAGE_DATA"] || null;
 const isStandalone = () => document.body.classList.contains("app-body-standalone");
@@ -23,6 +24,7 @@ const renderStartupError = (host, message) => {
 const connectLiveStream = (services, live) => {
   let seq = live.seq || 0;
   const known = new Set(Object.keys(services.logTypes || {}));
+  const enqueue = createLiveQueue(services.viewerStore);
   const open = () => {
     const es = new EventSource(`/api/stream?log=${encodeURIComponent(live.logId)}&after=${seq}`);
     es.onmessage = (e) => {
@@ -37,8 +39,7 @@ const connectLiveStream = (services, live) => {
         return;
       }
       seq = msg.seq;
-      services.viewerStore.applyLiveEvents(msg.events, msg.updates);
-      if (Array.isArray(msg.tracks)) services.viewerStore.applyLiveTracks(msg.tracks);
+      enqueue(msg);
     };
     es.onerror = () => {
       es.close();

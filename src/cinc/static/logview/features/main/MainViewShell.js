@@ -45,8 +45,12 @@ export const MainViewShell = () => {
     const highlightNonceRef = useRef(0);
     
     const filteredRef = useRef(events);
-    const indexByRowIdRef = useRef(buildIndexByRowId(events));
-    const eventByRowIdRef = useRef(buildEventByRowId(events));
+    // Filled once here and rebuilt by the effects below when events change; a
+    // plain useRef(build(...)) would build both maps again on every render.
+    const indexByRowIdRef = useRef(null);
+    const eventByRowIdRef = useRef(null);
+    if (indexByRowIdRef.current === null) indexByRowIdRef.current = buildIndexByRowId(events);
+    if (eventByRowIdRef.current === null) eventByRowIdRef.current = buildEventByRowId(events);
 
     const viewMode = viewerStore?.mainViewMode?.value || VIEW_MODE_SPLIT;
     const chartSplit = viewerStore?.mainViewSplitSizes?.value || [36, 64];
