@@ -64,6 +64,10 @@ Natural Earth by `scripts/build_basemap.py` into `src/cinc/data/basemap/`.
 | | `{"type": "core_event", "header": {...}}` | Sets that type's header. It can be sent together with `events`. |
 | `GET /api/stream?log=ID&after=SEQ` | | Server-sent events that the viewer uses. |
 
+Every `POST /api/*` must send `Content-Type: application/json` (anything else is a 415); `LiveClient`
+does. There is no authentication: anyone who can reach the server can read and post logs, so
+`cinc serve` binds to 127.0.0.1 by default and warns when `--host` is not a loopback address.
+
 Pages: `/` shows the live log, `/logs` lists history, and `/logs/<id>` views one log
 (`/logs/<id>/standalone.html` downloads it).
 

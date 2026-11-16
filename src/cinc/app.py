@@ -75,6 +75,18 @@ def create_app(
             ]
         }
 
+    @app.before_request
+    def require_json_posts():
+        # A cross-site form or no-cors fetch cannot send application/json
+        # without a preflight, so this keeps other pages from posting to the
+        # API. There is no authentication.
+        if (
+            request.method == "POST"
+            and request.path.startswith("/api/")
+            and request.mimetype != "application/json"
+        ):
+            return jsonify({"error": "Content-Type must be application/json"}), 415
+
     def find_log(log_id: str) -> LogDir:
         path = root / log_id
         if not valid_id(log_id) or not is_log_dir(path):

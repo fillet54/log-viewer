@@ -170,3 +170,15 @@ def test_stream_ignores_a_bad_after(tmp_path):
     assert response.status_code == 200
     assert next(response.response).startswith(b"data: ")
     response.close()
+
+
+def test_api_posts_must_be_json(tmp_path):
+    app, client, hub = make(tmp_path)
+    response = client.post(
+        "/api/logs", data='{"name": "x"}', headers={"Content-Type": "text/plain"}
+    )
+    assert response.status_code == 415
+    assert hub.current is None and not any(tmp_path.iterdir())
+    form = client.post("/api/events", data={"type": "text_log"})
+    assert form.status_code == 415
+    assert client.post("/api/logs", json={"name": "x"}).status_code == 201

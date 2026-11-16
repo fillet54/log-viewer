@@ -89,6 +89,12 @@ def main(argv=None):
         return
     from .app import create_app
 
+    if not _is_loopback(args["--host"]):
+        print(
+            f"warning: serving on {args['--host']}; cinc has no authentication, "
+            "so anyone who can reach it can read and post logs",
+            file=sys.stderr,
+        )
     app = create_app(Path(args["--data"]).expanduser())
     app.run(
         host=args["--host"],
@@ -96,6 +102,17 @@ def main(argv=None):
         debug=bool(args["--debug"]),
         threaded=True,
     )
+
+
+def _is_loopback(host: str) -> bool:
+    import ipaddress
+
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 if __name__ == "__main__":
