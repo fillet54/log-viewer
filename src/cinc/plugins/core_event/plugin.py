@@ -509,12 +509,23 @@ def _resolve_bounds(
     }
 
 
+def _valid_events(source: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_events = source.get("events")
+    event_list = raw_events if isinstance(raw_events, list) else []
+    return [event for event in event_list if isinstance(event, dict)]
+
+
+def channel_catalog(payload: Any) -> list[str]:
+    """The log's channels (what ``build_log_data`` returns second), without
+    normalizing its events."""
+    source = payload if isinstance(payload, dict) else {}
+    return _resolve_channel_catalog(source, _valid_events(source))
+
+
 def build_log_data(payload: Any) -> tuple[dict[str, Any], list[str]]:
     """Normalize a raw core-event payload; returns (log data, channels)."""
     source = payload if isinstance(payload, dict) else {}
-    raw_events = source.get("events")
-    event_list = raw_events if isinstance(raw_events, list) else []
-    valid_events = [event for event in event_list if isinstance(event, dict)]
+    valid_events = _valid_events(source)
     channels = _resolve_channel_catalog(source, valid_events)
     events = _derive_core_events(valid_events, channels, severity_scale(source))
     bounds = _resolve_bounds(source, events)

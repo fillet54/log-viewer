@@ -1,7 +1,7 @@
 from cinc.core.log_type import LogType, row_id
 
 from . import config
-from .plugin import build_log_data
+from .plugin import build_log_data, channel_catalog
 
 
 def _validate_raw_payload(payload, type_id="core_event"):
@@ -94,7 +94,7 @@ class CoreEventLogType(LogType):
     def view_config(self, payload):
         payload = self.with_defaults(payload)
         return {
-            "channels": build_log_data(payload)[1],
+            "channels": channel_catalog(payload),
             "severities": config.severities(payload),
             "series": config.series(payload),
         }
