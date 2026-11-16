@@ -5,6 +5,35 @@ import { createSearchState } from "./search.js";
 import { createChartState } from "./chart.js";
 import { createActivityState } from "./activity.js";
 
+// Page order: by instant, then row id (as assemble_page_data sorts).
+const eventMs = (event) => Date.parse(event?.time || "");
+export const compareEvents = (left, right) =>
+  eventMs(left) - eventMs(right) || Number(left?.row_id) - Number(right?.row_id);
+
+// Add `added` to `events` (already in page order), keeping page order. Senders
+// post in time order, so this is almost always an append; several types
+// interleaving take the binary-search insert.
+export const mergeInPageOrder = (events, added) => {
+  if (!added.length) return events;
+  const next = events.slice();
+  const incoming = added.length > 1 ? added.slice().sort(compareEvents) : added;
+  for (const event of incoming) {
+    if (!next.length || compareEvents(next[next.length - 1], event) <= 0) {
+      next.push(event);
+      continue;
+    }
+    let low = 0;
+    let high = next.length;
+    while (low < high) {
+      const mid = (low + high) >>> 1;
+      if (compareEvents(next[mid], event) <= 0) low = mid + 1;
+      else high = mid;
+    }
+    next.splice(low, 0, event);
+  }
+  return next;
+};
+
 export const createViewerStore = ({ logData, standalone = false, logId = null }) => {
   const initialEvents = Array.isArray(logData?.events) ? logData.events : [];
   const allEventsSignal = signal(initialEvents);
@@ -45,7 +74,7 @@ export const createViewerStore = ({ logData, standalone = false, logId = null })
     const current = changed.size
       ? allEventsSignal.value.map((event) => changed.get(String(event.row_id)) || event)
       : allEventsSignal.value;
-    allEventsSignal.value = [...current, ...added];
+    allEventsSignal.value = mergeInPageOrder(current, added);
     const selected = navigation.selectedEvent.value;
     const replacement = selected && changed.get(String(selected.row_id));
     if (replacement) navigation.selectedEvent.value = replacement;
