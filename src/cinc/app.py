@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import queue
-from datetime import datetime, timezone
+from datetime import timezone
 from pathlib import Path
 
 from flask import (
@@ -21,6 +21,7 @@ from flask import (
 from .core.basemap import basemap, parse_bounds
 from .core.plugin import Asset
 from .core.registry import Registry
+from .core.times import parse_time
 from .live import LiveHub
 from .logdir import LogDir, is_log_dir, list_logs, valid_id
 from .standalone import build_page_data_script, build_standalone_html
@@ -29,11 +30,9 @@ from .standalone import build_page_data_script, build_standalone_html
 def when(value) -> str:
     """'2026-10-27 05:19:39Z' for an ISO time; anything else as it is."""
     try:
-        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        parsed = parse_time(value).astimezone(timezone.utc)
     except ValueError:
         return str(value or "")
-    if parsed.tzinfo is not None:
-        parsed = parsed.astimezone(timezone.utc)
     return parsed.strftime("%Y-%m-%d %H:%M:%SZ")
 
 

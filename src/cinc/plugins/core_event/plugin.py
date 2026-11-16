@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from cinc.core.times import parse_time
+
 from .config import severities as severity_scale
 
 DEFAULT_CORE_EVENT_CHANNELS = ["A", "B", "C", "D"]
@@ -18,18 +20,10 @@ COLOR_PREFIX = {
 def _parse_datetime(value: Any) -> datetime | None:
     if value is None:
         return None
-    text = str(value).strip()
-    if not text:
-        return None
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
     try:
-        parsed = datetime.fromisoformat(text)
+        return parse_time(str(value)).astimezone(timezone.utc)
     except ValueError:
         return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
 
 
 def _isoformat_seconds(value: datetime) -> str:

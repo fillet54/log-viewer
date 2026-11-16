@@ -90,3 +90,56 @@ def test_core_event_header_config_is_validated():
         config.series({"series": [{"id": "x", "field": "data..x"}]})
     assert config.series({}) == []
     assert [s["tone"] for s in config.severities({})] == list(config.TONES)
+
+
+def _order(times):
+    from cinc.plugins.text_log import TextLogType
+
+    payload = {"lines": [{"ts": t, "message": t} for t in times]}
+    events = assemble_page_data([(TextLogType(), payload)])["logData"]["events"]
+    return [event["message"] for event in events]
+
+
+def test_events_are_ordered_by_instant_not_by_string():
+    assert _order(["2026-01-01T00:00:05.500Z", "2026-01-01T00:00:05Z"]) == [
+        "2026-01-01T00:00:05Z",
+        "2026-01-01T00:00:05.500Z",
+    ]
+    assert _order(["2026-01-01T00:00:05Z", "2026-01-01T01:00:04+01:00"]) == [
+        "2026-01-01T01:00:04+01:00",
+        "2026-01-01T00:00:05Z",
+    ]
+
+
+@pytest.mark.parametrize(
+    "value,micro",
+    [
+        ("2026-01-01T00:00:05.5Z", 500000),
+        ("2026-01-01T00:00:05.1234567Z", 123456),
+        ("2026-01-01T00:00:05,25+00:00", 250000),
+        ("2026-01-01T00:00:05z", 0),
+    ],
+)
+def test_parse_time_accepts_any_fraction(value, micro):
+    from cinc.core.times import parse_time
+
+    parsed = parse_time(value)
+    assert parsed.microsecond == micro and parsed.utcoffset().total_seconds() == 0
+    event = valid()
+    event["time"] = value
+    validate_events([event], "demo")
+
+
+def test_parse_time_zone_rules():
+    from cinc.core.times import MissingZoneError, parse_time
+
+    assert parse_time("2026-01-01T00:00:05").tzinfo is not None
+    with pytest.raises(MissingZoneError):
+        parse_time("2026-01-01T00:00:05", require_zone=True)
+    for bad in ("", "nope", None, 5):
+        with pytest.raises(ValueError):
+            parse_time(bad)
+    event = valid()
+    event["time"] = "2026-01-01T00:00:05"
+    with pytest.raises(ValueError, match="timezone"):
+        validate_events([event], "demo")

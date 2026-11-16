@@ -21,6 +21,25 @@ def normalize_section(
     mode="batch",
 ) -> list[dict[str, Any]]:
     """Normalize, augment and validate one type's payload into viewer events."""
+    events, _ = _normalize_with_instants(
+        log_type,
+        payload,
+        row_id_base=row_id_base,
+        row_id_step=row_id_step,
+        mode=mode,
+    )
+    return events
+
+
+def _normalize_with_instants(
+    log_type: Any,
+    payload: dict[str, Any],
+    *,
+    row_id_base: int,
+    row_id_step: int,
+    mode: str,
+) -> tuple[list[dict[str, Any]], list[Any]]:
+    """``normalize_section``, plus each event's parsed time."""
     produced = log_type.normalize_events(
         payload, row_id_base=row_id_base, row_id_step=row_id_step
     )
@@ -28,8 +47,8 @@ def normalize_section(
         raise ValueError(f"{log_type.id}: normalized events must not supply log_type")
     produced = log_type.augment_events(produced, payload=payload, mode=mode)
     events = [dict(event, log_type=log_type.id) for event in produced]
-    validate_events(events, log_type.id)
-    return events
+    instants = validate_events(events, log_type.id)
+    return events, instants
 
 
 def type_config(
@@ -63,7 +82,7 @@ def assemble_page_data(
 
     ``registry`` adds what plugins contributed: extensions to these types and
     global scripts and styles."""
-    events: list[dict[str, Any]] = []
+    keyed: list[tuple[Any, int, dict[str, Any]]] = []
     configs: dict[str, dict[str, Any]] = {}
     summary: dict[str, Any] = {}
     styles: list[Any] = list(registry.styles) if registry else []
@@ -71,10 +90,16 @@ def assemble_page_data(
     # Section i's rows get ids i+1, i+1+n, ... (n sections), so ids are stable
     # as a live log grows (see LiveHub.post).
     for slot, (log_type, payload) in enumerate(sections):
-        events.extend(
-            normalize_section(
-                log_type, payload, row_id_base=slot, row_id_step=len(sections)
-            )
+        section, instants = _normalize_with_instants(
+            log_type,
+            payload,
+            row_id_base=slot,
+            row_id_step=len(sections),
+            mode="batch",
+        )
+        keyed.extend(
+            (instant, event["row_id"], event)
+            for instant, event in zip(instants, section)
         )
         configs[log_type.id] = type_config(log_type, payload, registry)
         summary.update(log_type.log_summary(payload))
@@ -83,7 +108,10 @@ def assemble_page_data(
         if registry:
             for extension in registry.extensions_for(log_type.id):
                 styles.extend(extension.styles)
-    events.sort(key=lambda event: (event["time"], event["row_id"]))
+    # By instant, not by the time string: "05.5Z" is after "05Z", and
+    # "01:00:04+01:00" before "00:00:05Z".
+    keyed.sort(key=lambda item: (item[0], item[1]))
+    events = [event for _, _, event in keyed]
     return {
         "apiVersion": API_VERSION,
         "logTypes": configs,

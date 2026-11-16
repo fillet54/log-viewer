@@ -19,6 +19,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .core.times import parse_time
+
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
@@ -145,4 +147,14 @@ def list_logs(root: Path) -> list[LogDir]:
         for path in root.iterdir()
         if valid_id(path.name) and is_log_dir(path)
     ]
-    return sorted(logs, key=lambda log: str(log.meta()["started"]), reverse=True)
+    return sorted(logs, key=lambda log: _started(log.meta()), reverse=True)
+
+
+_NEVER = datetime.min.replace(tzinfo=timezone.utc)
+
+
+def _started(meta: dict[str, Any]) -> datetime:
+    try:
+        return parse_time(meta["started"])
+    except (KeyError, ValueError):
+        return _NEVER

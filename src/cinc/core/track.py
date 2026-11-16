@@ -28,26 +28,19 @@ with samples sorted by time.
 from __future__ import annotations
 
 import math
-from datetime import datetime, timezone
 from typing import Any
 
 from .log_type import LogType
-from .times import iso_time
+from .times import iso_time, parse_time
 
 _DEFAULT_TRACK = "track"
 
 
 def time_ms(value: Any) -> float:
     """Epoch milliseconds for an ISO time; a time without a zone is UTC."""
-    if isinstance(value, bool) or not isinstance(value, str) or not value.strip():
+    if not isinstance(value, str):
         raise ValueError(f"invalid time {value!r}")
-    try:
-        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
-    except ValueError:
-        raise ValueError(f"invalid time {value!r}") from None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.timestamp() * 1000
+    return parse_time(value).timestamp() * 1000
 
 
 def sample(
