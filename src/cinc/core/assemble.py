@@ -21,7 +21,7 @@ def normalize_section(
     mode="batch",
 ) -> list[dict[str, Any]]:
     """Normalize, augment and validate one type's payload into viewer events."""
-    events, _ = _normalize_with_instants(
+    events, _ = normalize_with_instants(
         log_type,
         payload,
         row_id_base=row_id_base,
@@ -31,7 +31,7 @@ def normalize_section(
     return events
 
 
-def _normalize_with_instants(
+def normalize_with_instants(
     log_type: Any,
     payload: dict[str, Any],
     *,
@@ -84,11 +84,15 @@ def type_config(
 def assemble_page_data(
     sections: list[tuple[Any, dict[str, Any]]],
     registry: "Registry | None" = None,
+    *,
+    normalized: list[tuple[list[dict[str, Any]], list[Any]]] | None = None,
 ) -> dict[str, Any]:
     """Page data for one log from its ``(log type, payload)`` sections.
 
     ``registry`` adds what plugins contributed: extensions to these types and
-    global scripts and styles."""
+    global scripts and styles. ``normalized`` gives each section's events and
+    instants (``normalize_with_instants`` with this slot and step) when the
+    caller already has them, as the live hub does."""
     keyed: list[tuple[Any, int, dict[str, Any]]] = []
     configs: dict[str, dict[str, Any]] = {}
     summary: dict[str, Any] = {}
@@ -97,13 +101,16 @@ def assemble_page_data(
     # Section i's rows get ids i+1, i+1+n, ... (n sections), so ids are stable
     # as a live log grows (see LiveHub.post).
     for slot, (log_type, payload) in enumerate(sections):
-        section, instants = _normalize_with_instants(
-            log_type,
-            payload,
-            row_id_base=slot,
-            row_id_step=len(sections),
-            mode="batch",
-        )
+        if normalized is not None:
+            section, instants = normalized[slot]
+        else:
+            section, instants = normalize_with_instants(
+                log_type,
+                payload,
+                row_id_base=slot,
+                row_id_step=len(sections),
+                mode="batch",
+            )
         keyed.extend(
             (instant, event["row_id"], event)
             for instant, event in zip(instants, section)

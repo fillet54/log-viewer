@@ -9,7 +9,11 @@ from collections import deque
 from pathlib import Path
 from typing import Any
 
-from .core.assemble import assemble_page_data, normalize_section, type_config
+from .core.assemble import (
+    assemble_page_data,
+    normalize_with_instants,
+    type_config,
+)
 from .core.bundle import log_dir_sections
 from .core.registry import Registry
 from .logdir import LogDir
@@ -24,7 +28,11 @@ class LiveHub:
         self._lock = threading.Lock()
         self._current: LogDir | None = None
         self._seq = 0
-        # type id -> {"rows", "events"} for the current log (see post)
+        # The current log, kept in memory so a post reads nothing from disk:
+        # its type ids (None until read), each type's header, and each type's
+        # {"rows", "events", "instants"} (see post).
+        self._types: list[str] | None = None
+        self._headers: dict[str, dict[str, Any]] = {}
         self._sections: dict[str, dict[str, Any]] = {}
         self._backlog: deque[dict[str, Any]] = deque(maxlen=BACKLOG_BATCHES)
         self._subscribers: list[queue.Queue] = []
@@ -39,11 +47,31 @@ class LiveHub:
 
     def _start(self, name: str | None) -> LogDir:
         self._current = LogDir.create(self.root, name)
-        self._sections.clear()
+        self._forget()
         self._seq = 0
         self._backlog.clear()
         self._broadcast({"type": "log", "logId": self._current.id})
         return self._current
+
+    def _forget(self) -> None:
+        """Drop what is kept in memory about the current log."""
+        self._types = None
+        self._headers.clear()
+        self._sections.clear()
+
+    def _current_types(self) -> list[str]:
+        if self._current is None:
+            return []
+        if self._types is None:
+            self._types = self._current.types()
+        return self._types
+
+    def _header(self, type_id: str) -> dict[str, Any]:
+        if self._current is None:
+            return {}
+        if type_id not in self._headers:
+            self._headers[type_id] = self._current.header(type_id)
+        return self._headers[type_id]
 
     def post(
         self,
@@ -69,21 +97,21 @@ class LiveHub:
 
         with self._lock:
             log = self._current
-            types = log.types() if log else []
+            types = self._current_types()
             is_new_type = type_id not in types
             changed_header = header is not None
             if header is None:
-                header = log.header(type_id) if log else {}
+                header = self._header(type_id)
             slots = sorted({*types, type_id})
-            previous = self._section(log, log_type, types, slots)
+            previous = self._section(log_type, types, slots)
 
             # Normalize first so a bad batch or header is rejected before
             # anything is stored.
             all_rows = previous["rows"] + rows
-            events = (
+            events, instants = (
                 self._normalize(log_type, header, all_rows, slots)
                 if rows or changed_header
-                else []
+                else ([], [])
             )
             if changed_header:
                 type_config(log_type, {**header, "events": all_rows})
@@ -91,6 +119,7 @@ class LiveHub:
             log = log or self._start(None)
             if changed_header:
                 log.set_header(type_id, header)
+                self._headers[type_id] = header
             if not rows:
                 if changed_header:
                     self._sections.clear()
@@ -98,6 +127,8 @@ class LiveHub:
                 return log
             log.append(type_id, rows)
             self._seq += 1
+            if is_new_type:
+                self._types = sorted({*self._current_types(), type_id})
             if is_new_type or changed_header:
                 # The viewer needs this type's config (and a new type moves
                 # every type's id slot), so have it re-fetch the page.
@@ -105,7 +136,11 @@ class LiveHub:
                 message = {"type": "reload", "seq": self._seq}
             else:
                 old_events = previous["events"]
-                self._sections[type_id] = {"rows": all_rows, "events": events}
+                self._sections[type_id] = {
+                    "rows": all_rows,
+                    "events": events,
+                    "instants": instants,
+                }
                 message = {
                     "type": "events",
                     "seq": self._seq,
@@ -120,8 +155,9 @@ class LiveHub:
             self._broadcast(message)
             return log
 
-    def _normalize(self, log_type, header, rows, slots) -> list[dict[str, Any]]:
-        return normalize_section(
+    def _normalize(self, log_type, header, rows, slots):
+        """``(events, instants)`` for all of a type's rows."""
+        return normalize_with_instants(
             log_type,
             {**(header or {}), "events": rows},
             row_id_base=slots.index(log_type.id),
@@ -129,27 +165,51 @@ class LiveHub:
             mode="live",
         )
 
-    def _section(self, log, log_type, types, slots) -> dict[str, Any]:
+    def _section(self, log_type, types, slots) -> dict[str, Any]:
         """The current log's rows and events for one type, cached in memory."""
-        if log is None or log_type.id not in types:
-            return {"rows": [], "events": []}
+        if self._current is None or log_type.id not in types:
+            return {"rows": [], "events": [], "instants": []}
         cached = self._sections.get(log_type.id)
         if cached is None:
-            rows = log.rows(log_type.id)
-            header = log.header(log_type.id)
-            events = self._normalize(log_type, header, rows, slots) if rows else []
-            cached = self._sections[log_type.id] = {"rows": rows, "events": events}
+            rows = self._current.rows(log_type.id)
+            events, instants = (
+                self._normalize(log_type, self._header(log_type.id), rows, slots)
+                if rows
+                else ([], [])
+            )
+            cached = self._sections[log_type.id] = {
+                "rows": rows,
+                "events": events,
+                "instants": instants,
+            }
         return cached
 
     def page_data(self, log: LogDir) -> dict[str, Any]:
         """Assemble a log for the viewer; for the current log, include the
-        stream position so the viewer can pick up exactly where it left off."""
+        stream position so the viewer can pick up exactly where it left off.
+
+        The current log is assembled from what the hub keeps in memory, so a
+        page load does not re-read and re-normalize it."""
         with self._lock:
-            page = assemble_page_data(
-                log_dir_sections(log, self.registry), self.registry
-            )
-            if self._current is not None and log.id == self._current.id:
-                page["live"] = {"logId": log.id, "seq": self._seq}
+            if self._current is None or log.id != self._current.id:
+                return assemble_page_data(
+                    log_dir_sections(log, self.registry), self.registry
+                )
+            types = self._current_types()
+            sections, normalized = [], []
+            for type_id in types:
+                log_type = self.registry.get(type_id)
+                if log_type is None:  # the same error as a log read from disk
+                    return assemble_page_data(
+                        log_dir_sections(log, self.registry), self.registry
+                    )
+                section = self._section(log_type, types, types)
+                sections.append(
+                    (log_type, {**self._header(type_id), "events": section["rows"]})
+                )
+                normalized.append((section["events"], section["instants"]))
+            page = assemble_page_data(sections, self.registry, normalized=normalized)
+            page["live"] = {"logId": log.id, "seq": self._seq}
             return page
 
     def subscribe(self, log_id: str | None, after: int) -> queue.Queue:

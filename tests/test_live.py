@@ -198,3 +198,34 @@ def test_closing_the_hub_ends_open_streams(tmp_path):
     assert b"".join(response.response) == b""  # no ping, no message
     assert time.monotonic() - started < 2
     assert not hub._subscribers
+
+
+def test_live_page_from_memory_equals_page_from_disk(tmp_path):
+    from cinc.core.assemble import assemble_page_data
+    from cinc.core.bundle import log_dir_sections
+
+    app, client, hub = make(tmp_path)
+    hub.post("core_event", core_event_rows(3), {"channels": CHANNELS})
+    hub.post("text_log", text_rows(2))
+    hub.post("core_event", core_event_rows(3, 3))
+    hub.post("text_log", text_rows(2, 2))
+    page = hub.page_data(hub.current)
+    assert page.pop("live") == {"logId": hub.current.id, "seq": hub._seq}
+    registry = hub.registry
+    assert page == assemble_page_data(log_dir_sections(hub.current, registry), registry)
+
+
+def test_a_warm_post_reads_nothing_from_disk(tmp_path, monkeypatch):
+    from cinc.logdir import LogDir
+
+    app, client, hub = make(tmp_path)
+    hub.post("core_event", core_event_rows(2), {"channels": CHANNELS})
+    hub.post("core_event", core_event_rows(1, 2))  # warm the cache
+
+    def no_reads(*args, **kwargs):
+        raise AssertionError("read from disk")
+
+    for name in ("types", "header", "rows", "meta"):
+        monkeypatch.setattr(LogDir, name, no_reads)
+    hub.post("core_event", core_event_rows(1, 3))
+    hub.page_data(hub.current)
