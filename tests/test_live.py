@@ -133,3 +133,18 @@ def test_row_key_survives_a_live_log_gaining_a_type(tmp_path):
     assert {e["row_id"] for e in before} != {
         by_key[e["row_key"]]["row_id"] for e in before
     }
+
+
+def test_a_bad_header_is_rejected_and_not_saved(tmp_path):
+    app, client, hub = make(tmp_path)
+    bad = client.post(
+        "/api/events", json={"type": "core_event", "header": {"severities": "nope"}}
+    )
+    assert bad.status_code == 400
+    assert hub.current is None or not (hub.current.path / "core_event.json").exists()
+    good = client.post(
+        "/api/events", json={"type": "core_event", "events": core_event_rows(1)}
+    )
+    assert good.status_code == 202
+    log_id = good.get_json()["log"]
+    assert client.get(f"/logs/{log_id}").status_code == 200

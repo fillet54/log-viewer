@@ -9,7 +9,7 @@ from collections import deque
 from pathlib import Path
 from typing import Any
 
-from .core.assemble import assemble_page_data, normalize_section
+from .core.assemble import assemble_page_data, normalize_section, type_config
 from .core.bundle import log_dir_sections
 from .core.registry import Registry
 from .logdir import LogDir
@@ -77,9 +77,16 @@ class LiveHub:
             slots = sorted({*types, type_id})
             previous = self._section(log, log_type, types, slots)
 
-            # Normalize first so a bad batch is rejected before anything is stored.
+            # Normalize first so a bad batch or header is rejected before
+            # anything is stored.
             all_rows = previous["rows"] + rows
-            events = self._normalize(log_type, header, all_rows, slots) if rows else []
+            events = (
+                self._normalize(log_type, header, all_rows, slots)
+                if rows or changed_header
+                else []
+            )
+            if changed_header:
+                type_config(log_type, {**header, "events": all_rows})
             tracks = log_type.tracks({**(header or {}), "events": rows}) if rows else []
             log = log or self._start(None)
             if changed_header:
