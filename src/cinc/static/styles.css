@@ -43,6 +43,13 @@
   --map-airspace-b: #2B4F9E;
   --map-airspace-c: #A2477A;
   --map-airspace-d: #2B4F9E;
+  /* Map tracks: kept clear of the aviation blues, magenta and teal */
+  --map-track-1: #C9530A;
+  --map-track-2: #3E7D27;
+  --map-track-3: #B3263D;
+  --map-track-4: #8A6A00;
+  --map-track-5: #7A4FA8;
+  --map-track-6: #5A4632;
 
   --font-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-heading: "IBM Plex Serif", Georgia, serif;
@@ -145,6 +152,12 @@ html[data-theme="dark"] {
   --map-airspace-b: #7FA3E0;
   --map-airspace-c: #D98AB8;
   --map-airspace-d: #7FA3E0;
+  --map-track-1: #FF9442;
+  --map-track-2: #92D56E;
+  --map-track-3: #FF7B8C;
+  --map-track-4: #EBCB55;
+  --map-track-5: #C3A6F0;
+  --map-track-6: #D8C3A8;
   --color-overlay: rgba(0, 0, 0, 0.5);
 }
 

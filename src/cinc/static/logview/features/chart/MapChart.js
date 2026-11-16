@@ -18,7 +18,8 @@ import { signals } from "logview/lib";
 const LogMainViewChart = window.LogMainViewChart;
 const signalEffect = signals?.effect || null;
 
-const TRACK_COLORS = ["--series-1", "--series-3", "--series-5", "--series-6", "--series-4", "--series-2"];
+// Own palette (styles.css --map-track-*), so tracks stand out from the aviation layers.
+const TRACK_COLORS = ["--map-track-1", "--map-track-2", "--map-track-3", "--map-track-4", "--map-track-5", "--map-track-6"];
 const SPEEDS = [1, 5, 20, 60, 300];
 const INCOMING_QUIET_MS = 700; // ignore log -> map sync this long after the map drove the log
 const OUTGOING_JUMP_MS = 150; // throttle map -> log jumps
