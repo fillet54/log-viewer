@@ -182,3 +182,19 @@ def test_api_posts_must_be_json(tmp_path):
     form = client.post("/api/events", data={"type": "text_log"})
     assert form.status_code == 415
     assert client.post("/api/logs", json={"name": "x"}).status_code == 201
+
+
+def test_closing_the_hub_ends_open_streams(tmp_path):
+    import threading
+    import time
+
+    app, client, hub = make(tmp_path)
+    hub.post("text_log", text_rows(1))
+    url = f"/api/stream?log={hub.current.id}&after={hub._seq}"
+    threading.Timer(0.2, hub.close).start()
+    started = time.monotonic()
+    # the test client reads the first chunk, which waits until close()
+    response = client.get(url, buffered=False)
+    assert b"".join(response.response) == b""  # no ping, no message
+    assert time.monotonic() - started < 2
+    assert not hub._subscribers

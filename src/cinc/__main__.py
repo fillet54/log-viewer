@@ -4,7 +4,7 @@ USAGE = """cinc — log viewer
 
 Usage:
   cinc build PATH... [--log-type TYPE] [--output FILE] [--title TITLE]
-  cinc serve [--data DIR] [--host HOST] [--port PORT] [--debug]
+  cinc serve [--data DIR] [--host HOST] [--port PORT] [--threads N] [--debug]
   cinc types
   cinc plugins
   cinc COMMAND [ARGS...]
@@ -24,7 +24,9 @@ Options:
   --data DIR       Data directory. [default: ./cinc-data]
   --host HOST      Bind host. [default: 127.0.0.1]
   --port PORT      Bind port. [default: 8080]
-  --debug          Enable Flask debug mode.
+  --threads N      Server threads; each open live viewer holds one.
+                   [default: 16]
+  --debug          Use Flask's debug server instead of waitress.
 """
 
 
@@ -96,11 +98,27 @@ def main(argv=None):
             file=sys.stderr,
         )
     app = create_app(Path(args["--data"]).expanduser())
-    app.run(
+    if args["--debug"]:
+        app.run(host=args["--host"], port=int(args["--port"]), debug=True)
+        return
+    import signal
+
+    from waitress import serve
+
+    def stop(signum, frame):
+        # Waitress waits for busy threads before it closes connections, and
+        # each open live viewer holds a thread; end those streams first.
+        app.extensions["cinc"]["hub"].close()
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGINT, stop)
+    signal.signal(signal.SIGTERM, stop)
+    print(f"Serving on http://{args['--host']}:{args['--port']}/", file=sys.stderr)
+    serve(
+        app,
         host=args["--host"],
         port=int(args["--port"]),
-        debug=bool(args["--debug"]),
-        threaded=True,
+        threads=int(args["--threads"]),
     )
 
 

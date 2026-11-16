@@ -36,6 +36,10 @@ def when(value) -> str:
     return parsed.strftime("%Y-%m-%d %H:%M:%SZ")
 
 
+# How often an idle event stream sends a ping. The ping is when a stream
+# notices its viewer has gone and frees its server thread.
+STREAM_PING_SECONDS = 5
+
 # Plugin files the server hands to browsers; never Python sources.
 ASSET_TYPES = {
     ".js": "text/javascript",
@@ -217,10 +221,12 @@ def create_app(
             try:
                 while True:
                     try:
-                        message = subscriber.get(timeout=20)
+                        message = subscriber.get(timeout=STREAM_PING_SECONDS)
                     except queue.Empty:
                         yield ": ping\n\n"
                         continue
+                    if message is None:  # the server is shutting down
+                        return
                     yield f"data: {json.dumps(message)}\n\n"
             finally:
                 hub.unsubscribe(subscriber)

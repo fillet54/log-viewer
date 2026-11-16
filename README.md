@@ -4,6 +4,7 @@ A log viewer. Two modes:
 
 - **Standalone**: `cinc build PATH... -o out.html` writes one self-contained HTML page.
 - **Live**: `cinc serve --data DIR` shows rows as they are posted, and saves every log to `DIR`.
+  It runs on waitress; each open live viewer holds one server thread (`--threads`, default 16).
 
 `cinc types` lists the registered log types (`core_event`, `text_log`, and the built-in `track`), and
 `cinc plugins` lists the installed plugins and what each adds.

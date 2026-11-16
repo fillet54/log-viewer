@@ -168,6 +168,16 @@ class LiveHub:
             self._subscribers.append(subscriber)
         return subscriber
 
+    def close(self) -> None:
+        """End every open event stream (``None`` tells a stream to stop), so
+        server threads holding them finish when the server shuts down."""
+        with self._lock:
+            subscribers = list(self._subscribers)
+        for subscriber in subscribers:
+            with subscriber.mutex:
+                subscriber.queue.clear()
+            subscriber.put_nowait(None)
+
     def unsubscribe(self, subscriber: queue.Queue) -> None:
         with self._lock:
             if subscriber in self._subscribers:
