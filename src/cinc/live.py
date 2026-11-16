@@ -189,7 +189,7 @@ class LiveHub:
 
         payload = {**(header or {}), "events": all_rows}
         new_derived, changed = self._derive_increment(
-            log_type, payload, previous, slots
+            log_type, header, previous, rows, slots
         )
         events, instants = finish_events(
             log_type, changed + new_derived, payload=payload, mode="live"
@@ -216,14 +216,27 @@ class LiveHub:
         }
         return section, added, updates
 
-    def _derive_increment(self, log_type, payload, previous, slots):
-        """``(new derived events, earlier derived events that changed)`` for
-        the type's rows in ``payload``."""
+    def _derive_increment(self, log_type, header, previous, rows, slots):
+        """``(new derived events, earlier derived events that changed)`` when
+        ``rows`` are added to ``previous``."""
+        slot, step = slots.index(log_type.id), len(slots)
+        if log_type.rows_independent:
+            # Only the new rows; their ids and keys continue from the stored
+            # ones, and nothing earlier can change.
+            count = len(previous["derived"])
+            new = derive_events(
+                log_type,
+                {**(header or {}), "events": rows},
+                row_id_base=slot + count * step,
+                row_id_step=step,
+                row_key_offset=count,
+            )
+            return new, []
         derived = derive_events(
             log_type,
-            payload,
-            row_id_base=slots.index(log_type.id),
-            row_id_step=len(slots),
+            {**(header or {}), "events": previous["rows"] + rows},
+            row_id_base=slot,
+            row_id_step=step,
         )
         old = previous["derived"]
         changed = [new for prior, new in zip(old, derived) if prior != new]

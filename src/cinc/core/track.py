@@ -130,6 +130,7 @@ class TrackLogType(LogType):
     id = "track"
     name = "Track"
     description = "Positions over time (lat/lon/alt), drawn on the Map chart."
+    rows_independent = True
 
     def normalize_events(self, payload, *, row_id_base=0, row_id_step=1):
         self.tracks(payload)  # reject bad rows here too

@@ -37,6 +37,9 @@ class LogType:
     script_paths: tuple[str, ...] = ()
     style_paths: tuple[str, ...] = ()
     row_height: int | None = None  # pixels, when rows are not the default height
+    # True when each row's event depends on that row and the header only, so
+    # live mode normalizes just the posted rows (see docs/plugins.md).
+    rows_independent: bool = False
 
     def __init__(self):
         # (name, callback, whole_log)

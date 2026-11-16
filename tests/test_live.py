@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from cinc.app import create_app
 from fake_logs import CHANNELS, core_event_rows, text_rows, write_log
 
@@ -229,3 +231,53 @@ def test_a_warm_post_reads_nothing_from_disk(tmp_path, monkeypatch):
         monkeypatch.setattr(LogDir, name, no_reads)
     hub.post("core_event", core_event_rows(1, 3))
     hub.page_data(hub.current)
+
+
+@pytest.mark.parametrize("type_id", ["text_log", "track"])
+def test_rows_independent_types_post_batch_by_batch(tmp_path, type_id):
+    from cinc.core.assemble import assemble_page_data
+    from cinc.core.bundle import log_dir_sections
+    from fake_logs import TRACKS, track_rows
+
+    make_rows = {"text_log": text_rows, "track": track_rows}[type_id]
+    header = {"tracks": TRACKS} if type_id == "track" else None
+    app, client, hub = make(tmp_path)
+    assert hub.registry.get(type_id).rows_independent
+    hub.post("core_event", core_event_rows(2), {"channels": CHANNELS})
+    hub.post(type_id, make_rows(1), header)  # new type: the page reloads
+    subscriber = hub.subscribe(hub.current.id, after=hub._seq)
+    start = 1
+    for size in (1, 7, 12):
+        hub.post(type_id, make_rows(size, start))
+        start += size
+    messages = [subscriber.get_nowait() for _ in range(3)]
+    assert all(m["type"] == "events" and not m["updates"] for m in messages)
+
+    live = hub.page_data(hub.current)
+    live.pop("live")
+    registry = hub.registry
+    disk = assemble_page_data(log_dir_sections(hub.current, registry), registry)
+    assert live == disk
+    streamed = [e for m in messages for e in m["events"]]
+    on_page = [e for e in disk["logData"]["events"] if e["log_type"] == type_id]
+    assert streamed == on_page[1:]
+
+
+def test_rows_independent_types_normalize_only_the_batch(tmp_path, monkeypatch):
+    from cinc.plugins.text_log import TextLogType
+
+    sizes = []
+    original = TextLogType.normalize_events
+
+    def counting(self, payload, **kwargs):
+        sizes.append(len(payload["events"]))
+        return original(self, payload, **kwargs)
+
+    monkeypatch.setattr(TextLogType, "normalize_events", counting)
+    app, client, hub = make(tmp_path)
+    hub.post("text_log", text_rows(5))
+    hub.post("text_log", text_rows(2, 5))
+    hub.post("text_log", text_rows(1, 7))
+    assert sizes == [5, 2, 1]
+    ids = [e["row_id"] for e in hub.page_data(hub.current)["logData"]["events"]]
+    assert ids == list(range(1, 9))

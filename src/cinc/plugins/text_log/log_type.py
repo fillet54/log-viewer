@@ -10,6 +10,7 @@ class TextLogType(LogType):
     script_paths = ("static/row.js", "static/charts.js")
     style_paths = ("static/row.css",)
     row_height = 36
+    rows_independent = True
 
     def normalize_events(self, payload, *, row_id_base=0, row_id_step=1):
         source = payload.get("lines", payload.get("events", []))
