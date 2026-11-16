@@ -95,6 +95,10 @@ class Registry:
                     log_type.register_event_augmenter(
                         f"{extension.plugin_id}:{name}", function
                     )
+                for name, function in extension.whole_log_augmenters:
+                    log_type.register_event_augmenter(
+                        f"{extension.plugin_id}:{name}", function, whole_log=True
+                    )
         self._finished = True
         return self
 

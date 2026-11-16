@@ -11,7 +11,8 @@ from typing import Any
 
 from .core.assemble import (
     assemble_page_data,
-    normalize_with_instants,
+    derive_events,
+    finish_events,
     type_config,
 )
 from .core.bundle import log_dir_sections
@@ -82,10 +83,11 @@ class LiveHub:
         """Persist ``rows`` (and optional type ``header``) to the current log,
         starting one if needed, and push the normalized events to viewers.
 
-        The type is re-normalized with all of its rows, not just this batch, so
-        anything that depends on earlier rows (core-event SET/CLEAR pairing,
-        times relative to the first row) comes out the same as on a full page
-        load. Earlier events that changed are sent as ``updates``."""
+        Events come out the same as on a full page load, including those that
+        depend on earlier rows (core-event SET/CLEAR pairing, times relative
+        to the first row): earlier events that changed are sent as
+        ``updates``. Only new and changed events are augmented, unless the
+        type has a whole-log augmenter (see ``_extend``)."""
         log_type = self.registry.get(type_id)
         if log_type is None:
             known = ", ".join(item.id for item in self.registry.all())
@@ -107,81 +109,138 @@ class LiveHub:
 
             # Normalize first so a bad batch or header is rejected before
             # anything is stored.
-            all_rows = previous["rows"] + rows
-            events, instants = (
-                self._normalize(log_type, header, all_rows, slots)
-                if rows or changed_header
-                else ([], [])
-            )
-            if changed_header:
-                type_config(log_type, {**header, "events": all_rows})
-            tracks = log_type.tracks({**(header or {}), "events": rows}) if rows else []
+            if is_new_type or changed_header:
+                # The viewer re-fetches the page, so derive the type in full.
+                section = self._derive(
+                    log_type, header, previous["rows"] + rows, slots
+                )
+                if changed_header:
+                    type_config(log_type, {**header, "events": section["rows"]})
+                added, updates = [], []
+            elif rows:
+                section, added, updates = self._extend(
+                    log_type, header, previous, rows, slots
+                )
+            else:
+                return log or self._start(None)
+
             log = log or self._start(None)
             if changed_header:
                 log.set_header(type_id, header)
                 self._headers[type_id] = header
+            if is_new_type:
+                self._types = sorted({*self._current_types(), type_id})
+                # A new type moves every type's id slot.
+                self._sections.clear()
+            self._sections[type_id] = section
             if not rows:
-                if changed_header:
-                    self._sections.clear()
-                    self._broadcast({"type": "reload"})
+                self._broadcast({"type": "reload"})
                 return log
             log.append(type_id, rows)
             self._seq += 1
-            if is_new_type:
-                self._types = sorted({*self._current_types(), type_id})
             if is_new_type or changed_header:
-                # The viewer needs this type's config (and a new type moves
-                # every type's id slot), so have it re-fetch the page.
-                self._sections.clear()
+                # The viewer needs this type's config.
                 message = {"type": "reload", "seq": self._seq}
             else:
-                old_events = previous["events"]
-                self._sections[type_id] = {
-                    "rows": all_rows,
-                    "events": events,
-                    "instants": instants,
-                }
                 message = {
                     "type": "events",
                     "seq": self._seq,
-                    "events": events[len(old_events) :],
-                    "updates": [
-                        new for old, new in zip(old_events, events) if old != new
-                    ],
+                    "events": added,
+                    "updates": updates,
                 }
+                tracks = log_type.tracks({**header, "events": rows})
                 if tracks:
                     message["tracks"] = tracks
             self._backlog.append(message)
             self._broadcast(message)
             return log
 
-    def _normalize(self, log_type, header, rows, slots):
-        """``(events, instants)`` for all of a type's rows."""
-        return normalize_with_instants(
+    def _derive(self, log_type, header, rows, slots) -> dict[str, Any]:
+        """A type's section from all of its rows: ``rows``, ``derived`` (the
+        type's own events, before augmenters), and the finished ``events``
+        with their ``instants``."""
+        payload = {**(header or {}), "events": rows}
+        derived = derive_events(
             log_type,
-            {**(header or {}), "events": rows},
+            payload,
             row_id_base=slots.index(log_type.id),
             row_id_step=len(slots),
-            mode="live",
         )
+        events, instants = finish_events(
+            log_type, derived, payload=payload, mode="live"
+        )
+        return {
+            "rows": rows,
+            "derived": derived,
+            "events": events,
+            "instants": instants,
+        }
+
+    def _extend(self, log_type, header, previous, rows, slots):
+        """``previous`` plus ``rows``: ``(section, new events, updated
+        events)``. The new section shares (and extends) previous's lists, so
+        call this only when the post will be stored."""
+        all_rows = previous["rows"] + rows
+        if log_type.has_whole_log_augmenters:
+            section = self._derive(log_type, header, all_rows, slots)
+            old, events = previous["events"], section["events"]
+            updates = [new for prior, new in zip(old, events) if prior != new]
+            return section, events[len(old) :], updates
+
+        payload = {**(header or {}), "events": all_rows}
+        new_derived, changed = self._derive_increment(
+            log_type, payload, previous, slots
+        )
+        events, instants = finish_events(
+            log_type, changed + new_derived, payload=payload, mode="live"
+        )
+        updates = events[: len(changed)]
+        added = events[len(changed) :]
+
+        derived = previous["derived"]
+        finished = previous["events"]
+        times = previous["instants"]
+        for event, instant, source in zip(updates, instants, changed):
+            index = _row_index(source)
+            derived[index] = source
+            finished[index] = event
+            times[index] = instant
+        derived.extend(new_derived)
+        finished.extend(added)
+        times.extend(instants[len(changed) :])
+        section = {
+            "rows": all_rows,
+            "derived": derived,
+            "events": finished,
+            "instants": times,
+        }
+        return section, added, updates
+
+    def _derive_increment(self, log_type, payload, previous, slots):
+        """``(new derived events, earlier derived events that changed)`` for
+        the type's rows in ``payload``."""
+        derived = derive_events(
+            log_type,
+            payload,
+            row_id_base=slots.index(log_type.id),
+            row_id_step=len(slots),
+        )
+        old = previous["derived"]
+        changed = [new for prior, new in zip(old, derived) if prior != new]
+        return derived[len(old) :], changed
 
     def _section(self, log_type, types, slots) -> dict[str, Any]:
-        """The current log's rows and events for one type, cached in memory."""
+        """The current log's section for one type (see ``_derive``), kept in
+        memory."""
         if self._current is None or log_type.id not in types:
-            return {"rows": [], "events": [], "instants": []}
+            return {"rows": [], "derived": [], "events": [], "instants": []}
         cached = self._sections.get(log_type.id)
         if cached is None:
             rows = self._current.rows(log_type.id)
-            events, instants = (
-                self._normalize(log_type, self._header(log_type.id), rows, slots)
-                if rows
-                else ([], [])
+            header = self._header(log_type.id)
+            cached = self._sections[log_type.id] = self._derive(
+                log_type, header, rows, slots
             )
-            cached = self._sections[log_type.id] = {
-                "rows": rows,
-                "events": events,
-                "instants": instants,
-            }
         return cached
 
     def page_data(self, log: LogDir) -> dict[str, Any]:
@@ -252,3 +311,8 @@ class LiveHub:
                 with subscriber.mutex:
                     subscriber.queue.clear()
                 subscriber.put_nowait({"type": "reload", "seq": self._seq})
+
+
+def _row_index(event: dict[str, Any]) -> int:
+    """An event's position in its type's output, from its row_key."""
+    return int(event["row_key"].rsplit(":", 1)[1])

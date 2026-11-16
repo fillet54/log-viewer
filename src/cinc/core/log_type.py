@@ -39,7 +39,8 @@ class LogType:
     row_height: int | None = None  # pixels, when rows are not the default height
 
     def __init__(self):
-        self._event_augmenters: list[tuple[str, Any]] = []
+        # (name, callback, whole_log)
+        self._event_augmenters: list[tuple[str, Any, bool]] = []
 
     def detect(self, payload: Any) -> float:
         """Return 0..1 confidence that ``payload`` belongs to this type."""
@@ -104,13 +105,26 @@ class LogType:
                     result.append(asset)
         return result
 
-    def register_event_augmenter(self, name: str, callback: Any) -> None:
+    def register_event_augmenter(
+        self, name: str, callback: Any, whole_log: bool = False
+    ) -> None:
+        """Add ``callback(events, context) -> events``, run after
+        ``normalize_events`` in registration order.
+
+        An augmenter computes each event from that event and the header only:
+        in live mode it is given just the new and changed events. One that
+        needs every event (``whole_log=True``) puts the type on the slow path,
+        where every post re-derives the type's whole log."""
         name = str(name or "").strip()
         if not name or not callable(callback):
             raise ValueError(f"{self.id}: augmenter requires a name and callback")
-        if any(existing == name for existing, _ in self._event_augmenters):
+        if any(existing == name for existing, *_ in self._event_augmenters):
             raise ValueError(f"{self.id}: duplicate augmenter {name!r}")
-        self._event_augmenters.append((name, callback))
+        self._event_augmenters.append((name, callback, bool(whole_log)))
+
+    @property
+    def has_whole_log_augmenters(self) -> bool:
+        return any(whole for *_, whole in getattr(self, "_event_augmenters", []))
 
     def augment_events(
         self,
@@ -125,7 +139,7 @@ class LogType:
             for key in ("row_id", "row_key", "time", "log_type")
         }
         context = {"log_type": self.id, "payload": dict(payload or {}), "mode": mode}
-        for name, callback in getattr(self, "_event_augmenters", []):
+        for name, callback, _ in getattr(self, "_event_augmenters", []):
             try:
                 result = callback([dict(event) for event in current], context)
             except Exception as exc:

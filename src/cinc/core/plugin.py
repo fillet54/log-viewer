@@ -68,6 +68,7 @@ class Extension:
     styles: list[Asset] = field(default_factory=list)
     config: dict[str, Any] = field(default_factory=dict)
     augmenters: list[tuple[str, Callable]] = field(default_factory=list)
+    whole_log_augmenters: list[tuple[str, Callable]] = field(default_factory=list)
 
 
 @dataclass
@@ -118,14 +119,17 @@ class PluginContext:
         styles: tuple[str, ...] | list[str] = (),
         config: dict[str, Any] | None = None,
         augmenters: dict[str, Callable] | None = None,
+        whole_log_augmenters: dict[str, Callable] | None = None,
     ) -> None:
         """Add to a log type, usually one from another plugin.
 
         ``scripts`` are browser modules whose ``setup`` is called for that type
         with ``config``; ``styles`` are CSS files; ``augmenters`` map a name to
         ``fn(events, context) -> events`` run after the type normalizes its
-        rows (see ``LogType.register_event_augmenter``). The type must exist
-        once all plugins are loaded."""
+        rows (see ``LogType.register_event_augmenter``): each event from that
+        event and the header only. ``whole_log_augmenters`` need every event;
+        any of them makes every live post re-derive the type's whole log. The
+        type must exist once all plugins are loaded."""
         if config is not None and not isinstance(config, dict):
             raise ValueError(f"plugin {self.plugin_id!r}: extend config must be a dict")
         self.registry.add_extension(
@@ -136,6 +140,7 @@ class PluginContext:
                 styles=[self.asset(path) for path in styles],
                 config=dict(config or {}),
                 augmenters=list((augmenters or {}).items()),
+                whole_log_augmenters=list((whole_log_augmenters or {}).items()),
             ),
         )
 

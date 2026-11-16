@@ -45,12 +45,27 @@ and pass it as `create_app(registry=...)`, `build_standalone(..., registry=...)`
 | Call | Adds |
 |---|---|
 | `ctx.add_log_type(MyType)` | A log type (class or instance). |
-| `ctx.extend(type_id, scripts=, styles=, config=, augmenters=)` | To an existing type, usually another plugin's: browser scripts set up for that type with `config`, stylesheets, and augmenters `fn(events, context) -> events` that add fields to its rows. |
+| `ctx.extend(type_id, scripts=, styles=, config=, augmenters=, whole_log_augmenters=)` | To an existing type, usually another plugin's: browser scripts set up for that type with `config`, stylesheets, and augmenters `fn(events, context) -> events` that add fields to its rows (see *Augmenters*). |
 | `ctx.add_script(path)` / `ctx.add_style(path)` | A browser script or stylesheet on every page, for charts not tied to a log type. |
 | `ctx.add_blueprint(blueprint, **options)` | A Flask blueprint: pages and API routes in `cinc serve` (see *Endpoints* below). Templates can `{% extends "base.html" %}` for Cinc's frame; `blueprint.nav_label = "Acme"` (with an `index` view) adds it to the top bar. |
 | `ctx.add_command(name, fn, help)` | `cinc NAME ARGS...` calls `fn(args)`; its return value is the exit code. |
 
 Extending a type that no installed plugin provides is an error at startup, not a silent no-op.
+
+### Augmenters
+
+An augmenter gets a list of events and `context` (`log_type`, `payload`, `mode`), and returns the
+same number of events with fields added. It may not change `row_id`, `row_key`, `time` or
+`log_type`.
+
+An augmenter computes each event from that event and the header only. In live mode (`mode ==
+"live"`) it is given just the new events and the earlier ones that changed, not the whole log, so
+a post costs the same however long the log is. `examples/acme_plugin`'s `owner` augmenter is one.
+
+One that needs every event (a running total, a rank) goes in `whole_log_augmenters=` instead (or
+`LogType.register_event_augmenter(name, fn, whole_log=True)`). It always sees every event, but any
+whole-log augmenter puts its type on the slow path: each live post re-derives and re-augments the
+type's whole log, so posts get slower as the log grows.
 
 ### Endpoints
 

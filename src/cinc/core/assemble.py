@@ -40,19 +40,55 @@ def normalize_with_instants(
     mode: str,
 ) -> tuple[list[dict[str, Any]], list[Any]]:
     """``normalize_section``, plus each event's parsed time."""
+    derived = derive_events(
+        log_type, payload, row_id_base=row_id_base, row_id_step=row_id_step
+    )
+    return finish_events(log_type, derived, payload=payload, mode=mode)
+
+
+def derive_events(
+    log_type: Any,
+    payload: dict[str, Any],
+    *,
+    row_id_base: int,
+    row_id_step: int,
+    row_key_offset: int = 0,
+) -> list[dict[str, Any]]:
+    """The first half of normalizing: the type's own ``normalize_events``,
+    plus ``row_key``. ``row_key_offset`` is the index of the payload's first
+    event in the type's output (non-zero when deriving only new rows)."""
     produced = log_type.normalize_events(
         payload, row_id_base=row_id_base, row_id_step=row_id_step
     )
+    return keyed_events(log_type, produced, row_key_offset)
+
+
+def keyed_events(
+    log_type: Any, produced: list[dict[str, Any]], offset: int = 0
+) -> list[dict[str, Any]]:
+    """Events a type produced, with ``row_key`` added. Types may not supply
+    ``log_type`` or ``row_key`` themselves."""
     for key in ("log_type", "row_key"):
         if any(key in event for event in produced):
             raise ValueError(f"{log_type.id}: normalized events must not supply {key}")
     # row_key: the event's position in its type's output. Unlike row_id it does
     # not depend on how many types the log has, so it is what to store.
-    produced = [
-        dict(event, row_key=f"{log_type.id}:{index}")
+    return [
+        dict(event, row_key=f"{log_type.id}:{offset + index}")
         for index, event in enumerate(produced)
     ]
-    produced = log_type.augment_events(produced, payload=payload, mode=mode)
+
+
+def finish_events(
+    log_type: Any,
+    derived: list[dict[str, Any]],
+    *,
+    payload: dict[str, Any],
+    mode: str,
+) -> tuple[list[dict[str, Any]], list[Any]]:
+    """The second half: run the augmenters, add ``log_type``, validate.
+    Returns the events and their parsed times."""
+    produced = log_type.augment_events(derived, payload=payload, mode=mode)
     events = [dict(event, log_type=log_type.id) for event in produced]
     instants = validate_events(events, log_type.id)
     return events, instants

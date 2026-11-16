@@ -173,3 +173,44 @@ def test_writer_and_build_standalone_from_memory(tmp_path):
         build_standalone({"nope": {"events": []}})
     out = write_standalone(log.path, tmp_path / "p.html")
     assert "<!doctype html>" in out.read_text()
+
+
+def _live_with_augmenter(tmp_path, *, whole_log):
+    """A hub whose text_log has one augmenter that records how many events it
+    was given each call. Posts batches of 2, 1 and 1 rows."""
+    from cinc.live import LiveHub
+    from fake_logs import text_rows
+
+    seen = []
+
+    def count(events, context):
+        seen.append(len(events))
+        return [{**e, "seen_with": len(events)} for e in events]
+
+    def setup(ctx):
+        key = "whole_log_augmenters" if whole_log else "augmenters"
+        ctx.extend("text_log", **{key: {"count": count}})
+
+    registry = Registry.from_plugins({**BUILTINS, "x": setup})
+    hub = LiveHub(tmp_path, registry)
+    hub.post("text_log", text_rows(2))
+    hub.post("text_log", text_rows(1, 2))
+    hub.post("text_log", text_rows(1, 3))
+    return hub, registry, seen
+
+
+def test_per_row_augmenter_sees_only_the_batch_in_live_mode(tmp_path):
+    hub, registry, seen = _live_with_augmenter(tmp_path, whole_log=False)
+    assert seen == [2, 1, 1]
+    assert not registry.get("text_log").has_whole_log_augmenters
+
+
+def test_whole_log_augmenter_sees_every_event_and_matches_a_page_load(tmp_path):
+    hub, registry, seen = _live_with_augmenter(tmp_path, whole_log=True)
+    assert seen == [2, 3, 4]
+    live = hub.page_data(hub.current)
+    live.pop("live")
+    events = live["logData"]["events"]
+    assert [e["seen_with"] for e in events] == [4, 4, 4, 4]
+    disk = assemble_page_data(log_dir_sections(hub.current, registry), registry)
+    assert live == disk
