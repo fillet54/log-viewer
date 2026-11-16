@@ -148,3 +148,25 @@ def test_a_bad_header_is_rejected_and_not_saved(tmp_path):
     assert good.status_code == 202
     log_id = good.get_json()["log"]
     assert client.get(f"/logs/{log_id}").status_code == 200
+
+
+def test_unreadable_logs_are_400_not_500(tmp_path):
+    log = write_log(tmp_path, rows=2)
+    (log / "mystery.jsonl").write_text('{"x": 1}\n')
+    app, client, hub = make(tmp_path)
+    assert client.get(f"/logs/{log.name}").status_code == 400
+    download = client.get(f"/logs/{log.name}/standalone.html")
+    assert download.status_code == 400 and b"mystery" in download.data
+    empty = tmp_path / "empty-log"
+    empty.mkdir()
+    (empty / "log.json").write_text("{}")
+    assert client.get("/logs/empty-log/standalone.html").status_code == 404
+
+
+def test_stream_ignores_a_bad_after(tmp_path):
+    app, client, hub = make(tmp_path)
+    hub.post("text_log", text_rows(1))  # so the stream has a message right away
+    response = client.get(f"/api/stream?log={hub.current.id}&after=x", buffered=False)
+    assert response.status_code == 200
+    assert next(response.response).startswith(b"data: ")
+    response.close()

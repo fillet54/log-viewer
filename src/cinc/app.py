@@ -84,6 +84,14 @@ def create_app(
     def is_current(log: LogDir) -> bool:
         return hub.current is not None and hub.current.id == log.id
 
+    def load_page(log: LogDir) -> dict:
+        """The log's page data; a log that cannot be read is a 400 saying why."""
+        try:
+            return hub.page_data(log)
+        except ValueError as exc:
+            message = f"Cannot open log {log.id}: {exc}"
+            abort(Response(message, 400, mimetype="text/plain"))
+
     # -- pages -------------------------------------------------------------
 
     @app.get("/")
@@ -107,10 +115,7 @@ def create_app(
         live_now = is_current(log)
         if not log.types():
             return render_template("waiting.html", log=log, live=live_now)
-        try:
-            page = hub.page_data(log)
-        except ValueError as exc:
-            return f"Cannot open log {log_id}: {exc}", 400
+        page = load_page(log)
         # Served pages say where they came from, so plugin scripts can call their own
         # endpoints. Standalone pages have no server and never get this key.
         page["server"] = {"logId": log.id, "root": request.script_root}
@@ -129,7 +134,9 @@ def create_app(
     @app.get("/logs/<log_id>/standalone.html")
     def download_log(log_id: str):
         log = find_log(log_id)
-        page = hub.page_data(log)
+        if not log.types():
+            abort(404)
+        page = load_page(log)
         page.pop("live", None)
         html = build_standalone_html(page, title=log.meta()["name"])
         return Response(
@@ -191,7 +198,7 @@ def create_app(
     @app.get("/api/stream")
     def api_stream():
         log_id = request.args.get("log") or None
-        subscriber = hub.subscribe(log_id, int(request.args.get("after", 0)))
+        subscriber = hub.subscribe(log_id, request.args.get("after", 0, type=int))
 
         @stream_with_context
         def generate():
