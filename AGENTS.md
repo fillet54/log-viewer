@@ -17,9 +17,20 @@ package.
 - **Ship data with the package.** Fonts live in `static/fonts/`, Map basemap
   data in `src/cinc/data/basemap/` (rebuilt with `scripts/build_basemap.py`).
   New asset types need a glob in `pyproject.toml` `package-data` or they won't
-  be installed.
+  be installed (`tests/test_packaging.py` fails until they have one).
 - **Keep Python dependencies minimal** — they must be installable from an
   offline mirror. Ask before adding one.
+
+## Rules that tests do not fully catch
+
+- **Data goes into a page only through `standalone.script_json`**, which
+  escapes `<`, `>` and `&`. Vendored code inlined as code goes through
+  `inline_script_code`. Never put `json.dumps` output in a `<script>` directly.
+- **Times are parsed only with `core.times.parse_time`.** It accepts `Z` and
+  any number of fraction digits on Python 3.10, which bare `fromisoformat`
+  does not. Order events by the parsed instant, never by the time string.
+- **Store `row_key`, not `row_id`,** for anything kept across page loads.
+- **Lower bounds in `pyproject.toml` match `uv.lock`**; update both together.
 
 ## Libraries in use
 
@@ -36,4 +47,7 @@ Browser (vendored; versions in `MANIFEST.json`):
 
 ## Tests
 
-Run `python -m pytest -q`. `tests/test_search.py` needs Node (skipped without it).
+Run `python -m pytest -q`. The browser-module tests (`test_search.py`,
+`test_activity.py`, `test_viewer_store.py`, via `tests/node_harness.py`) need
+Node and are skipped without it. `python tests/bench_live.py` times live posts
+against large logs.
