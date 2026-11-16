@@ -52,6 +52,8 @@ def _print_plugins(registry) -> None:
         for command in registry.commands.values():
             if command.plugin_id == plugin_id:
                 print(f"  command   cinc {command.name}  {command.help}".rstrip())
+    for plugin_id, error in registry.failed:
+        print(f"{plugin_id}  FAILED TO LOAD: {error}")
 
 
 def main(argv=None):

@@ -44,3 +44,39 @@ def test_text_plugin_isolated():
     for path in Path("src/cinc/plugins/text_log").rglob("*"):
         if path.is_file() and path.suffix in {".py", ".js"}:
             assert "plugins.core_event" not in path.read_text()
+
+
+def test_a_broken_plugin_is_skipped_with_a_warning(monkeypatch, capsys):
+    from cinc import __main__ as cli
+    from cinc.core import registry as registry_module
+    from cinc.plugins import core_event, text_log
+
+    class Point:
+        def __init__(self, name, load):
+            self.name, self.load = name, load
+
+    def broken(ctx):
+        ctx.add_log_type(TextLogType)  # registered, then undone
+        raise RuntimeError("boom")
+
+    def bad_import():
+        raise ImportError("no module named acme")
+
+    points = [
+        Point("core_event", lambda: core_event.setup),
+        Point("broken", lambda: broken),
+        Point("missing", bad_import),
+        Point("text_log", lambda: text_log.setup),
+    ]
+    monkeypatch.setattr(registry_module, "entry_points", lambda group: points)
+    registry = registry_module.Registry.discover()
+    assert [plugin for plugin, _ in registry.failed] == ["broken", "missing"]
+    assert set(registry.plugins) == {"core_event", "text_log"}
+    assert registry.get("text_log") is not None
+    warning = "plugin 'broken' failed to load: RuntimeError: boom"
+    assert warning in capsys.readouterr().err
+
+    assert cli.main(["types"]) is None
+    assert "text_log" in capsys.readouterr().out
+    cli.main(["plugins"])
+    assert "missing  FAILED TO LOAD: ImportError" in capsys.readouterr().out

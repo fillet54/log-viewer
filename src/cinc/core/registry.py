@@ -3,6 +3,7 @@ plugins added. ``Registry.discover()`` loads the installed plugins."""
 
 from __future__ import annotations
 
+import sys
 from importlib.metadata import entry_points
 from typing import Any, Callable
 
@@ -25,6 +26,8 @@ class Registry:
         self.styles: list[Asset] = []  # global stylesheets
         self.blueprints: list[tuple[Any, dict[str, Any]]] = []
         self.commands: dict[str, Command] = {}
+        # (plugin id, error) for installed plugins that failed to load
+        self.failed: list[tuple[str, str]] = []
         self._finished = False
 
     # -- log types --------------------------------------------------------
@@ -116,10 +119,50 @@ class Registry:
     def discover(
         cls, extra: dict[str, Callable[[PluginContext], Any]] | None = None
     ) -> "Registry":
-        """The installed plugins (``cinc.plugins`` entry points), plus ``extra``."""
-        plugins: dict[str, Callable] = {}
+        """The installed plugins (``cinc.plugins`` entry points), plus ``extra``.
+
+        A plugin that fails to import or set up is skipped with a warning on
+        stderr and recorded in ``failed``; whatever it registered before
+        failing is undone. ``extra`` plugins are not guarded."""
+        registry = cls()
+        seen: set[str] = set()
         for point in entry_points(group=ENTRY_POINT_GROUP):
-            if point.name not in plugins:
-                plugins[point.name] = point.load()
-        plugins.update(extra or {})
-        return cls.from_plugins(plugins)
+            if point.name in seen or point.name in (extra or {}):
+                continue
+            seen.add(point.name)
+            saved = registry._snapshot()
+            try:
+                registry.load_plugin(point.name, point.load())
+            except Exception as exc:  # a broken plugin must not stop cinc
+                registry._restore(saved)
+                message = f"{type(exc).__name__}: {exc}"
+                registry.failed.append((point.name, message))
+                print(
+                    f"warning: plugin {point.name!r} failed to load: {message}",
+                    file=sys.stderr,
+                )
+        for plugin_id, setup in (extra or {}).items():
+            registry.load_plugin(plugin_id, setup)
+        return registry.finish()
+
+    def _snapshot(self) -> tuple:
+        return (
+            dict(self._types),
+            {key: list(items) for key, items in self._extensions.items()},
+            dict(self.plugins),
+            list(self.scripts),
+            list(self.styles),
+            list(self.blueprints),
+            dict(self.commands),
+        )
+
+    def _restore(self, saved: tuple) -> None:
+        (
+            self._types,
+            self._extensions,
+            self.plugins,
+            self.scripts,
+            self.styles,
+            self.blueprints,
+            self.commands,
+        ) = saved
