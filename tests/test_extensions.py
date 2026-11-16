@@ -141,7 +141,7 @@ def test_standalone_inlines_plugin_modules_and_their_imports(tmp_path):
         assert f'"cinc-plugins/{module}"' in html
     # owners.js's relative import now names the module id
     assert 'from \\"cinc-plugins/acme_cinc/static/bars.js\\"' in html
-    assert '"aliases": {"logview/lib"' in html
+    assert '"aliases":{"logview/lib"' in html
 
 
 def test_plugin_command(tmp_path, capsys):

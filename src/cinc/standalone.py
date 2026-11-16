@@ -95,10 +95,30 @@ def _normalize_imports(path: str, content: str) -> str:
     return content
 
 
+_SCRIPT_UNSAFE = str.maketrans({"<": "\\u003c", ">": "\\u003e", "&": "\\u0026"})
+
+
+def script_json(value: Any, *, sort_keys: bool = False) -> str:
+    """``value`` as JSON that is safe inside a ``<script>`` element: ``<``,
+    ``>`` and ``&`` are written as ``\\u`` escapes, so no data can close the
+    element or open a comment. Every bit of data put into a page goes through
+    this."""
+    text = json.dumps(value, separators=(",", ":"), sort_keys=sort_keys)
+    return text.translate(_SCRIPT_UNSAFE)
+
+
+_SCRIPT_END = re.compile(r"</(script)", re.IGNORECASE)
+
+
+def inline_script_code(code: str) -> str:
+    """Vendored JavaScript inlined as code, which ``script_json`` cannot
+    escape: ``</script`` (any case) becomes ``<\\/script``. Vendored files
+    must not contain ``<!--`` (tests/test_standalone.py checks)."""
+    return _SCRIPT_END.sub(r"<\\/\1", code)
+
+
 def build_page_data_script(page_data: dict[str, object]) -> str:
-    payload = json.dumps(page_data, separators=(",", ":"), sort_keys=True)
-    safe_payload = payload.replace("</script", "<\\/script")
-    return f"window.CINC_PAGE_DATA = {safe_payload};"
+    return f"window.CINC_PAGE_DATA = {script_json(page_data, sort_keys=True)};"
 
 
 LEAFLET_SCRIPT = "static/vendor/leaflet/leaflet.js"
@@ -114,11 +134,11 @@ def page_tracks(page_data: dict[str, object]) -> list:
 def _map_assets(tracks: list) -> dict[str, str]:
     """Leaflet (kept as inert text; the Map chart loads it on first use) and the
     basemap cut to the tracks' area, for a standalone page with tracks."""
-    config = json.dumps({"basemap": basemap_for_tracks(tracks)}, separators=(",", ":"))
+    config = script_json({"basemap": basemap_for_tracks(tracks)})
     return {
-        "source": _read_package_text(LEAFLET_SCRIPT).replace("</script", "<\\/script"),
+        "source": inline_script_code(_read_package_text(LEAFLET_SCRIPT)),
         "style": _read_package_text(LEAFLET_STYLE),
-        "config": "window.CINC_MAP = " + config.replace("</", "<\\/") + ";",
+        "config": f"window.CINC_MAP = {config};",
     }
 
 
@@ -159,7 +179,7 @@ def build_standalone_html(
     )
     global_scripts = [build_page_data_script(page_data)]
     for path in GLOBAL_SCRIPTS:
-        global_scripts.append(_read_package_text(path))
+        global_scripts.append(inline_script_code(_read_package_text(path)))
 
     modules: dict[str, str] = {}
     for path in _discover_frontend_modules():
@@ -167,9 +187,7 @@ def build_standalone_html(
     for name, path in BARE_MODULES.items():
         modules[name] = _normalize_imports(path, _read_package_text(path))
     modules.update(plugin_modules(page_data))
-    esm_data = json.dumps({"modules": modules, "aliases": ALIASES}).replace(
-        "</", "<\\/"
-    )
+    esm_data = script_json({"modules": modules, "aliases": ALIASES})
     tracks = page_tracks(page_data)
     return TEMPLATE_ENV.get_template("standalone.html").render(
         title=title,

@@ -33,7 +33,7 @@
     {{ theme.toggle_script() }}
     {% for script in global_scripts %}
     <script>
-{{ script|replace('</script', '<\\/script')|safe }}
+{{ script|safe }}
     </script>
     {% endfor %}
 
