@@ -3,6 +3,7 @@ pushed to every open viewer of that log."""
 
 from __future__ import annotations
 
+import logging
 import queue
 import threading
 from collections import deque
@@ -13,13 +14,17 @@ from .core.assemble import (
     assemble_page_data,
     derive_events,
     finish_events,
+    keyed_events,
     type_config,
 )
+from .core.log_type import NeedsRebuild
 from .core.bundle import log_dir_sections
 from .core.registry import Registry
 from .logdir import LogDir
 
 BACKLOG_BATCHES = 1000
+
+logger = logging.getLogger(__name__)
 
 
 class LiveHub:
@@ -188,7 +193,7 @@ class LiveHub:
             return section, events[len(old) :], updates
 
         payload = {**(header or {}), "events": all_rows}
-        new_derived, changed = self._derive_increment(
+        new_derived, changed, stream = self._derive_increment(
             log_type, header, previous, rows, slots
         )
         events, instants = finish_events(
@@ -213,17 +218,23 @@ class LiveHub:
             "derived": derived,
             "events": finished,
             "instants": times,
+            "stream": stream,
         }
         return section, added, updates
 
     def _derive_increment(self, log_type, header, previous, rows, slots):
-        """``(new derived events, earlier derived events that changed)`` when
-        ``rows`` are added to ``previous``."""
+        """``(new derived events, earlier derived events that changed, the
+        type's live stream)`` when ``rows`` are added to ``previous``.
+
+        Three ways, cheapest first: a ``rows_independent`` type derives just
+        ``rows``; a type with a ``live_stream`` appends them to it; any other
+        type (or a stream that raises NeedsRebuild) re-derives every row and
+        compares."""
         slot, step = slots.index(log_type.id), len(slots)
+        count = len(previous["derived"])
         if log_type.rows_independent:
             # Only the new rows; their ids and keys continue from the stored
             # ones, and nothing earlier can change.
-            count = len(previous["derived"])
             new = derive_events(
                 log_type,
                 {**(header or {}), "events": rows},
@@ -231,7 +242,24 @@ class LiveHub:
                 row_id_step=step,
                 row_key_offset=count,
             )
-            return new, []
+            return new, [], None
+
+        stream = previous.get("stream") or self._replayed_stream(
+            log_type, header, previous["rows"], slot, step
+        )
+        if stream is not None:
+            try:
+                new, updated = stream.append(rows)
+            except NeedsRebuild as exc:
+                # Re-derive below; the next post builds a fresh stream.
+                logger.warning("%s: re-deriving the whole log: %s", log_type.id, exc)
+            else:
+                changed = [
+                    dict(event, row_key=f"{log_type.id}:{_index_of(event, slot, step)}")
+                    for event in updated
+                ]
+                return keyed_events(log_type, new, count), changed, stream
+
         derived = derive_events(
             log_type,
             {**(header or {}), "events": previous["rows"] + rows},
@@ -240,7 +268,22 @@ class LiveHub:
         )
         old = previous["derived"]
         changed = [new for prior, new in zip(old, derived) if prior != new]
-        return derived[len(old) :], changed
+        return derived[len(old) :], changed, None
+
+    def _replayed_stream(self, log_type, header, rows, slot, step):
+        """The type's live stream with ``rows`` (those already stored)
+        appended, or None if it has none."""
+        stream = log_type.live_stream(
+            dict(header or {}), row_id_base=slot, row_id_step=step
+        )
+        if stream is None:
+            return None
+        try:
+            stream.append(rows)  # one batch: the stream sorts it like a page load
+        except NeedsRebuild as exc:
+            logger.warning("%s: no live stream: %s", log_type.id, exc)
+            return None
+        return stream
 
     def _section(self, log_type, types, slots) -> dict[str, Any]:
         """The current log's section for one type (see ``_derive``), kept in
@@ -329,3 +372,8 @@ class LiveHub:
 def _row_index(event: dict[str, Any]) -> int:
     """An event's position in its type's output, from its row_key."""
     return int(event["row_key"].rsplit(":", 1)[1])
+
+
+def _index_of(event: dict[str, Any], slot: int, step: int) -> int:
+    """An event's position in its type's output, from its row_id."""
+    return (event["row_id"] - slot - 1) // step

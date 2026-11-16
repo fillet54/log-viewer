@@ -6,6 +6,12 @@ from typing import Any
 from .plugin import Asset
 
 
+class NeedsRebuild(Exception):
+    """Raised by a live stream's ``append`` when a batch cannot be applied
+    incrementally; the hub then re-derives the type's whole log. The message
+    says why."""
+
+
 def row_id(index: int, base: int = 0, step: int = 1) -> int:
     """Row ids interleave log types: type slot ``base`` of ``step`` types gets
     base+1, base+1+step, ... A row's id depends only on its type's slot and its
@@ -65,6 +71,20 @@ class LogType:
                 event for event in events if isinstance(event, dict)
             )
         ]
+
+    def live_stream(
+        self, header: dict[str, Any], *, row_id_base: int = 0, row_id_step: int = 1
+    ) -> Any:
+        """An object that normalizes a live log batch by batch, or None (the
+        default) to re-derive the type's whole log on every post.
+
+        ``stream.append(rows) -> (new_events, updated_events)``: the events
+        ``normalize_events`` would add for ``rows`` given every row appended
+        before, and the earlier events that change because of them. It raises
+        ``cinc.NeedsRebuild`` when it cannot apply a batch, and ``ValueError``
+        for a bad row, before changing its state. Check a stream with
+        ``cinc.testing.assert_stream_matches``."""
+        return None
 
     def view_config(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Settings for this type's browser scripts (``ctx.config``)."""

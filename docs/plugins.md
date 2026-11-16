@@ -111,6 +111,36 @@ events: each needs `time` (ISO 8601 with a zone) and gets `row_id` (from the bas
 | `log_summary(payload) -> dict` | Key/value facts shown with the log. |
 | `tracks(payload)` | Position tracks for the Map chart (see `cinc.core.track`). |
 | `script_paths`, `style_paths`, `row_height` | Browser files (relative to the class's package) and row height. |
+| `rows_independent` | `True` when each row's event depends on that row and the header only (see *Live mode*). |
+| `live_stream(header, row_id_base=, row_id_step=)` | Normalizes a live log batch by batch (see *Live mode*). |
+
+### Live mode
+
+Each post to `cinc serve` must produce the events a page load of the whole log would. How much
+work that takes depends on the type; the hub picks the cheapest of:
+
+1. **`rows_independent = True`**: only the posted rows are normalized, with `row_id_base` and
+   `row_id_step` set so their ids continue from the stored rows. Nothing earlier changes.
+   `text_log` and `track` are like this.
+2. **`live_stream(header, *, row_id_base, row_id_step)`** returns a stream object whose
+   `append(rows) -> (new_events, updated_events)` gives the events `normalize_events` would add
+   for `rows` given every row before, and the earlier events that change because of them (sent to
+   viewers as updates). The hub creates it on the first post after a start, a reload or a new
+   type, feeding it the stored rows as one batch. When a batch cannot be applied incrementally,
+   `append` raises `cinc.NeedsRebuild("why")`: the hub re-derives the whole log for that post,
+   logs a warning with the reason, and builds a fresh stream next time. `append` must check a
+   batch (raising `ValueError` for a bad row) before it changes any state. `core_event` has one:
+   a CLEAR pairs with its open SET, which comes back as an update; a row earlier than the last
+   one, or a new channel when the header declares none, raises `NeedsRebuild`.
+3. Otherwise every post re-derives the type's whole log and compares it with the previous one,
+   so posts get slower as the log grows.
+
+Header changes always re-derive the type, and the viewer reloads. Augmenters run on just the new
+and changed events unless one is whole-log (see *Augmenters*).
+
+`cinc.testing.assert_stream_matches(log_type, payload, batch_sizes)` checks a stream: it feeds the
+rows in batches (`[1]`, `[7]`, `[len(rows)]`, ...) and after each batch compares the events so far
+with `normalize_events` of the rows so far, so a missed update fails the test.
 
 Script and style paths add up along the class hierarchy, each resolved against the package of the
 class that lists it. So a project can reuse a type under its own id:

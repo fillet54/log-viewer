@@ -67,6 +67,17 @@ class CoreEventLogType(LogType):
                 )
         return events
 
+    def live_stream(self, header, *, row_id_base=0, row_id_step=1):
+        from .stream import CoreEventStream
+
+        return CoreEventStream(
+            self.with_defaults(header),
+            type_id=self.id,
+            validate=_validate_raw_payload,
+            row_id_base=row_id_base,
+            row_id_step=row_id_step,
+        )
+
     def detect(self, payload):
         events = payload.get("events") if isinstance(payload, dict) else None
         if (

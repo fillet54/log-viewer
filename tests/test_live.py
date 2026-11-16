@@ -281,3 +281,75 @@ def test_rows_independent_types_normalize_only_the_batch(tmp_path, monkeypatch):
     assert sizes == [5, 2, 1]
     ids = [e["row_id"] for e in hub.page_data(hub.current)["logData"]["events"]]
     assert ids == list(range(1, 9))
+
+
+def _page_matches_disk(hub):
+    from cinc.core.assemble import assemble_page_data
+    from cinc.core.bundle import log_dir_sections
+
+    live = hub.page_data(hub.current)
+    live.pop("live")
+    registry = hub.registry
+    assert live == assemble_page_data(log_dir_sections(hub.current, registry), registry)
+    return live
+
+
+def _apply(messages, events):
+    """What the browser does with stream messages."""
+    for message in messages:
+        by_id = {e["row_id"]: e for e in message["updates"]}
+        events = [by_id.get(e["row_id"], e) for e in events] + message["events"]
+    return events
+
+
+def test_core_event_streams_one_row_at_a_time(tmp_path, monkeypatch):
+    from cinc.plugins.core_event import CoreEventLogType
+
+    app, client, hub = make(tmp_path)
+    rows = core_event_rows(40)
+    hub.post("core_event", rows[:2], {"channels": CHANNELS})
+    hub.post("text_log", text_rows(3))
+    start = hub.page_data(hub.current)
+    subscriber = hub.subscribe(hub.current.id, after=start["live"]["seq"])
+
+    calls = []
+    original = CoreEventLogType.normalize_events
+    monkeypatch.setattr(
+        CoreEventLogType,
+        "normalize_events",
+        lambda self, *a, **k: calls.append(1) or original(self, *a, **k),
+    )
+    for row in rows[2:]:
+        hub.post("core_event", [row])
+    assert not calls  # no full re-derive per post
+
+    messages = [subscriber.get_nowait() for _ in rows[2:]]
+    assert any(m["updates"] for m in messages)
+    page = _page_matches_disk(hub)
+    core = [e for e in page["logData"]["events"] if e["log_type"] == "core_event"]
+    initial = [e for e in start["logData"]["events"] if e["log_type"] == "core_event"]
+    assert _apply(messages, initial) == core
+
+
+def test_core_event_rebuilds_on_an_out_of_order_row(tmp_path, caplog):
+    app, client, hub = make(tmp_path)
+    rows = core_event_rows(6)
+    hub.post("core_event", rows[:3], {"channels": CHANNELS})
+    hub.post("core_event", rows[3:4])
+    late = dict(rows[4], utctime=rows[0]["utctime"])
+    with caplog.at_level("WARNING", logger="cinc.live"):
+        hub.post("core_event", [late])
+    assert "earlier than the last row" in caplog.text
+    hub.post("core_event", rows[5:])  # a fresh stream, replayed
+    _page_matches_disk(hub)
+
+
+def test_core_event_header_change_rebuilds(tmp_path):
+    app, client, hub = make(tmp_path)
+    hub.post("core_event", core_event_rows(4), {"channels": CHANNELS})
+    hub.post("core_event", core_event_rows(1, 4))
+    severities = [{"name": "Green", "tone": "green"}, {"name": "Red", "tone": "red"}]
+    hub.post("core_event", [], {"channels": CHANNELS, "severities": severities})
+    hub.post("core_event", core_event_rows(3, 5))
+    page = _page_matches_disk(hub)
+    assert {e["color"] for e in page["logData"]["events"]} <= {"Green", "Red"}

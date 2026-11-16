@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import deque
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -399,6 +400,47 @@ def _normalize_event(
     }
 
 
+def _order_key(event: dict[str, Any]) -> tuple[float, int]:
+    """Pairing order: by norm_time, then the row's own id."""
+    return (float(event.get("norm_time") or 0), int(event.get("row_id") or 0))
+
+
+def _pair_links(
+    set_event: dict[str, Any], clear_event: dict[str, Any], channel: str
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The ``pairedChannels`` entries a SET and its CLEAR get on ``channel``."""
+    duration_seconds = max(
+        0.0,
+        float(clear_event.get("norm_time") or 0)
+        - float(set_event.get("norm_time") or 0),
+    )
+    label = _format_duration_label(duration_seconds)
+    forward = {
+        "channel": channel,
+        "linkedRowId": clear_event.get("row_id"),
+        "linkedSeconds": clear_event.get("norm_time"),
+        "durationSeconds": duration_seconds,
+        "direction": "forward",
+        "label": label,
+        "title": f"Jump to clear event for channel {channel}",
+    }
+    back = {
+        "channel": channel,
+        "linkedRowId": set_event.get("row_id"),
+        "linkedSeconds": set_event.get("norm_time"),
+        "durationSeconds": duration_seconds,
+        "direction": "back",
+        "label": label,
+        "title": f"Jump to set event for channel {channel}",
+    }
+    return forward, back
+
+
+def _finish_event(event: dict[str, Any]) -> None:
+    event["matchSummary"] = _summarize_matches(event, event.get("pairedChannels", {}))
+    event["rowDisplay"] = _build_row_display(event)
+
+
 def _derive_core_events(
     raw_events: list[dict[str, Any]],
     available_channels: list[str],
@@ -409,19 +451,12 @@ def _derive_core_events(
         _normalize_event(event, index, fallback_start, available_channels, scale)
         for index, event in enumerate(raw_events)
     ]
-    ordered = sorted(
-        events,
-        key=lambda event: (
-            float(event.get("norm_time") or 0),
-            int(event.get("row_id") or 0),
-        ),
-    )
-    open_sets: dict[str, list[dict[str, Any]]] = {}
+    open_sets: dict[str, deque[dict[str, Any]]] = {}
 
-    for event in ordered:
+    for event in sorted(events, key=_order_key):
         for channel in event.get("channels", []):
             key = _build_pair_key(event, channel)
-            queue = open_sets.setdefault(key, [])
+            queue = open_sets.setdefault(key, deque())
 
             if event.get("set_clear") == "set":
                 queue.append(event)
@@ -430,38 +465,13 @@ def _derive_core_events(
             if not queue:
                 continue
 
-            set_event = queue.pop(0)
-            duration_seconds = max(
-                0.0,
-                float(event.get("norm_time") or 0)
-                - float(set_event.get("norm_time") or 0),
-            )
-            label = _format_duration_label(duration_seconds)
-
-            set_event["pairedChannels"][channel] = {
-                "channel": channel,
-                "linkedRowId": event.get("row_id"),
-                "linkedSeconds": event.get("norm_time"),
-                "durationSeconds": duration_seconds,
-                "direction": "forward",
-                "label": label,
-                "title": f"Jump to clear event for channel {channel}",
-            }
-            event["pairedChannels"][channel] = {
-                "channel": channel,
-                "linkedRowId": set_event.get("row_id"),
-                "linkedSeconds": set_event.get("norm_time"),
-                "durationSeconds": duration_seconds,
-                "direction": "back",
-                "label": label,
-                "title": f"Jump to set event for channel {channel}",
-            }
+            set_event = queue.popleft()
+            forward, back = _pair_links(set_event, event, channel)
+            set_event["pairedChannels"][channel] = forward
+            event["pairedChannels"][channel] = back
 
     for event in events:
-        event["matchSummary"] = _summarize_matches(
-            event, event.get("pairedChannels", {})
-        )
-        event["rowDisplay"] = _build_row_display(event)
+        _finish_event(event)
 
     return events
 
