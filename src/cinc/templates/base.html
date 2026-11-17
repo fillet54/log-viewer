@@ -1,0 +1,58 @@
+{% import "_theme.html" as theme %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Cinc{% endblock %}</title>
+    {{ theme.head_script() }}
+    <script type="importmap">
+    {
+      "imports": {
+        "preact": "/static/vendor/preact.mjs",
+        "preact/hooks": "/static/vendor/hooks.mjs",
+        "preact/signals": "/static/vendor/signals.mjs",
+        "@preact/signals-core": "/static/vendor/signals-core.mjs",
+        "htm": "/static/vendor/htm-core.mjs",
+        "htm/preact": "/static/vendor/htm-preact.mjs",
+        "logview/lib": "/static/logview/lib.js",
+        "cinc": "/static/runtime.js",
+        "cinc-plugins/": "/plugin-assets/"
+      }
+    }
+    </script>
+    <link rel="preload" href="{{ url_for('static', filename='fonts/IBMPlexSans-Regular.woff2') }}" as="font" type="font/woff2" crossorigin />
+    <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/split.min.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='runtime.js') }}"></script>
+    <script>window.CINC_MAP = {leafletUrl: "{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}", leafletCssUrl: "{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}", basemapUrl: "{{ url_for('api_basemap') }}"};</script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+    {% block head_extra %}{% endblock %}
+  </head>
+  <body class="app-body{% block body_class %}{% endblock %}">
+    <div class="app-shell">
+      <header class="topbar">
+        <a href="{{ url_for('live') }}" class="brand">
+          <img src="{{ url_for('static', filename='img/logo_lightmode.png') }}" class="brand-logo brand-logo-light" alt="" />
+          <img src="{{ url_for('static', filename='img/logo_darkmode.png') }}" class="brand-logo brand-logo-dark" alt="" />
+          <span class="brand-name">Cinc</span>
+        </a>
+        <nav class="topbar-nav" aria-label="Primary">
+          {% for key, label, endpoint in [("live", "Live", "live"), ("history", "History", "history")] + (plugin_nav or []) %}
+          <a href="{{ url_for(endpoint) }}"{% if nav_current == key %} aria-current="page"{% endif %}>{{ label }}</a>
+          {% endfor %}
+        </nav>
+        {% block topbar_log %}{% endblock %}
+        <div class="topbar-actions">
+          {% block topbar_actions %}{% endblock %}
+          <button type="button" id="theme-toggle" class="button button-ghost button-xs">Theme</button>
+        </div>
+      </header>
+      <main class="app-content">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+    {{ theme.toggle_script() }}
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

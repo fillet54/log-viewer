@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% set nav_current = "history" %}
+
+{% block title %}History · Cinc{% endblock %}
+
+{% block content %}
+<div class="page">
+  <h1 class="page-title">Logs</h1>
+  <p class="page-lead">Every live log, and any log folder a tool wrote into the data directory.</p>
+  {% if logs %}
+  <table class="log-table">
+    <thead><tr><th>Name</th><th>Started</th><th>Types</th><th>Folder</th></tr></thead>
+    <tbody>
+      {% for item in logs %}
+      <tr>
+        <td>
+          <a href="{{ url_for('view_log', log_id=item.log.id) }}">{{ item.meta.name }}</a>
+          {% if item.log.id == current_id %}<span class="live-badge">Live</span>{% endif %}
+          {% if item.meta.error %}<span class="chip chip-error" title="{{ item.meta.error }}">unreadable log.json</span>{% endif %}
+        </td>
+        <td class="mono"><time datetime="{{ item.meta.started }}">{{ item.meta.started|when }}</time></td>
+        <td>{% for type_id in item.types %}<span class="chip">{{ type_id }}</span> {% else %}—{% endfor %}</td>
+        <td class="mono">{{ item.log.id }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="page-empty">No logs yet. Post rows to <code>/api/events</code>, or write a log folder into the data directory.</p>
+  {% endif %}
+</div>
+{% endblock %}

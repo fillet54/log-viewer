@@ -1,0 +1,695 @@
+// Used when a log type gives no search_config of its own.
+export const DEFAULT_SEARCH_CONFIG = {
+  excludeFromBareTerms: ["data"],
+};
+
+export const buildParser = () => {
+  // A key as typed, else the first key that matches ignoring case (`System:` finds `system`).
+  const childOf = (node, key) => {
+    if (Object.prototype.hasOwnProperty.call(node, key)) return node[key];
+    const lower = key.toLowerCase();
+    const match = Object.keys(node).find((candidate) => candidate.toLowerCase() === lower);
+    return match === undefined ? undefined : node[match];
+  };
+
+  const getFieldValue = (event, path) => {
+    if (!event || !path) return null;
+    const parts = path.split(".");
+    let current = event;
+    for (const part of parts) {
+      if (current == null || typeof current !== "object") return null;
+      current = childOf(current, part);
+    }
+    return current;
+  };
+
+  // Every value at a dotted path; an array in the middle fans out to its items
+  // (`data.items.code` reads `code` from each item), unless the part is an index (`items.0`).
+  const getPathValues = (root, parts) => {
+    let current = [root];
+    for (const part of parts) {
+      const next = [];
+      current.forEach((node) => {
+        if (node == null || typeof node !== "object") return;
+        if (Array.isArray(node) && !/^\d+$/.test(part)) {
+          node.forEach((item) => {
+            if (item != null && typeof item === "object") {
+              const value = childOf(item, part);
+              if (value !== undefined) next.push(value);
+            }
+          });
+          return;
+        }
+        const value = childOf(node, part);
+        if (value !== undefined) next.push(value);
+      });
+      current = next;
+    }
+    return current;
+  };
+
+  const getFieldValues = (event, path) => {
+    if (!event || !path) return [];
+    if (path === "$") return [];
+    if (path === "$.*") {
+      return collectAnyValues(event);
+    }
+    if (path.startsWith("$.")) {
+      const subPath = path.slice(2);
+      if (!subPath) return [];
+      return collectDeepValues(event, subPath.split("."));
+    }
+    const deepIndex = path.indexOf("$.");
+    if (deepIndex === -1) {
+      const values = getPathValues(event, path.split("."));
+      const aliasValue = path.includes(".") ? null : getFieldValue(event, `${path}_search`);
+      if (aliasValue != null) values.push(aliasValue);
+      return values.length ? values : [null];
+    }
+    const basePath = path.slice(0, deepIndex).replace(/\.$/, "");
+    const subPath = path.slice(deepIndex + 2);
+    const baseValue = basePath ? getFieldValue(event, basePath) : event;
+    if (baseValue == null) return [];
+    if (!subPath || subPath === "*") return collectAnyValues(baseValue);
+    if (subPath.endsWith(".*")) {
+      const trimmed = subPath.slice(0, -2);
+      const targets = collectDeepValues(baseValue, trimmed.split("."));
+      return targets.flatMap((value) => (value == null ? [] : collectAnyValues(value)));
+    }
+    return collectDeepValues(baseValue, subPath.split("."));
+  };
+
+  const toComparable = (value) => {
+    if (value == null) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    return JSON.stringify(value);
+  };
+
+  const globToRegex = (pattern) => {
+    const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+    const regex = "^" + escaped.replace(/\*/g, ".*") + "$";
+    return new RegExp(regex, "i");
+  };
+
+  const tokenizeQuery = (input) => {
+    const tokens = [];
+    const ts = makeTokenStream(input);
+    while (true) {
+      const token = ts.next();
+      tokens.push(token);
+      if (token.type === "EOF") break;
+    }
+    return tokens;
+  };
+
+  const parseQuery = (input) => {
+    const ts = makeTokenStream(input || "");
+    if (ts.peek().type === "EOF") return { type: "EMPTY" };
+    const ast = parseExpression(ts, 0);
+    ts.expect("EOF", "Unexpected extra input");
+    return ast || { type: "EMPTY" };
+  };
+
+  const matchFieldTerm = (event, field, term) => {
+    if (field === "$") {
+      return matchKeyNameTerm(event, term);
+    }
+    const cleaned = term.startsWith('"') && term.endsWith('"') ? term.slice(1, -1) : term;
+
+    const applyMatch = (candidate) => {
+      if (candidate == null) return false;
+      const text = toComparable(candidate);
+      if (term.includes("*")) {
+        return globToRegex(cleaned).test(text);
+      }
+      if (field === "name") {
+        return globToRegex(cleaned + "*").test(text);
+      }
+      return text.toLowerCase() === cleaned.toLowerCase();
+    };
+
+    const values = getFieldValues(event, field);
+    for (const value of values) {
+      if (Array.isArray(value)) {
+        if (value.some((item) => applyMatch(item))) return true;
+        continue;
+      }
+      if (typeof value === "boolean") {
+        if (cleaned.toLowerCase() === "true" && value === true) return true;
+        if (cleaned.toLowerCase() === "false" && value === false) return true;
+        continue;
+      }
+      if (typeof value === "number") {
+        if (term.includes("*")) {
+          if (globToRegex(cleaned).test(String(value))) return true;
+        } else if (cleaned.trim() !== "" && Number(cleaned) === value) {
+          return true;
+        }
+        continue;
+      }
+      if (applyMatch(value)) return true;
+    }
+    return false;
+  };
+
+  const matchBareTerm = (event, term, config = DEFAULT_SEARCH_CONFIG) => {
+    if (!term) return true;
+    const nameValue = toComparable(event?.name || "");
+    if (globToRegex(`${term}*`).test(nameValue)) return true;
+    // A configured field name is useful as a presence search in mixed logs.
+    // This keeps bare terms type-aware without treating arbitrary object keys as
+    // searchable field names.
+    if ((config.fields || []).some((field) => String(field).toLowerCase() === term.toLowerCase())) {
+      return Object.prototype.hasOwnProperty.call(event || {}, term);
+    }
+    const entries = Object.entries(event || {});
+    for (const [key, value] of entries) {
+      if ((config.excludeFromBareTerms || []).includes(key)) continue;
+      if (Array.isArray(value)) {
+        if (value.some((item) => toComparable(item).toLowerCase() === term.toLowerCase())) {
+          return true;
+        }
+        continue;
+      }
+      const text = toComparable(value);
+      if (text && text.toLowerCase() === term.toLowerCase()) return true;
+    }
+    return false;
+  };
+
+  const filterObjects = (objects, ast, options = {}) => {
+    const { fieldHandlers = {} } = options;
+
+    return objects.filter((obj) => evaluate(ast, obj));
+
+    function evaluate(node, obj) {
+      if (!node) return true;
+      switch (node.type) {
+        case "EMPTY":
+          return true;
+        case "AND":
+          return node.terms.every((t) => evaluate(t, obj));
+        case "OR":
+          return node.terms.some((t) => evaluate(t, obj));
+        case "NOT":
+          return !evaluate(node.term, obj);
+        case "TEXT":
+          return matchBareTerm(obj, node.value, options.config);
+        case "FILTER":
+          return evalFilter(node, obj);
+        default:
+          return true;
+      }
+    }
+
+    function evalFilter(node, obj) {
+      const handler = fieldHandlers[node.key.toLowerCase()];
+      if (handler) return handler(obj, node.value, evaluate, node.op);
+      return defaultFieldEval(node.key, node.value, obj, node.op);
+    }
+
+    function defaultFieldEval(key, valueNode, obj, op) {
+      if (!valueNode || valueNode.type !== "TEXT") return false;
+      if (valueNode.value == null) return false;
+      if (key === "$" && op && op !== ":" && op !== "~") return false;
+      if (!op || op === ":") {
+        return matchFieldTerm(obj, key, valueNode.value);
+      }
+      if (op === "~") {
+        return containsField(obj, key, valueNode.value);
+      }
+      if (![">", ">=", "<", "<="].includes(op)) return false;
+      return compareField(obj, key, valueNode.value, op);
+    }
+
+    function compareField(obj, key, rawValue, op) {
+      if (key === "$") return false;
+      const target = Number(rawValue);
+      if (!Number.isFinite(target)) return false;
+      const compareOne = (value) => {
+        // Only numbers and numeric text compare; a missing field or "" is not 0.
+        if (typeof value !== "number" && (typeof value !== "string" || value.trim() === "")) return false;
+        const num = Number(value);
+        if (!Number.isFinite(num)) return false;
+        switch (op) {
+          case ">":
+            return num > target;
+          case ">=":
+            return num >= target;
+          case "<":
+            return num < target;
+          case "<=":
+            return num <= target;
+          default:
+            return false;
+        }
+      };
+      const values = getFieldValues(obj, key);
+      for (const fieldValue of values) {
+        if (Array.isArray(fieldValue)) {
+          if (fieldValue.some((item) => compareOne(item))) return true;
+          continue;
+        }
+        if (compareOne(fieldValue)) return true;
+      }
+      return false;
+    }
+
+    function containsField(obj, key, rawValue) {
+      if (key === "$") return matchKeyNameContains(obj, rawValue);
+      const needle = String(rawValue).toLowerCase();
+      const contains = (value) => {
+        if (value == null) return false;
+        return toComparable(value).toLowerCase().includes(needle);
+      };
+      const values = getFieldValues(obj, key);
+      for (const fieldValue of values) {
+        if (Array.isArray(fieldValue)) {
+          if (fieldValue.some((item) => contains(item))) return true;
+          continue;
+        }
+        if (contains(fieldValue)) return true;
+      }
+      return false;
+    }
+  };
+
+  function collectDeepValues(root, pathParts) {
+    const results = [];
+    const seen = new Set();
+
+    const walk = (node) => {
+      if (node == null || typeof node !== "object") return;
+      if (seen.has(node)) return;
+      seen.add(node);
+
+      const value = getFieldValue(node, pathParts.join("."));
+      if (value != null) results.push(value);
+
+      if (Array.isArray(node)) {
+        node.forEach((item) => walk(item));
+        return;
+      }
+      Object.values(node).forEach((child) => walk(child));
+    };
+
+    walk(root);
+    return results;
+  }
+
+  function collectAnyValues(root) {
+    const results = [];
+    const seen = new Set();
+
+    const walk = (node) => {
+      if (node == null || typeof node !== "object") return;
+      if (seen.has(node)) return;
+      seen.add(node);
+
+      if (Array.isArray(node)) {
+        node.forEach((item) => walk(item));
+        return;
+      }
+      Object.values(node).forEach((value) => {
+        results.push(value);
+        walk(value);
+      });
+    };
+
+    walk(root);
+    return results;
+  }
+
+  function matchKeyNameTerm(root, term) {
+    const cleaned = term.startsWith('"') && term.endsWith('"') ? term.slice(1, -1) : term;
+    const isWildcard = cleaned.includes("*");
+      const matcher = isWildcard ? globToRegex(cleaned) : null;
+    return collectKeyNames(root).some((key) => {
+      if (isWildcard) return matcher.test(key);
+      return key.toLowerCase() === cleaned.toLowerCase();
+    });
+  }
+
+  function matchKeyNameContains(root, term) {
+    const needle = String(term).toLowerCase();
+    return collectKeyNames(root).some((key) => key.toLowerCase().includes(needle));
+  }
+
+  function collectKeyNames(root) {
+    const results = [];
+    const seen = new Set();
+
+    const walk = (node) => {
+      if (node == null || typeof node !== "object") return;
+      if (seen.has(node)) return;
+      seen.add(node);
+
+      if (Array.isArray(node)) {
+        node.forEach((item) => walk(item));
+        return;
+      }
+      Object.entries(node).forEach(([key, value]) => {
+        results.push(String(key));
+        walk(value);
+      });
+    };
+
+    walk(root);
+    return results;
+  }
+
+  const makePredicate = (query, options = {}) => {
+    const ast = parseQuery(query);
+    return (event) => filterObjects([event], ast, options).length === 1;
+  };
+
+  const getQueryPredicate = (() => {
+    const cache = new Map();
+    return (query, config = DEFAULT_SEARCH_CONFIG) => {
+      const key = `${query || ""}:${JSON.stringify(config)}`;
+      if (cache.has(key)) return cache.get(key);
+      const predicate = makePredicate(query, { config });
+      cache.set(key, predicate);
+      return predicate;
+    };
+  })();
+
+  function makeTokenStream(input) {
+    let i = 0;
+    let buffered = null;
+
+    const error = (msg, tok) => {
+      const t = tok || buffered || { start: i };
+      throw new SyntaxError(`${msg} at ${t.start}`);
+    };
+
+    const peek = () => {
+      if (!buffered) buffered = readToken();
+      return buffered;
+    };
+
+    const next = () => {
+      const t = peek();
+      buffered = null;
+      return t;
+    };
+
+    const match = (type) => {
+      if (peek().type === type) {
+        next();
+        return true;
+      }
+      return false;
+    };
+
+    const expect = (type, msg) => {
+      const t = peek();
+      if (t.type !== type) error(msg || `Expected ${type} but got ${t.type}`, t);
+      return next();
+    };
+
+  const startsExpression = (type) =>
+    type === "LPAREN" ||
+    type === "WORD" ||
+    type === "PHRASE" ||
+    type === "AND" ||
+    type === "NOT" ||
+    type === "MINUS" ||
+    type === "FIELD";
+
+    const skipWhitespace = () => {
+      while (i < input.length && isWhitespace(input[i])) i++;
+    };
+
+    const readToken = () => {
+      skipWhitespace();
+      const start = i;
+
+      if (i >= input.length) return { type: "EOF", start: i, end: i };
+
+      const ch = input[i];
+      const prev = i > 0 ? input[i - 1] : "";
+
+      if (ch === "(") return (i++, { type: "LPAREN", start, end: i });
+      if (ch === ")") return (i++, { type: "RPAREN", start, end: i });
+      if (ch === "|") return (i++, { type: "OR", start, end: i });
+      if (ch === "~") return (i++, { type: "CONTAINS", op: "~", start, end: i });
+      if (ch === ">" || ch === "<") {
+        let op = ch;
+        i += 1;
+        if (input[i] === "=") {
+          op += "=";
+          i += 1;
+        }
+        return { type: "COMP", op, start, end: i };
+      }
+      if (ch === "-" && (i === 0 || isWhitespace(prev) || prev === "(")) {
+        return (i++, { type: "MINUS", start, end: i });
+      }
+
+      if (ch === '"') {
+        const value = readPhrase();
+        return { type: "PHRASE", value, start, end: i };
+      }
+
+      const wordStart = i;
+      const word = readWord();
+      const upper = word.toUpperCase();
+
+      if (i < input.length) {
+        if (input[i] === ":") {
+          i++;
+          return { type: "FIELD", key: word, op: ":", start: wordStart, end: i };
+        }
+        if (input[i] === "~") {
+          i++;
+          return { type: "FIELD", key: word, op: "~", start: wordStart, end: i };
+        }
+        if (input[i] === ">" || input[i] === "<") {
+          let op = input[i];
+          i += 1;
+          if (input[i] === "=") {
+            op += "=";
+            i += 1;
+          }
+          return { type: "FIELD", key: word, op, start: wordStart, end: i };
+        }
+      }
+
+    if (upper === "OR") return { type: "OR", start: wordStart, end: i };
+    if (upper === "AND") return { type: "AND", start: wordStart, end: i };
+    if (upper === "NOT") return { type: "NOT", start: wordStart, end: i };
+      return { type: "WORD", value: word, start: wordStart, end: i };
+    };
+
+    const isWhitespace = (c) => c === " " || c === "\t" || c === "\n" || c === "\r";
+
+    const isWordChar = (c) =>
+      c !== undefined &&
+      !isWhitespace(c) &&
+      c !== "(" &&
+      c !== ")" &&
+      c !== ":" &&
+      c !== '"' &&
+      c !== "|" &&
+      c !== "~" &&
+      c !== ">" &&
+      c !== "<";
+
+    const readWord = () => {
+      const start = i;
+      while (i < input.length && isWordChar(input[i])) i++;
+      if (i === start) error("Expected word");
+      return input.slice(start, i);
+    };
+
+    const readPhrase = () => {
+      i++;
+      let out = "";
+      while (i < input.length) {
+        const ch = input[i];
+
+        if (ch === "\\") {
+          const nextChar = input[i + 1];
+          if (nextChar === undefined) error("Unterminated escape in string");
+          out += unescapeChar(nextChar);
+          i += 2;
+          continue;
+        }
+        if (ch === '"') {
+          i++;
+          return out;
+        }
+        out += ch;
+        i++;
+      }
+      error("Unterminated quote");
+    };
+
+    const unescapeChar = (c) => {
+      if (c === "n") return "\n";
+      if (c === "t") return "\t";
+      if (c === "r") return "\r";
+      return c;
+    };
+
+    return { peek, next, match, expect, error, startsExpression };
+  }
+
+  function parseExpression(ts, minBp) {
+    let left = parsePrimary(ts);
+
+    while (true) {
+      const next = ts.peek();
+      let op = null;
+      let lbp = 0;
+
+      let explicit = false;
+      if (next && next.type === "OR") {
+        op = "OR";
+        lbp = 1;
+        explicit = true;
+      } else if (next && next.type === "AND") {
+        op = "AND";
+        lbp = 2;
+        explicit = true;
+      } else if (next && ts.startsExpression(next.type)) {
+        op = "AND"; // terms side by side: an implicit AND; the token starts the next term
+        lbp = 2;
+      } else {
+        break;
+      }
+
+      if (lbp < minBp) break;
+      if (explicit) ts.next();
+
+      const right = parseExpression(ts, lbp + 1);
+      if (op === "AND") {
+        left = makeAnd([left, right]);
+      } else {
+        left = makeOr([left, right]);
+      }
+    }
+
+    return left;
+  }
+
+  function parsePrimary(ts) {
+    const token = ts.next();
+    if (!token || token.type === "EOF") throw ts.error("Expected a term after the operator", token);
+
+    if (token.type === "WORD") {
+      if (ts.peek().type === "COMP" || ts.peek().type === "CONTAINS") {
+        const comp = ts.next();
+        const value = parsePrimaryValue(ts);
+        return { type: "FILTER", key: token.value, op: comp.op, value };
+      }
+      return { type: "TEXT", value: token.value, kind: "word" };
+    }
+    if (token.type === "PHRASE") {
+      return { type: "TEXT", value: token.value, kind: "phrase" };
+    }
+    if (token.type === "MINUS" || token.type === "NOT") {
+      return { type: "NOT", term: parseExpression(ts, 3) };
+    }
+    if (token.type === "LPAREN") {
+      const expr = parseExpression(ts, 0);
+      ts.expect("RPAREN", "Expected ')'");
+      return expr;
+    }
+    if (token.type === "FIELD") {
+      if ((token.op === ":" || token.op === "~") && ts.match("LPAREN")) {
+        const expr = parseExpression(ts, 0);
+        ts.expect("RPAREN", "Expected ')'");
+        return scopeField(token.key, expr, token.op);
+      }
+      const value = parsePrimaryValue(ts);
+      return { type: "FILTER", key: token.key, op: token.op, value };
+    }
+
+    throw ts.error("Expected a term", token);
+  }
+
+  function parsePrimaryValue(ts) {
+    const next = ts.peek();
+    if (next.type === "WORD") {
+      const token = ts.next();
+      return { type: "TEXT", value: token.value, kind: "word" };
+    }
+    if (next.type === "PHRASE") {
+      const token = ts.next();
+      return { type: "TEXT", value: token.value, kind: "phrase" };
+    }
+    throw ts.error("Expected a field value", next);
+  }
+
+  function scopeField(field, node, op = ":") {
+    if (!node) return { type: "EMPTY" };
+    if (node.type === "TEXT") {
+      return { type: "FILTER", key: field, op, value: node };
+    }
+    if (node.type === "AND") {
+      return makeAnd(node.terms.map((term) => scopeField(field, term, op)));
+    }
+    if (node.type === "OR") {
+      return makeOr(node.terms.map((term) => scopeField(field, term, op)));
+    }
+    if (node.type === "NOT") {
+      return { type: "NOT", term: scopeField(field, node.term, op) };
+    }
+    return node;
+  }
+
+  function makeAnd(nodes) {
+    const flat = [];
+    for (const n of nodes) (n.type === "AND" ? flat.push(...n.terms) : flat.push(n));
+    return flat.length === 1 ? flat[0] : { type: "AND", terms: flat };
+  }
+
+  function makeOr(nodes) {
+    const flat = [];
+    for (const n of nodes) (n.type === "OR" ? flat.push(...n.terms) : flat.push(n));
+    return flat.length === 1 ? flat[0] : { type: "OR", terms: flat };
+  }
+
+  return {
+    getFieldValue,
+    toComparable,
+    globToRegex,
+    tokenizeQuery,
+    parseQuery,
+    matchFieldTerm,
+    matchBareTerm,
+    filterObjects,
+    makePredicate,
+    getQueryPredicate,
+  };
+};
+
+export const parser = buildParser();
+
+// "Expected ')' at 13" -> a sentence that names the spot in the query.
+export const describeQueryError = (query, error) => {
+  const message = String(error?.message || error || "Invalid query");
+  const match = message.match(/^(.*) at (\d+)$/);
+  if (!match) return `Can't run this search: ${message}.`;
+  const [, reason, at] = match;
+  const position = Number(at);
+  const near = String(query).slice(position, position + 12).trim();
+  return near
+    ? `Can't run this search: ${reason}, near “${near}” (character ${position + 1}).`
+    : `Can't run this search: ${reason}, at the end of the query.`;
+};
+export const {
+  getFieldValue,
+  toComparable,
+  globToRegex,
+  tokenizeQuery,
+  parseQuery,
+  matchFieldTerm,
+  matchBareTerm,
+  filterObjects,
+  makePredicate,
+  getQueryPredicate,
+} = parser;

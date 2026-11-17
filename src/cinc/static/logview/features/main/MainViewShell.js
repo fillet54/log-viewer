@@ -1,0 +1,440 @@
+import { smoothScrollTo } from "../../../shared.js";
+import "../chart/LogMainChart.js";
+import "../chart/MapChart.js";
+import {
+  MainLogPane,
+  buildEventByRowId,
+  buildIndexByRowId,
+  findClosestIndexByTime,
+} from "./LogVirtualList.js";
+import { MainViewToolbar } from "./MainViewToolbar.js";
+import { html, hooks, appHooks } from "logview/lib";
+import { getQueryPredicate } from "../../../services/search.js";
+import { buildOffsets, indexAtOffset } from "../../row-metrics.js";
+
+const LogMainViewChart = window.LogMainViewChart || null;
+const { useEffect, useLayoutEffect, useRef, useState } = hooks;
+
+const VIEW_MODE_SPLIT = "split";
+const VIEW_MODE_CHART = "chart";
+const VIEW_MODE_LIST = "list";
+
+export const MainViewShell = () => {
+    const services = appHooks.useAppServices();
+    const viewerStore = services?.viewerStore || null;
+    const events = Array.isArray(services?.logData?.events) ? services.logData.events : [];
+    const logTypes = services?.logTypes || {};
+    const activeFilterQueries = viewerStore?.activeFilterQueries?.value || [];
+    const selectedEvent = viewerStore?.selectedEvent?.value || null;
+    const filteredEvents = viewerStore?.filteredEvents?.value || events;
+    const jumpTarget = viewerStore?.logJump?.value || null;
+    const bookmarkState = viewerStore?.bookmarks?.value || null;
+    
+    const rootRef = useRef(null);
+    const chartRegionRef = useRef(null);
+    const logRegionRef = useRef(null);
+    const logBodyRef = useRef(null);
+    const logListRef = useRef(null);
+    const measureRef = useRef(null);
+    const commandBarRef = useRef(null);
+    const chartControllerRef = useRef(null);
+    const scrollFrameRef = useRef(0);
+    const pendingFilterRef = useRef(0);
+    const pendingJumpRef = useRef(null);
+    const processedJumpNonceRef = useRef(null);
+    const highlightNonceRef = useRef(0);
+    
+    const filteredRef = useRef(events);
+    // Filled once here and rebuilt by the effects below when events change; a
+    // plain useRef(build(...)) would build both maps again on every render.
+    const indexByRowIdRef = useRef(null);
+    const eventByRowIdRef = useRef(null);
+    if (indexByRowIdRef.current === null) indexByRowIdRef.current = buildIndexByRowId(events);
+    if (eventByRowIdRef.current === null) eventByRowIdRef.current = buildEventByRowId(events);
+
+    const viewMode = viewerStore?.mainViewMode?.value || VIEW_MODE_SPLIT;
+    const chartSplit = viewerStore?.mainViewSplitSizes?.value || [36, 64];
+    const [chartTypes, setChartTypes] = useState([]);
+    const timelineViews = window.LogMainViewTimeline?.listFor?.(services?.presentTypes) || [];
+    const selectedChartType = viewerStore?.chartType?.value || "";
+    const placementKey = JSON.stringify(viewerStore?.chartPlacement?.value || {});
+    const [rowStride, setRowStride] = useState(38);
+    const rowHeights = new Map(
+      Object.entries(services?.logTypes || {}).map(([id, config]) => [
+        id,
+        Number(config.rowHeight) || rowStride,
+      ])
+    );
+    const offsets = buildOffsets(filteredEvents, rowHeights, rowStride);
+    const [highlightState, setHighlightState] = useState({ rowId: null, nonce: 0 });
+    const [lockToBottom, setLockToBottom] = useState(false);
+    const lockToBottomRef = useRef(false);
+    const programmaticScrollRef = useRef(false);
+
+    filteredRef.current = filteredEvents;
+    lockToBottomRef.current = lockToBottom;
+    const selectedRowId = selectedEvent?.row_id ?? null;
+
+    appHooks.useSplit({
+      refs: [chartRegionRef, logRegionRef],
+      enabled: viewMode === VIEW_MODE_SPLIT,
+      options: {
+        direction: "vertical",
+        sizes: chartSplit,
+        minSize: [170, 220],
+        gutterSize: 10,
+        elementStyle: (dimension, size, gutterSizeValue) => ({
+          "flex-basis": `calc(${size}% - ${gutterSizeValue}px)`,
+        }),
+        gutterStyle: (dimension, gutterSizeValue) => ({
+          "flex-basis": `${gutterSizeValue}px`,
+        }),
+        onDragEnd: (sizes) => {
+          viewerStore?.setMainViewSplitSizes?.(sizes);
+          chartControllerRef.current?.resize?.();
+          requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
+        },
+      },
+      dependencies: [viewMode, chartSplit[0], chartSplit[1]],
+    });
+
+    const safeViewMode = new Set([VIEW_MODE_SPLIT, VIEW_MODE_CHART, VIEW_MODE_LIST]).has(viewMode)
+      ? viewMode
+      : VIEW_MODE_SPLIT;
+
+    const smoothScrollToIndex = (index, duration = 180) => {
+      const container = logBodyRef.current;
+      const list = filteredRef.current;
+      if (index == null || !container || !list.length) return null;
+
+      const rowTop = offsets[index] || 0;
+      const rowHeight = (offsets[index + 1] || rowTop) - rowTop;
+      const targetTop = rowTop - container.clientHeight / 2 + rowHeight / 2;
+      const clamped = Math.max(0, Math.min(targetTop, container.scrollHeight));
+      const selected = list[index] || null;
+
+      programmaticScrollRef.current = true;
+      smoothScrollTo(container, clamped, duration, () => {
+        programmaticScrollRef.current = false;
+        if (!selected) return;
+        highlightNonceRef.current += 1;
+        setHighlightState({
+          rowId: selected.row_id,
+          nonce: highlightNonceRef.current,
+        });
+      });
+
+      if (selected) {
+        viewerStore?.setSelectedEvent(selected);
+      }
+      return selected;
+    };
+
+    const applyFilterQueries = (queries) => {
+      const terms = (queries || []).map((query) => String(query || "").trim()).filter(Boolean);
+      const requestId = ++pendingFilterRef.current;
+
+      if (!terms.length) {
+        viewerStore?.setFilteredEvents(events);
+        return;
+      }
+
+      const query = terms.join(" OR ");
+      if (requestId !== pendingFilterRef.current) return;
+      const predicatesByConfig = new Map();
+      const getPredicates = (config) => {
+        const key = JSON.stringify(config || {});
+        if (!predicatesByConfig.has(key)) {
+          predicatesByConfig.set(
+            key,
+            terms.map((term) => {
+              // A saved filter that no longer parses matches nothing rather than breaking the view.
+              try {
+                return getQueryPredicate(term, config);
+              } catch (error) {
+                console.warn(`Cinc: ignoring filter "${term}":`, error.message);
+                return () => false;
+              }
+            })
+          );
+        }
+        return predicatesByConfig.get(key);
+      };
+      viewerStore?.setFilteredEvents(events.filter((event) => {
+        const config = logTypes[event?.log_type]?.search || undefined;
+        return getPredicates(config).some((predicate) => predicate(event));
+      }));
+    };
+
+    const emitScrollState = () => {
+      const container = logBodyRef.current;
+      const list = filteredRef.current;
+      if (!container || !list.length) return;
+
+      const index = Math.max(
+        0,
+        Math.min(
+          list.length - 1,
+          indexAtOffset(offsets, container.scrollTop + container.clientHeight / 2)
+        )
+      );
+      const current = list[index] || null;
+      if (current) {
+        viewerStore?.setLogScroll?.({ timeMs: Date.parse(current.time || ""), rowId: current.row_id });
+      }
+    };
+
+    const virtual = appHooks.useVirtualList({
+      containerRef: logBodyRef,
+      itemCount: filteredEvents.length,
+      rowHeight: rowStride,
+      offsets,
+      overscan: 10,
+      maxVisible: 180,
+      dependencies: [bookmarkState],
+    });
+
+    const visibleItems = filteredEvents.slice(virtual.startIndex, virtual.endIndex);
+
+    if (typeof useLayoutEffect === "function") {
+      useLayoutEffect(() => {
+        const root = rootRef.current;
+        if (!root || !services?.logData) return undefined;
+
+        const controller = LogMainViewChart?.mount?.(root, services);
+        if (!controller) return undefined;
+
+        chartControllerRef.current = controller;
+        controller.attachToolbar({ commandBarEl: commandBarRef.current });
+
+        const types = controller.listTypes();
+        setChartTypes(types);
+
+        if (!types.length) {
+          viewerStore?.setChartType("");
+          return () => {
+            controller.destroy?.();
+            chartControllerRef.current = null;
+          };
+        }
+
+        const preferredType = viewerStore?.chartType?.value || "";
+        const nextType = types.some((type) => type.id === preferredType)
+          ? preferredType
+          : types.some((type) => type.id === controller.getCurrentType())
+            ? controller.getCurrentType()
+            : types[0].id;
+        viewerStore?.setChartType(nextType);
+        controller.setType(nextType);
+
+        return () => {
+          controller.destroy?.();
+          chartControllerRef.current = null;
+        };
+      }, [services]);
+
+      useLayoutEffect(() => {
+        const host = measureRef.current;
+        const list = logListRef.current;
+        if (!host || !list || !events.length) return;
+
+        const sample = host.firstElementChild;
+        if (!sample) return;
+
+        const rowHeight = sample.getBoundingClientRect().height || 38;
+        const listStyle = getComputedStyle(list);
+        const gap = parseFloat(listStyle.rowGap || listStyle.gap || "0") || 0;
+
+        if (rowHeight > 0) {
+          setRowStride(rowHeight + gap);
+          virtual.invalidate();
+        }
+      }, [services, events.length, viewerStore?.density?.value]);
+    }
+
+    if (typeof useEffect === "function") {
+      useEffect(() => {
+        eventByRowIdRef.current = buildEventByRowId(events);
+        indexByRowIdRef.current = buildIndexByRowId(events);
+        pendingFilterRef.current += 1;
+        pendingJumpRef.current = null;
+      }, [events]);
+
+      useEffect(() => {
+        filteredRef.current = filteredEvents;
+        indexByRowIdRef.current = buildIndexByRowId(filteredEvents);
+      }, [filteredEvents]);
+
+      useEffect(() => {
+        if (!viewerStore) return;
+        applyFilterQueries(activeFilterQueries);
+      }, [viewerStore, events, activeFilterQueries.join("\u0000")]);
+
+      useEffect(() => {
+        const pendingJump = pendingJumpRef.current;
+        const currentNonce = jumpTarget?.nonce ?? null;
+        // Skip if this is not a new jump target and filteredEvents just changed
+        // due to live event appends — avoids re-scrolling to the last navigation
+        // position every time new SSE events arrive.
+        if (!pendingJump && currentNonce === processedJumpNonceRef.current) return;
+        const target = pendingJump || jumpTarget;
+        if (!target) return;
+        processedJumpNonceRef.current = currentNonce;
+
+        if (target.rowId != null) {
+          const rowIndex = indexByRowIdRef.current.get(String(target.rowId));
+          if (rowIndex != null) {
+            pendingJumpRef.current = null;
+            smoothScrollToIndex(rowIndex);
+            return;
+          }
+          if (target.timeMs == null) {
+            pendingJumpRef.current = null;
+            return;
+          }
+        }
+
+        if (target.timeMs != null) {
+          pendingJumpRef.current = null;
+          smoothScrollToIndex(findClosestIndexByTime(filteredEvents, target.timeMs));
+        }
+      }, [filteredEvents, rowStride, jumpTarget?.nonce ?? 0]);
+
+      useEffect(() => {
+        const container = logBodyRef.current;
+        if (!container) return undefined;
+
+        const onScroll = () => {
+          if (scrollFrameRef.current) return;
+          scrollFrameRef.current = requestAnimationFrame(() => {
+            scrollFrameRef.current = 0;
+            emitScrollState();
+            // Unlock if the user manually scrolled away from the bottom.
+            // Skip this check during programmatic scrolls to avoid unlocking
+            // mid-animation when the container hasn't reached the bottom yet.
+            if (lockToBottomRef.current && !programmaticScrollRef.current) {
+              const atBottom =
+                container.scrollTop + container.clientHeight >= container.scrollHeight - rowStride * 1.5;
+              if (!atBottom) setLockToBottom(false);
+            }
+          });
+        };
+
+        container.addEventListener("scroll", onScroll, { passive: true });
+        return () => {
+          container.removeEventListener("scroll", onScroll);
+          if (scrollFrameRef.current) {
+            cancelAnimationFrame(scrollFrameRef.current);
+            scrollFrameRef.current = 0;
+          }
+        };
+      }, [services, rowStride, filteredEvents.length]);
+
+      // Scroll to the last event whenever new events arrive while locked.
+      useEffect(() => {
+        if (!lockToBottom || !filteredEvents.length) return;
+        smoothScrollToIndex(filteredEvents.length - 1, 120);
+      }, [lockToBottom, filteredEvents.length]);
+
+      useEffect(() => {
+        chartControllerRef.current?.resize?.();
+        requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
+      }, [safeViewMode, chartSplit[0], chartSplit[1]]);
+
+      // A chart moved between the chart area and the side panel: relist, and pick another if it left.
+      useEffect(() => {
+        const controller = chartControllerRef.current;
+        if (!controller?.refreshTypes) return;
+        const types = controller.refreshTypes();
+        setChartTypes(types);
+        const current = viewerStore?.chartType?.value || "";
+        if (!types.some((type) => type.id === current)) {
+          const next = types[0]?.id || "";
+          viewerStore?.setChartType(next);
+          if (next) controller.setType(next);
+        }
+      }, [placementKey]);
+
+      useEffect(() => {
+        const controller = chartControllerRef.current;
+        if (!controller) return;
+        controller.attachToolbar({ commandBarEl: commandBarRef.current });
+        if (selectedChartType) {
+          controller.setType(selectedChartType);
+        }
+      }, [selectedChartType, chartTypes.length]);
+    }
+
+    return html`
+      <div ref=${rootRef} class="main-view-shell">
+        <${MainViewToolbar}
+          chartTypes=${chartTypes}
+          timelineViews=${timelineViews}
+          selectedChartType=${selectedChartType}
+          commandBarRef=${commandBarRef}
+          viewMode=${safeViewMode}
+          lockToBottom=${lockToBottom}
+          activeTimelineView=${viewerStore?.timelineView?.value || "events"}
+          density=${viewerStore?.density?.value || "compact"}
+          timeMode=${viewerStore?.timeMode?.value || "absolute"}
+          onDensityChange=${(next) => viewerStore?.setDensity?.(next)}
+          onTimeModeChange=${(next) => viewerStore?.setTimeMode?.(next)}
+          timeReference=${viewerStore?.timeReferenceRowId?.value == null
+            ? (events.length ? { event: viewerStore?.getTimeReferenceEvent?.(), pinned: false } : null)
+            : { event: viewerStore?.getTimeReferenceEvent?.(), pinned: true }}
+          onJumpToReference=${() => {
+            const reference = viewerStore?.getTimeReferenceEvent?.();
+            if (!reference) return;
+            viewerStore?.setSelectedEvent?.(reference);
+            viewerStore?.setLogJump?.({ rowId: reference.row_id });
+          }}
+          onClearReference=${() => viewerStore?.clearTimeReference?.()}
+          onToggleLockToBottom=${() => setLockToBottom((v) => !v)}
+          onMoveChartToSide=${(chartId) => viewerStore?.setChartPlacement?.(chartId, "side")}
+          onChartTypeChange=${(nextType) => {
+            viewerStore?.setChartType(nextType);
+          }}
+          onTimelineViewChange=${(nextView) => {
+            viewerStore?.setTimelineView(nextView);
+            chartControllerRef.current?.getActivePanelController?.()?.setView?.(nextView);
+          }}
+          onViewModeChange=${(nextMode) => {
+            viewerStore?.setMainViewMode(nextMode);
+          }}
+        />
+        <div class="main-view-stack" id="main-view-stack" data-mode=${safeViewMode}>
+          <section
+            class="main-view-region main-view-chart-region"
+            id="chart-region"
+            ref=${chartRegionRef}
+            style=${safeViewMode === VIEW_MODE_CHART
+              ? { flex: "1 1 auto" }
+              : safeViewMode === VIEW_MODE_LIST
+                ? { flex: "0 0 0" }
+                : {}}
+          >
+            <div class="chart-band">
+              <div id="chart-panel-host" class="chart-panel-host"></div>
+            </div>
+          </section>
+          <${MainLogPane}
+            logRegionRef=${logRegionRef}
+            logBodyRef=${logBodyRef}
+            measureRef=${measureRef}
+            viewMode=${safeViewMode}
+            filteredEvents=${filteredEvents}
+            rowStride=${rowStride}
+            offsets=${offsets}
+            virtual=${virtual}
+            visibleItems=${visibleItems}
+            services=${services}
+            eventByRowId=${eventByRowIdRef.current}
+            selectedRowId=${selectedRowId}
+            highlightState=${highlightState}
+            bookmarkState=${bookmarkState}
+            logListRef=${logListRef}
+          />
+        </div>
+      </div>
+    `;
+};
