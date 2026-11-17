@@ -1,0 +1,78 @@
+{% import "_theme.html" as theme %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ title }} · Cinc</title>
+    {{ theme.head_script() }}
+    <style>
+{{ styles|safe }}
+    </style>
+  </head>
+  <body class="app-body app-body-viewer app-body-standalone">
+    <div class="app-shell">
+      <header class="topbar">
+        <span class="brand">
+          <img src="{{ logo_light }}" class="brand-logo brand-logo-light" alt="" />
+          <img src="{{ logo_dark }}" class="brand-logo brand-logo-dark" alt="" />
+          <span class="brand-name">Cinc</span>
+        </span>
+        <div class="topbar-log"><h1 class="topbar-log-name" title="{{ title }}">{{ title }}</h1></div>
+        <div class="topbar-actions">
+          <span class="user-state">Standalone page</span>
+          <button type="button" id="theme-toggle" class="button button-ghost button-xs">Theme</button>
+        </div>
+      </header>
+      <main class="app-content">
+        <div class="viewer-page">
+          <div id="log-viewer-root" class="log-viewer-root"></div>
+        </div>
+      </main>
+    </div>
+    {{ theme.toggle_script() }}
+    {% for script in global_scripts %}
+    <script>
+{{ script|safe }}
+    </script>
+    {% endfor %}
+
+    {% if map %}
+    <style id="cinc-leaflet-style">
+{{ map.style|safe }}
+    </style>
+    <script>{{ map.config|safe }}</script>
+    <script id="cinc-leaflet-source" type="text/plain">
+{{ map.source|safe }}
+    </script>
+    {% endif %}
+
+    <script id="esm-data" type="application/json">
+{{ esm_data|safe }}
+    </script>
+    <script>
+      (function() {
+        const dataNode = document.getElementById('esm-data');
+        if (!dataNode) return;
+        const data = JSON.parse(dataNode.textContent);
+        const imports = {};
+        for (const [id, code] of Object.entries(data.modules)) {
+          imports[id] = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+        }
+        // Bare names share the module instance of the file they name.
+        for (const [name, id] of Object.entries(data.aliases || {})) imports[name] = imports[id];
+        const script = document.createElement('script');
+        script.type = 'importmap';
+        script.textContent = JSON.stringify({ imports });
+        document.head.appendChild(script);
+      })();
+    </script>
+
+    {% if entry_point_id %}
+    <script type="module">
+      import "static/runtime.js";
+      import "{{ entry_point_id }}";
+    </script>
+    {% endif %}
+  </body>
+</html>
