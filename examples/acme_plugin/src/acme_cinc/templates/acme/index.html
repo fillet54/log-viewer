@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% set nav_current = "acme" %}
+
+{% block title %}Acme · Cinc{% endblock %}
+
+{% block content %}
+<div class="page">
+  <h1 class="page-title">Open faults by owner</h1>
+  <p class="page-lead">Faults still set at the end of each core_event log, per owning team.</p>
+  <form method="post" action="{{ url_for('acme.demo') }}">
+    <button type="submit" class="button button-xs">Write a demo log</button>
+  </form>
+  {% if logs %}
+  <table class="log-table">
+    <thead><tr><th>Log</th><th>Started</th><th>Open faults</th></tr></thead>
+    <tbody>
+      {% for item in logs %}
+      <tr>
+        <td><a href="{{ url_for('view_log', log_id=item.log.id) }}">{{ item.meta.name }}</a></td>
+        <td class="mono">{{ item.meta.started|when }}</td>
+        <td>{% for owner, count in item.open.most_common() %}<span class="chip">{{ owner }} {{ count }}</span> {% else %}none{% endfor %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="page-empty">No core_event logs yet.</p>
+  {% endif %}
+</div>
+{% endblock %}
