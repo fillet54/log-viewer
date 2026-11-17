@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+/data/
+log_viewer.db
+build/
+*.egg-info/
+.pytest_cache/
+.DS_Store
+*.pyc
+cinc-data/
+/standalone.html
+/standalone/

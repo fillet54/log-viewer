@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cinc"
+version = "0.1.0"
+description = "HTML log viewer"
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=3.1.3",
+    "jinja2>=3.1.6",
+    "waitress>=3.0.2",
+    "docopt>=0.6.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "flake8", "black"]
+
+[project.scripts]
+cinc = "cinc.__main__:main"
+
+[project.entry-points."cinc.plugins"]
+core_event = "cinc.plugins.core_event:setup"
+text_log = "cinc.plugins.text_log:setup"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["cinc*"]
+
+[tool.setuptools.package-data]
+cinc = [
+    "templates/**/*.html",
+    "static/**/*.js",
+    "static/**/*.mjs",
+    "static/**/*.css",
+    "static/**/*.html",
+    "plugins/**/*.html",
+    "plugins/**/*.js",
+    "plugins/**/*.css",
+    "static/vendor/MANIFEST.json",
+    "static/vendor/leaflet/*",
+    "data/basemap/*.json.gz",
+    "static/img/*.png",
+    "static/fonts/*",
+]
