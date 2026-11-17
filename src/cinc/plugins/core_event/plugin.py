@@ -1,0 +1,541 @@
+from __future__ import annotations
+
+from collections import deque
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+from cinc.core.times import parse_time
+
+from .config import severities as severity_scale
+
+DEFAULT_CORE_EVENT_CHANNELS = ["A", "B", "C", "D"]
+COLOR_PREFIX = {
+    "green": "G",
+    "yellow": "Y",
+    "red": "R",
+    "dark-red": "R",
+    "flashing-red": "F",
+}
+
+
+def _parse_datetime(value: Any) -> datetime | None:
+    if value is None:
+        return None
+    try:
+        return parse_time(str(value)).astimezone(timezone.utc)
+    except ValueError:
+        return None
+
+
+def _isoformat_seconds(value: datetime) -> str:
+    return (
+        value.astimezone(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+
+def _normalize_action(value: Any) -> str:
+    action = str(value or "").strip().lower()
+    return "clear" if action == "clear" else "set"
+
+
+def _normalize_channel_name(value: Any) -> str:
+    return str(value or "").strip().upper()
+
+
+def _normalize_channel_count(value: Any) -> int | None:
+    try:
+        count = int(value)
+    except (TypeError, ValueError):
+        return None
+    return count if count > 0 else None
+
+
+def _build_default_channel_labels(count: int) -> list[str]:
+    if count <= 0:
+        return []
+    if count <= 26:
+        return [chr(ord("A") + index) for index in range(count)]
+    return [str(index + 1) for index in range(count)]
+
+
+def _coerce_string(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _unique_non_empty(values: list[Any]) -> list[str]:
+    result: list[str] = []
+    for value in values:
+        text = _coerce_string(value)
+        if text and text not in result:
+            result.append(text)
+    return result
+
+
+def _normalize_entity_fields(raw_event: dict[str, Any], key: str) -> dict[str, Any]:
+    raw_value = raw_event.get(key)
+    raw_id = raw_event.get(f"{key}_id")
+    raw_name = raw_event.get(f"{key}_name")
+
+    value_id = ""
+    value_name = ""
+
+    if isinstance(raw_value, dict):
+        value_id = _coerce_string(raw_value.get("id"))
+        value_name = _coerce_string(raw_value.get("name") or raw_value.get("label"))
+    elif raw_value is not None:
+        if raw_name or raw_id:
+            candidate = _coerce_string(raw_value)
+            if (
+                candidate
+                and candidate != _coerce_string(raw_id)
+                and candidate != _coerce_string(raw_name)
+            ):
+                value_name = candidate
+        else:
+            value_name = _coerce_string(raw_value)
+
+    value_id = _coerce_string(raw_id) or value_id
+    value_name = _coerce_string(raw_name) or value_name
+    display = value_name or value_id
+    search_values = _unique_non_empty([display, value_id, value_name])
+
+    return {
+        key: display,
+        f"{key}_id": value_id,
+        f"{key}_name": value_name,
+        f"{key}_search": search_values,
+    }
+
+
+def _infer_event_channels(event: dict[str, Any]) -> list[str]:
+    inferred: list[str] = []
+    for key, value in event.items():
+        if (
+            value is None
+            or key == "norm_time"
+            or not isinstance(key, str)
+            or not key.endswith("_time")
+        ):
+            continue
+        channel = _normalize_channel_name(key[:-5])
+        if channel and channel not in inferred:
+            inferred.append(channel)
+    return inferred
+
+
+def _resolve_channel_catalog(
+    payload: dict[str, Any], raw_events: list[dict[str, Any]]
+) -> list[str]:
+    configured = payload.get("channels")
+    configured_count = _normalize_channel_count(payload.get("channelCount"))
+    discovered: list[str] = []
+
+    if isinstance(configured, list):
+        for item in configured:
+            channel = _normalize_channel_name(item)
+            if channel and channel not in discovered:
+                discovered.append(channel)
+
+    if not discovered and configured_count is not None:
+        discovered.extend(_build_default_channel_labels(configured_count))
+
+    for event in raw_events:
+        explicit = event.get("channels")
+        source = (
+            explicit if isinstance(explicit, list) else _infer_event_channels(event)
+        )
+        for item in source:
+            channel = _normalize_channel_name(item)
+            if channel and channel not in discovered:
+                discovered.append(channel)
+    if not discovered:
+        return list(DEFAULT_CORE_EVENT_CHANNELS)
+    return discovered
+
+
+def _normalize_channel_list(
+    event: dict[str, Any], available_channels: list[str]
+) -> list[str]:
+    available = [
+        _normalize_channel_name(channel)
+        for channel in available_channels
+        if _normalize_channel_name(channel)
+    ]
+    available_set = set(available)
+    explicit = event.get("channels")
+    if isinstance(explicit, list):
+        valid = []
+        for item in explicit:
+            channel = _normalize_channel_name(item)
+            if channel in available_set and channel not in valid:
+                valid.append(channel)
+        if valid:
+            return [channel for channel in available if channel in valid]
+
+    inferred = _infer_event_channels(event)
+    if not inferred:
+        return []
+    if not available:
+        return inferred
+    return [channel for channel in available if channel in inferred]
+
+
+def _normalize_norm_time(value: Any, fallback: int | float = 0) -> float:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return float(fallback)
+    return numeric
+
+
+def _resolve_fallback_start(
+    raw_events: list[dict[str, Any]],
+) -> datetime | None:
+    for event in raw_events:
+        parsed = _parse_datetime(event.get("utctime"))
+        if parsed is None:
+            continue
+        seconds = _normalize_norm_time(event.get("norm_time"), 0)
+        return parsed - timedelta(seconds=seconds)
+    return None
+
+
+def _build_pair_key(event: dict[str, Any], channel: str) -> str:
+    return "|".join(
+        [
+            str(event.get("system") or "").strip(),
+            str(event.get("subsystem") or "").strip(),
+            str(event.get("unit") or "").strip(),
+            str(event.get("code") or "").strip(),
+            channel,
+        ]
+    )
+
+
+def _format_duration_label(seconds: float) -> str:
+    if seconds < 0:
+        return ""
+    return f"{round(seconds)}s"
+
+
+def _has_event_data(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, list):
+        return len(value) > 0
+    if isinstance(value, dict):
+        return len(value) > 0
+    if isinstance(value, str):
+        return bool(value.strip())
+    return True
+
+
+def _build_fault_prefix(event: dict[str, Any]) -> str:
+    raw_code = str(event.get("code") or "").strip()
+    if not raw_code:
+        return ""
+
+    severity = COLOR_PREFIX.get(str(event.get("tone") or "green"), "G")
+    parts = [part for part in raw_code.split("-") if part]
+
+    if len(parts) >= 2:
+        return f"{parts[0]}-{severity}-{'-'.join(parts[1:])}"
+
+    system_prefix = "".join(
+        ch for ch in str(event.get("system") or "").strip().upper() if ch.isalnum()
+    )[:3]
+    return (
+        f"{system_prefix}-{severity}-{raw_code}"
+        if system_prefix
+        else f"{severity}-{raw_code}"
+    )
+
+
+def _build_row_display(event: dict[str, Any]) -> dict[str, Any]:
+    norm_time = float(event.get("norm_time") or 0)
+    location = ":".join(
+        str(event.get(key) or "").strip()
+        for key in ("system", "subsystem", "unit")
+        if str(event.get(key) or "").strip()
+    )
+    prefix = _build_fault_prefix(event)
+    has_data = _has_event_data(event.get("data"))
+
+    return {
+        "utctime": str(event.get("utctime") or ""),
+        "actionLabel": str(event.get("set_clear") or ""),
+        "name": str(event.get("name") or ""),
+        "prefix": f"[{prefix}]" if prefix else "",
+        "offset": f"{norm_time:.3f}s",
+        "description": str(event.get("description") or ""),
+        "location": location,
+        "hasData": has_data,
+        "dataLabel": "Event has data" if has_data else "No event data",
+    }
+
+
+def _summarize_matches(
+    event: dict[str, Any], channel_matches: dict[str, Any]
+) -> dict[str, Any]:
+    channels = event.get("channels") or []
+    if not channels:
+        return {"items": [], "collapsed": False}
+
+    matches = [
+        channel_matches[channel]
+        for channel in channels
+        if channel_matches.get(channel)
+        and channel_matches[channel].get("linkedRowId") is not None
+        and channel_matches[channel].get("durationSeconds") is not None
+    ]
+    if not matches:
+        return {"items": [], "collapsed": False}
+
+    reference = matches[0]
+    all_channels_matched = len(matches) == len(channels) and all(
+        item.get("linkedRowId") == reference.get("linkedRowId")
+        and item.get("direction") == reference.get("direction")
+        and item.get("label") == reference.get("label")
+        for item in matches
+    )
+
+    if all_channels_matched and len(channels) > 1:
+        return {
+            "collapsed": True,
+            "items": [
+                {
+                    "channelLabel": "ALL",
+                    "label": reference.get("label"),
+                    "linkedRowId": reference.get("linkedRowId"),
+                    "direction": reference.get("direction"),
+                    "title": reference.get("title"),
+                    "durationSeconds": reference.get("durationSeconds"),
+                }
+            ],
+        }
+
+    items = []
+    for channel in channels:
+        item = channel_matches.get(channel)
+        if (
+            not item
+            or item.get("linkedRowId") is None
+            or item.get("durationSeconds") is None
+        ):
+            continue
+        items.append(
+            {
+                "channelLabel": channel,
+                "label": item.get("label"),
+                "linkedRowId": item.get("linkedRowId"),
+                "direction": item.get("direction"),
+                "title": item.get("title"),
+                "durationSeconds": item.get("durationSeconds"),
+            }
+        )
+    return {"collapsed": False, "items": items}
+
+
+def _normalize_event(
+    raw_event: dict[str, Any],
+    index: int,
+    fallback_start: datetime | None,
+    available_channels: list[str],
+    scale: list[dict[str, str]],
+) -> dict[str, Any]:
+    parsed_utc = _parse_datetime(raw_event.get("utctime"))
+    if raw_event.get("norm_time") is not None:
+        norm_time = _normalize_norm_time(raw_event.get("norm_time"), index)
+    elif parsed_utc is not None and fallback_start is not None:
+        norm_time = max(0.0, (parsed_utc - fallback_start).total_seconds())
+    else:
+        norm_time = float(index)
+    if parsed_utc is not None:
+        utctime = _isoformat_seconds(parsed_utc)
+    elif fallback_start is not None:
+        utctime = _isoformat_seconds(fallback_start + timedelta(seconds=norm_time))
+    else:
+        utctime = _isoformat_seconds(datetime.fromtimestamp(0, tz=timezone.utc))
+
+    try:
+        row_id = int(raw_event.get("row_id"))
+    except (TypeError, ValueError):
+        row_id = index + 1
+
+    # Unknown colours fall back to the lowest severity of the scale.
+    rank = next(
+        (i for i, item in enumerate(scale) if item["name"] == raw_event.get("color")),
+        0,
+    )
+    raw_id = raw_event.get("id") or raw_event.get("name") or f"event-{index + 1}"
+    raw_name = raw_event.get("name") or raw_event.get("id") or f"Event {index + 1}"
+    system_fields = _normalize_entity_fields(raw_event, "system")
+    subsystem_fields = _normalize_entity_fields(raw_event, "subsystem")
+    unit_fields = _normalize_entity_fields(raw_event, "unit")
+
+    return {
+        **raw_event,
+        "row_id": row_id,
+        "time": utctime,
+        "norm_time": norm_time,
+        "utctime": utctime,
+        "id": str(raw_id),
+        "name": str(raw_name),
+        "description": str(raw_event.get("description") or ""),
+        "color": scale[rank]["name"],
+        "tone": scale[rank]["tone"],
+        "severity_rank": rank,
+        **system_fields,
+        **subsystem_fields,
+        **unit_fields,
+        "code": str(raw_event.get("code") or ""),
+        "set_clear": _normalize_action(raw_event.get("set_clear")),
+        "channels": _normalize_channel_list(raw_event, available_channels),
+        "data": raw_event.get("data"),
+        "pairedChannels": {},
+        "matchSummary": {"items": [], "collapsed": False},
+    }
+
+
+def _order_key(event: dict[str, Any]) -> tuple[float, int]:
+    """Pairing order: by norm_time, then the row's own id."""
+    return (float(event.get("norm_time") or 0), int(event.get("row_id") or 0))
+
+
+def _pair_links(
+    set_event: dict[str, Any], clear_event: dict[str, Any], channel: str
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The ``pairedChannels`` entries a SET and its CLEAR get on ``channel``."""
+    duration_seconds = max(
+        0.0,
+        float(clear_event.get("norm_time") or 0)
+        - float(set_event.get("norm_time") or 0),
+    )
+    label = _format_duration_label(duration_seconds)
+    forward = {
+        "channel": channel,
+        "linkedRowId": clear_event.get("row_id"),
+        "linkedSeconds": clear_event.get("norm_time"),
+        "durationSeconds": duration_seconds,
+        "direction": "forward",
+        "label": label,
+        "title": f"Jump to clear event for channel {channel}",
+    }
+    back = {
+        "channel": channel,
+        "linkedRowId": set_event.get("row_id"),
+        "linkedSeconds": set_event.get("norm_time"),
+        "durationSeconds": duration_seconds,
+        "direction": "back",
+        "label": label,
+        "title": f"Jump to set event for channel {channel}",
+    }
+    return forward, back
+
+
+def _finish_event(event: dict[str, Any]) -> None:
+    event["matchSummary"] = _summarize_matches(event, event.get("pairedChannels", {}))
+    event["rowDisplay"] = _build_row_display(event)
+
+
+def _derive_core_events(
+    raw_events: list[dict[str, Any]],
+    available_channels: list[str],
+    scale: list[dict[str, str]],
+) -> list[dict[str, Any]]:
+    fallback_start = _resolve_fallback_start(raw_events)
+    events = [
+        _normalize_event(event, index, fallback_start, available_channels, scale)
+        for index, event in enumerate(raw_events)
+    ]
+    open_sets: dict[str, deque[dict[str, Any]]] = {}
+
+    for event in sorted(events, key=_order_key):
+        for channel in event.get("channels", []):
+            key = _build_pair_key(event, channel)
+            queue = open_sets.setdefault(key, deque())
+
+            if event.get("set_clear") == "set":
+                queue.append(event)
+                continue
+
+            if not queue:
+                continue
+
+            set_event = queue.popleft()
+            forward, back = _pair_links(set_event, event, channel)
+            set_event["pairedChannels"][channel] = forward
+            event["pairedChannels"][channel] = back
+
+    for event in events:
+        _finish_event(event)
+
+    return events
+
+
+def _resolve_bounds(
+    payload: dict[str, Any], events: list[dict[str, Any]]
+) -> dict[str, Any]:
+    start = _parse_datetime(payload.get("start"))
+    end = _parse_datetime(payload.get("end"))
+
+    # Use provided values when available; fall back per-field rather than
+    # requiring both.  This preserves the explicit session start time even
+    # when the session is still active (ended_at is None / "end" is absent).
+    if start is None or end is None:
+        ordered = sorted(
+            events,
+            key=lambda event: (
+                float(event.get("norm_time") or 0),
+                int(event.get("row_id") or 0),
+            ),
+        )
+        first = ordered[0] if ordered else None
+        last = ordered[-1] if ordered else None
+        if start is None:
+            start = _parse_datetime(
+                first.get("utctime") if first else None
+            ) or datetime.fromtimestamp(0, tz=timezone.utc)
+        if end is None:
+            end = _parse_datetime(last.get("utctime") if last else None) or start
+
+    return {
+        "start": _isoformat_seconds(start),
+        "end": _isoformat_seconds(end),
+        "hours": max(0.0, (end - start).total_seconds() / 3600),
+    }
+
+
+def _valid_events(source: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_events = source.get("events")
+    event_list = raw_events if isinstance(raw_events, list) else []
+    return [event for event in event_list if isinstance(event, dict)]
+
+
+def channel_catalog(payload: Any) -> list[str]:
+    """The log's channels (what ``build_log_data`` returns second), without
+    normalizing its events."""
+    source = payload if isinstance(payload, dict) else {}
+    return _resolve_channel_catalog(source, _valid_events(source))
+
+
+def build_log_data(payload: Any) -> tuple[dict[str, Any], list[str]]:
+    """Normalize a raw core-event payload; returns (log data, channels)."""
+    source = payload if isinstance(payload, dict) else {}
+    valid_events = _valid_events(source)
+    channels = _resolve_channel_catalog(source, valid_events)
+    events = _derive_core_events(valid_events, channels, severity_scale(source))
+    bounds = _resolve_bounds(source, events)
+    return (
+        {
+            "channels": list(channels),
+            "start": bounds["start"],
+            "end": bounds["end"],
+            "hours": source.get("hours", bounds["hours"]),
+            "events": events,
+        },
+        channels,
+    )
